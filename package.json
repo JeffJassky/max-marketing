@@ -1,0 +1,19 @@
+{
+  "name": "MaxMarketing",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "@google-cloud/bigquery": "^8.1.1",
+    "dotenv": "^17.2.3",
+    "google-auth-library": "^10.5.0",
+    "jsep": "^1.4.0",
+    "knex": "^3.1.0",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.14"
+  }
+}

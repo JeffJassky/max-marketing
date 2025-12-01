@@ -1,0 +1,203 @@
+import { WindsorConnector, WindsorEndpointDefinition } from './windsor.d'
+import { WindsorMetric, WindsorDimension } from './const.js'
+
+export const windsorEndpoints: Record<
+	string,
+	WindsorEndpointDefinition<
+		WindsorConnector,
+		readonly WindsorMetric[],
+		readonly WindsorDimension[]
+	>
+> = {
+	facebookAdsCampaigns: {
+		connector: 'facebook',
+		metrics: [
+			'spend',
+			'impressions',
+			'clicks',
+			'sessions',
+			'action_values_offsite_conversion_fb_pixel_purchase',
+			'action_values_purchase',
+			'actions_offsite_conversion_fb_pixel_purchase',
+			'actions_onsite_conversion_purchase',
+			'catalog_segment_value_omni_purchase_roas',
+			'cost_per_action_type_offsite_conversion_fb_pixel_purchase',
+			'cost_per_action_type_onsite_conversion_purchase',
+			'unique_actions_offsite_conversion_fb_pixel_purchase',
+			'unique_actions_onsite_conversion_purchase',
+			'website_purchase_roas_offsite_conversion_fb_pixel_purchase'
+		] as const,
+
+		dimensions: [
+			'date',
+			'campaign',
+			'adset',
+			'datasource',
+			'account_name',
+			'age',
+			'post_id',
+			'source',
+			'adset_id',
+			'adset_name',
+			'device_platform',
+			'impression_device',
+			'name',
+			'gender'
+		] as const,
+		requiredDimensions: ['date'] as const,
+		defaultDatePreset: 'last_30d'
+	},
+	ga4Demographics: {
+		connector: 'googleanalytics4',
+		metrics: [
+			'sessions',
+			'total_users',
+			'active_users',
+			'engaged_sessions',
+			'conversions',
+			'purchase_revenue',
+			'bounce_rate'
+		] as const,
+		dimensions: [
+			'date',
+			'country',
+			'gender',
+			'age',
+			'device_category',
+			'session_default_channel_group',
+			'source',
+			'medium'
+		] as const,
+		requiredDimensions: ['date'] as const,
+		defaultDatePreset: 'last_30d'
+	},
+	googleAdsDemographics: {
+		connector: 'google_ads',
+		metrics: [
+			'spend',
+			'impressions',
+			'clicks',
+			'ctr',
+			'conversions',
+			'conversions_value'
+		] as const,
+		dimensions: [
+			'date',
+			'campaign',
+			'campaign_id',
+			'device_category',
+			'age',
+			'gender'
+		] as const,
+		requiredDimensions: ['date'] as const,
+		defaultDatePreset: 'last_30d'
+	},
+	googleAdsKeywordPerformance: {
+		connector: 'google_ads',
+		metrics: [
+			'spend',
+			'impressions',
+			'clicks',
+			'conversions',
+			'conversions_value',
+			'ctr',
+			'average_cpc',
+			'cost_per_conversion'
+		] as const,
+		dimensions: [
+			'date',
+			'campaign',
+			'campaign_id',
+			'ad_group',
+			'ad_group_id',
+			'keyword_text',
+			'keyword_match_type'
+		] as const,
+		requiredDimensions: ['date'] as const,
+		defaultDatePreset: 'last_30d'
+	},
+	googleAdsKeywordQuality: {
+		connector: 'google_ads',
+		metrics: ['quality_score', 'cpc_bid', 'status', 'approval_status'] as const,
+		dimensions: ['campaign', 'ad_group', 'keyword_text', 'keyword_match_type'] as const,
+		requiredDimensions: [] as const,
+		defaultDatePreset: 'last_30d'
+	},
+	googleAdsSearchTerms: {
+		connector: 'google_ads',
+		metrics: ['spend', 'impressions', 'clicks', 'conversions', 'ctr', 'average_cpc'] as const,
+		dimensions: [
+			'date',
+			'campaign',
+			'ad_group',
+			'search_term',
+			'keyword_text',
+			'keyword_match_type'
+		] as const,
+		requiredDimensions: ['date'] as const,
+		defaultDatePreset: 'last_30d'
+	},
+	googleAdsKeywordDeviceNetwork: {
+		connector: 'google_ads',
+		metrics: ['spend', 'impressions', 'clicks', 'conversions', 'conversion_rate'] as const,
+		dimensions: [
+			'date',
+			'campaign',
+			'ad_group',
+			'keyword_text',
+			'device',
+			'ad_network_type'
+		] as const,
+		requiredDimensions: ['date'] as const,
+		defaultDatePreset: 'last_30d'
+	},
+	googleAdsKeywordTrends: {
+		connector: 'google_ads',
+		metrics: ['spend', 'impressions', 'clicks', 'conversions', 'ctr'] as const,
+		dimensions: ['date', 'campaign', 'ad_group', 'keyword_text'] as const,
+		requiredDimensions: ['date'] as const,
+		defaultDatePreset: 'last_30d'
+	},
+	googleAdsSearchTermConversions: {
+		connector: 'google_ads',
+		metrics: ['spend', 'impressions', 'clicks', 'conversions'] as const,
+		dimensions: [
+			'date',
+			'campaign',
+			'ad_group',
+			'search_term',
+			'keyword_text',
+			'conversion_action'
+		] as const,
+		requiredDimensions: ['date'] as const,
+		defaultDatePreset: 'last_30d'
+	},
+	googleAdsNegativeKeywordCandidates: {
+		connector: 'google_ads',
+		metrics: [
+			'spend',
+			'impressions',
+			'clicks',
+			'conversions',
+			'ctr',
+			'cost_per_conversion'
+		] as const,
+		dimensions: [
+			'date',
+			'campaign',
+			'ad_group',
+			'search_term',
+			'keyword_text',
+			'keyword_match_type'
+		] as const,
+		requiredDimensions: ['date'] as const,
+		defaultDatePreset: 'last_30d'
+	},
+	googleAdsKeywordCpaRanking: {
+		connector: 'google_ads',
+		metrics: ['cost_per_conversion', 'conversions', 'spend', 'impressions', 'clicks'] as const,
+		dimensions: ['campaign', 'ad_group', 'keyword_text', 'keyword_match_type'] as const,
+		requiredDimensions: [] as const,
+		defaultDatePreset: 'last_30d'
+	}
+}
