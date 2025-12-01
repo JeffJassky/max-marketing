@@ -9,6 +9,7 @@
     "google-auth-library": "^10.5.0",
     "jsep": "^1.4.0",
     "knex": "^3.1.0",
+    "vite": "^7.2.6",
     "zod": "^4.1.13"
   },
   "devDependencies": {
