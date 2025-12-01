@@ -1,4 +1,3 @@
-export type Theme = 'focus' | 'executive';
 export type View = 'dashboard' | 'brand-voice' | 'google-ads' | 'social-spark' | 'local-seo' | 'settings';
 
 export interface DashboardMetric {

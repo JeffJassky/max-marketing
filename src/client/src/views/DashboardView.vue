@@ -2,19 +2,8 @@
 import { computed, ref } from 'vue';
 import VueApexCharts from 'vue3-apexcharts';
 import { useRouter } from 'vue-router';
-import {
-  TrendingUp,
-  ArrowUpRight,
-  ArrowRight,
-  LayoutGrid,
-  Sparkles,
-  Target,
-  Zap,
-  AlertTriangle
-} from 'lucide-vue-next';
-import type { Theme, ChartDataPoint } from '../types';
-
-const props = defineProps<{ theme: Theme }>();
+import { TrendingUp, ArrowUpRight, ArrowRight, LayoutGrid, Sparkles, Target, Zap } from 'lucide-vue-next';
+import type { ChartDataPoint } from '../types';
 const router = useRouter();
 const ApexChart = VueApexCharts;
 
@@ -71,41 +60,15 @@ const focusChartOptions = computed(() => ({
   tooltip: { shared: true, intersect: false }
 }));
 
-const execChartOptions = computed(() => ({
-  chart: {
-    type: 'line',
-    toolbar: { show: false },
-    stacked: false,
-    fontFamily: 'JetBrains Mono, monospace',
-    background: 'transparent'
-  },
-  stroke: { width: [0, 2], curve: 'stepline' },
-  dataLabels: { enabled: false },
-  grid: { borderColor: '#1e293b', strokeDashArray: 3 },
-  colors: ['#334155', '#c3fd34'],
-  xaxis: {
-    categories: currentChartData.value.map((d) => d.name),
-    labels: { style: { colors: '#64748b', fontSize: '10px' } }
-  },
-  yaxis: [
-    { labels: { style: { colors: '#64748b' } } },
-    { opposite: true, labels: { style: { colors: '#64748b' } } }
-  ],
-  tooltip: { shared: true, intersect: false, theme: 'dark' },
-  legend: { show: false }
-}));
-
 const focusSeries = computed(() => [
   { name: 'Optimizations', type: 'column', data: currentChartData.value.map((d) => d.actions) },
   { name: 'Value ($)', type: 'line', data: currentChartData.value.map((d) => d.value) }
 ]);
-
-const execSeries = focusSeries;
 </script>
 
 <template>
-  <div class="flex-1 flex flex-col h-full overflow-hidden" :class="props.theme === 'focus' ? 'bg-stone-50' : 'bg-amplify-darker'">
-    <section v-if="props.theme === 'focus'" class="p-8 font-sans animate-in fade-in duration-500 overflow-y-auto h-full pb-20">
+  <div class="flex-1 flex flex-col h-full overflow-hidden bg-stone-50">
+    <section class="p-8 font-sans animate-in fade-in duration-500 overflow-y-auto h-full pb-20">
       <div class="mb-8 flex justify-between items-end">
         <div>
           <h1 class="text-3xl font-bold text-slate-800">Ready to win the week, Alex?</h1>
@@ -311,72 +274,5 @@ const execSeries = focusSeries;
       </div>
     </section>
 
-    <section v-else class="p-6 text-slate-200 font-mono animate-in fade-in duration-500 overflow-y-auto h-full">
-      <div class="flex justify-between items-end mb-6">
-        <div>
-          <div class="flex items-center gap-2 mb-2">
-            <div class="w-1 h-4 bg-amplify-green" />
-            <h2 class="text-xl font-mono tracking-widest text-white uppercase">Command_Center</h2>
-          </div>
-          <p class="text-xs text-slate-500 font-mono pl-3">OPTIMIZATION_PROTOCOL // ACTIVE</p>
-        </div>
-        <div class="text-right">
-          <div class="text-[10px] text-slate-500">TOTAL_VALUE_RECOVERED</div>
-          <div class="text-2xl font-bold text-amplify-green">$9,500.00</div>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div class="lg:col-span-3 bg-slate-900/50 border border-slate-800 p-6 min-h-[300px] relative">
-          <div class="absolute top-0 right-0 p-2 text-xs text-slate-700 font-mono">EFFICIENCY_VECTOR_PLOT</div>
-          <div class="h-64 w-full mt-4">
-            <ApexChart type="line" height="230" :options="execChartOptions" :series="execSeries" />
-          </div>
-        </div>
-        <div class="bg-slate-900/50 border border-slate-800 p-4">
-          <h3 class="text-xs font-mono text-white uppercase tracking-widest mb-4">Module_Status</h3>
-          <div class="space-y-2 font-mono text-xs">
-            <div class="flex justify-between items-center bg-slate-800/50 p-2 border border-slate-700">
-              <span class="text-slate-300">G_ADS</span>
-              <span class="text-amplify-green">[OPTIMIZED]</span>
-            </div>
-            <div class="flex justify-between items-center bg-slate-800/50 p-2 border border-slate-700">
-              <span class="text-slate-300">SOC_SPARK</span>
-              <span class="text-slate-500">[IDLE]</span>
-            </div>
-            <div class="flex justify-between items-center bg-slate-800/50 p-2 border border-slate-700">
-              <span class="text-slate-300">LOC_SEO</span>
-              <span class="text-yellow-500">[ATTN_REQ]</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="lg:col-span-4 mt-4">
-        <div class="flex items-center gap-2 mb-4 border-b border-slate-800 pb-2">
-          <AlertTriangle :size="16" class="text-amplify-secondary" />
-          <h3 class="text-sm font-mono text-white uppercase">Priority_Queue</h3>
-        </div>
-        <div class="bg-slate-900/80 border border-l-4 border-slate-800 border-l-amplify-secondary p-4 flex justify-between items-center group hover:bg-slate-800 transition-colors cursor-pointer">
-          <div>
-            <div class="flex gap-2 text-[10px] mb-1">
-              <span class="text-amplify-secondary font-bold">PRIORITY_01</span>
-              <span class="text-slate-500">SOURCE: G_ADS</span>
-            </div>
-            <h4 class="text-white font-bold text-sm">NEGATIVE_KEYWORD_DETECTED</h4>
-            <p class="text-slate-400 text-xs mt-1">Analysis indicates 'free guitars' driving waste.</p>
-          </div>
-          <div class="flex items-center gap-6">
-            <div class="text-right">
-              <div class="text-[10px] text-slate-500">EST_RECOVERY</div>
-              <div class="text-amplify-green font-bold">+$420.00</div>
-            </div>
-            <button class="bg-slate-800 border border-slate-600 text-white px-4 py-2 text-xs font-bold hover:bg-amplify-secondary hover:border-amplify-secondary transition-colors">
-              INITIATE_FIX
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
   </div>
 </template>

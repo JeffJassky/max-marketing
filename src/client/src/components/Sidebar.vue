@@ -1,10 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { LayoutDashboard, BarChart3, Sparkles, MapPin, Settings, ChevronRight, Lock, MessageSquare, HelpCircle } from 'lucide-vue-next';
-import type { Theme, View } from '../types';
-
-const props = defineProps<{ theme: Theme }>();
 const router = useRouter();
 const route = useRoute();
 
@@ -16,8 +12,6 @@ const navItems = [
   { id: 'local-seo', icon: MapPin, label: 'Local SEO', path: '/local-seo', locked: true },
   { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' }
 ];
-
-const isFocus = computed(() => props.theme === 'focus');
 
 const setView = (item: typeof navItems[number]) => {
   if (item.locked) return;
@@ -71,7 +65,7 @@ const isActive = (itemId: string) => route.name === itemId;
     </nav>
 
     <div class="p-4">
-      <div v-if="isFocus" class="bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-2xl border border-slate-700">
+      <div class="bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-2xl border border-slate-700">
         <div class="flex items-center gap-2 text-amplify-green mb-2">
           <HelpCircle :size="18" />
           <span class="font-bold text-sm">Need a hand?</span>
@@ -80,16 +74,6 @@ const isActive = (itemId: string) => route.name === itemId;
         <button class="w-full bg-amplify-green py-2 rounded-lg text-xs font-bold text-amplify-darker hover:bg-white transition-colors">
           Open Guide
         </button>
-      </div>
-      <div v-else class="border-t border-slate-800 pt-4">
-        <div class="flex items-center justify-between text-xs text-slate-500 font-mono mb-2">
-          <span>SYSTEM</span>
-          <span class="text-amplify-green">ONLINE</span>
-        </div>
-        <div class="w-full bg-slate-800 h-1 rounded-full overflow-hidden">
-          <div class="bg-amplify-green w-3/4 h-full" />
-        </div>
-        <div class="text-[10px] text-slate-600 font-mono mt-2">ID: D3-EXEC-VIEW</div>
       </div>
     </div>
   </aside>

@@ -1,18 +1,15 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { AlertTriangle, Zap } from 'lucide-vue-next';
-import type { Theme } from '../types';
+import { Zap } from 'lucide-vue-next';
 
-const props = defineProps<{ theme: Theme }>();
 const tabs = ['Overview', 'Opportunities', 'Waste Watch', 'Roadmap'];
 const activeTab = ref('Overview');
-const isFocus = computed(() => props.theme === 'focus');
 const router = useRouter();
 </script>
 
 <template>
-  <div v-if="isFocus" class="p-8 font-sans h-full flex flex-col">
+  <div class="p-8 font-sans h-full flex flex-col">
     <div class="flex items-center justify-between mb-8">
       <div>
         <h1 class="text-3xl font-bold text-slate-800">Campaign Management</h1>
@@ -93,45 +90,6 @@ const router = useRouter();
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
-
-  <div v-else class="p-6 text-slate-200 font-mono animate-in fade-in duration-500 overflow-y-auto h-full bg-amplify-darker">
-    <div class="border border-slate-800 bg-slate-900/50 p-4 mb-4">
-      <div class="flex gap-3 items-center">
-        <AlertTriangle class="text-amplify-secondary" :size="20" />
-        <div>
-          <div class="text-xs text-white">optimization_required</div>
-          <p class="text-slate-500 text-xs">Detected inefficient spend vector. Keyword "free" causing ROAS degradation.</p>
-        </div>
-      </div>
-      <div class="flex items-center gap-4 bg-slate-950 p-3 border border-slate-800 mt-4">
-        <div class="flex flex-col">
-          <span class="text-[10px] text-slate-500">WASTE_VAL</span>
-          <span class="text-lg text-white font-bold">$240.50</span>
-        </div>
-        <div class="h-8 w-px bg-slate-800" />
-        <button class="flex-1 bg-red-600/20 border border-red-600 text-red-500 hover:bg-red-600 hover:text-white transition-colors py-1 text-xs font-bold uppercase">
-          EXECUTE_BLOCK
-        </button>
-      </div>
-    </div>
-
-    <div class="border border-slate-700 bg-slate-900/50 p-4">
-      <div class="flex gap-3 items-center mb-3">
-        <Zap :size="18" class="text-amplify-secondary" />
-        <h3 class="text-sm text-white uppercase tracking-widest">Opportunity_Stream</h3>
-      </div>
-      <div class="flex gap-2 text-xs text-slate-400 mb-2">
-        <button class="px-3 py-1 border border-slate-700 bg-slate-800/50 text-white">OVERVIEW</button>
-        <button class="px-3 py-1 border border-slate-800">OPPORTUNITIES <span class="text-amplify-secondary">[2]</span></button>
-        <button class="px-3 py-1 border border-slate-800">WASTE_WATCH</button>
-        <div class="flex-1 border-b border-slate-800" />
-      </div>
-      <div class="flex justify-between items-center text-xs text-slate-500">
-        <span>ID: #9928</span>
-        <span>STATUS: <span class="text-amplify-green">READY</span></span>
       </div>
     </div>
   </div>
