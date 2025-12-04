@@ -1,36 +1,54 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import VueApexCharts from 'vue3-apexcharts';
 import {
   Activity,
+  AlertCircle,
+  ArrowLeft,
   ArrowRight,
   BarChart2,
   Bot,
+  ChevronDown,
+  ChevronUp,
   Download,
+  Eye,
   Globe,
   Hash,
   LineChart,
   Minus,
   Monitor,
   LayoutDashboard,
+  Percent,
+  Search,
   Terminal,
   TrendingDown,
   TrendingUp,
   Zap,
-  MessageSquare
+  MessageSquare,
+  MessageCircle,
+  MousePointer,
+  ThumbsUp,
+  CheckCircle
 } from 'lucide-vue-next';
 import { INITIAL_DATA, COMPETITOR_TRENDS } from '../brandVoice/constants';
 import type { BrandVoiceData, SubScore, TrendDirection } from '../brandVoice/types';
 
 const ApexChart = VueApexCharts;
+const router = useRouter();
+const route = useRoute();
 
 const data = ref<BrandVoiceData>(INITIAL_DATA);
 const mode = ref<'focus' | 'executive'>('focus');
 const activeTab = ref<'overview' | 'ai-insights' | 'deep-dive' | 'actions'>('overview');
 const timeRange = ref<'max' | '90d' | 'mtd'>('max');
+const expandedQueries = ref<Record<number, boolean>>({});
 
 const subScores = computed(() => Object.values(data.value.subScores));
 const isFocus = computed(() => mode.value === 'focus');
+const channelSlug = computed(() => route.params.channel as string | undefined);
+const currentSubScore = computed(() => subScores.value.find((sub) => sub.slug === channelSlug.value));
+const isSearchDetail = computed(() => currentSubScore.value?.slug === 'search');
 
 const trendIcon = (trend: TrendDirection) => {
   if (trend === 'up') return TrendingUp;
@@ -117,6 +135,29 @@ const radarSeries = computed(() => [
   { name: 'Guitar Center', data: data.value.competitorRadar.map((d) => d.competitor2) }
 ]);
 
+const detailHistory = computed(() =>
+  currentSubScore.value
+    ? Array.from({ length: 30 }, (_, i) => ({
+        label: `Day ${i + 1}`,
+        value: Math.max(0, Math.round(currentSubScore.value!.score - 8 + i * 0.4 + Math.sin(i) * 4))
+      }))
+    : []
+);
+
+const detailHistorySeries = computed(() =>
+  currentSubScore.value ? [{ name: currentSubScore.value.name, data: detailHistory.value.map((d) => d.value) }] : []
+);
+
+const detailHistoryOptions = computed(() => ({
+  chart: { type: 'area', toolbar: { show: false } },
+  stroke: { curve: 'smooth', width: 4 },
+  fill: { gradient: { enabled: true, opacityFrom: isFocus.value ? 0.5 : 0.25, opacityTo: 0.05 } },
+  colors: [isFocus.value ? '#7c3aed' : '#c3fd34'],
+  xaxis: { categories: detailHistory.value.map((d) => d.label), labels: { style: { colors: isFocus.value ? '#94a3b8' : '#cbd5e1' } } },
+  grid: { strokeDashArray: 3, borderColor: isFocus.value ? '#e7e5e4' : '#1f2937' },
+  tooltip: { theme: isFocus.value ? 'light' : 'dark' }
+}));
+
 const hallucinRiskTone = computed(() => {
   if (data.value.aiInsights.hallucinationRisk === 'High') return 'text-rose-500';
   if (data.value.aiInsights.hallucinationRisk === 'Medium') return 'text-amber-400';
@@ -129,6 +170,11 @@ const recommendations = computed(() =>
 );
 
 const downloadReport = () => window.print();
+const goToSubScore = (slug: string) => router.push(`/brand-voice/${slug}`);
+const backToOverview = () => router.push('/brand-voice');
+const toggleQuery = (idx: number) => {
+  expandedQueries.value[idx] = !expandedQueries.value[idx];
+};
 </script>
 
 <template>
@@ -145,6 +191,7 @@ const downloadReport = () => window.print();
         <span v-else>[SYSTEM_NOTICE]: TRIAL_LICENSE_ACTIVE // EXPIRATION: Q4_2025</span>
       </div>
 
+      <template v-if="!channelSlug">
       <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
           <h1 class="mb-2" :class="isFocus ? 'text-4xl font-black text-slate-900' : 'text-3xl font-mono font-black text-white uppercase'">
@@ -304,10 +351,14 @@ const downloadReport = () => window.print();
             </div>
             <ApexChart type="area" height="90" :options="subScoreOptions(sub)" :series="subScoreSeries(sub)" />
             <p class="text-sm leading-relaxed" :class="!isFocus ? 'text-slate-200' : 'text-slate-600'">{{ sub.details }}</p>
-            <a :href="`#/brand-voice/${sub.slug}`" class="flex items-center gap-2 text-sm font-bold text-amplify-purple hover:text-amplify-purple/80">
+            <button
+              type="button"
+              class="flex items-center gap-2 text-sm font-bold text-amplify-purple hover:text-amplify-purple/80"
+              @click="goToSubScore(sub.slug)"
+            >
               Analyze {{ sub.name }}
               <ArrowRight class="w-4 h-4" />
-            </a>
+            </button>
           </div>
         </div>
       </div>
@@ -463,6 +514,359 @@ const downloadReport = () => window.print();
           </div>
         </div>
       </div>
+      </template>
+
+      <template v-else-if="currentSubScore">
+        <div class="space-y-8">
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                class="p-2 rounded-full transition-colors"
+                :class="isFocus ? 'bg-stone-100 hover:bg-stone-200 text-slate-700' : 'bg-slate-900 border border-slate-800 text-amplify-green hover:text-slate-900 hover:bg-amplify-green'"
+                @click="backToOverview"
+              >
+                <ArrowLeft class="w-5 h-5" />
+              </button>
+              <div>
+                <p class="text-xs uppercase font-bold tracking-[0.25em]" :class="isFocus ? 'text-slate-400' : 'text-slate-500 font-mono'">Brand Voice Channel</p>
+                <h1 class="text-3xl font-black" :class="isFocus ? 'text-slate-900' : 'text-white font-mono uppercase'">
+                  {{ currentSubScore.name }}
+                  <span v-if="isSearchDetail" class="text-amplify-purple font-semibold">(Hybrid)</span>
+                  Analysis
+                </h1>
+                <p class="text-sm" :class="isFocus ? 'text-slate-500' : 'text-slate-400 font-mono'">
+                  {{ isSearchDetail ? 'Unified intelligence from Traditional SEO (70%) and Generative AI (30%).' : 'Deep dive metrics and optimization protocols.' }}
+                </p>
+              </div>
+            </div>
+            <div class="flex items-center bg-slate-900 p-1 rounded-full border border-slate-700 shadow-sm">
+              <button
+                class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
+                :class="isFocus ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-200'"
+                @click="mode = 'focus'"
+              >
+                <Monitor class="w-3 h-3" />
+                L3
+              </button>
+              <button
+                class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
+                :class="!isFocus ? 'bg-amplify-green text-slate-900 shadow-[0_0_10px_rgba(195,253,52,0.3)]' : 'text-slate-500 hover:text-slate-200'"
+                @click="mode = 'executive'"
+              >
+                <Terminal class="w-3 h-3" />
+                D3
+              </button>
+            </div>
+          </div>
+
+          <div class="p-6 rounded-[1.5rem] border" :class="isFocus ? 'bg-white border-stone-100 shadow-sm' : 'bg-slate-900 border-slate-800'">
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Brand Voice Score</p>
+                <div class="flex items-center gap-3">
+                  <span class="text-5xl font-black" :class="isFocus ? 'text-slate-900' : 'text-white font-mono'">{{ currentSubScore.score }}</span>
+                  <div class="flex items-center gap-2 px-3 py-1.5 rounded-full" :class="currentSubScore.trend.trend === 'up' ? 'bg-emerald-100 text-emerald-600' : currentSubScore.trend.trend === 'down' ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-600'">
+                    <component :is="trendIcon(currentSubScore.trend.trend)" class="w-4 h-4" />
+                    <span class="text-xs font-bold">{{ currentSubScore.trend.trend === 'up' ? '+' : '' }}{{ currentSubScore.trend.percentageChange }}%</span>
+                  </div>
+                </div>
+              </div>
+              <div class="text-right">
+                <p class="text-[10px] uppercase font-bold tracking-[0.2em] text-slate-400">Impact Weight</p>
+                <p class="text-2xl font-black" :class="isFocus ? 'text-slate-900' : 'text-white font-mono'">{{ currentSubScore.weight }}%</p>
+              </div>
+            </div>
+            <p class="mt-4 text-sm leading-relaxed" :class="isFocus ? 'text-slate-600' : 'text-slate-300'">{{ currentSubScore.details }}</p>
+          </div>
+
+          <div v-if="isSearchDetail" class="grid md:grid-cols-2 gap-6">
+            <div class="p-6 rounded-[1.5rem] flex flex-col gap-4" :class="isFocus ? 'bg-white border border-stone-100 shadow-sm' : 'bg-slate-900 border border-slate-800'">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="p-2 rounded-lg" :class="isFocus ? 'bg-blue-50 text-blue-600' : 'bg-slate-800 text-blue-400'">
+                    <Search class="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 class="font-bold" :class="isFocus ? 'text-slate-900' : 'text-white font-mono'">Traditional SEO</h3>
+                    <p class="text-xs text-slate-500">Google Search Console</p>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div class="text-3xl font-black" :class="isFocus ? 'text-slate-900' : 'text-white'">{{ currentSubScore.composition?.traditional ?? '--' }}</div>
+                  <div class="text-[10px] uppercase font-bold text-slate-400">Score contribution</div>
+                </div>
+              </div>
+              <div class="grid grid-cols-3 gap-4">
+                <div class="p-4 rounded-2xl" :class="isFocus ? 'bg-stone-50' : 'bg-slate-950 border border-slate-800'">
+                  <div class="flex items-center gap-2 mb-2 text-slate-400">
+                    <Eye class="w-4 h-4" />
+                    <span class="text-[10px] uppercase font-bold">Impr.</span>
+                  </div>
+                  <div class="text-2xl font-bold" :class="isFocus ? 'text-slate-900' : 'text-white font-mono'">{{ formatNumber(currentSubScore.metrics?.impressions || 0) }}</div>
+                  <div class="text-xs text-emerald-500 font-bold mt-1">+2.4%</div>
+                </div>
+                <div class="p-4 rounded-2xl" :class="isFocus ? 'bg-stone-50' : 'bg-slate-950 border border-slate-800'">
+                  <div class="flex items-center gap-2 mb-2 text-slate-400">
+                    <MousePointer class="w-4 h-4" />
+                    <span class="text-[10px] uppercase font-bold">Clicks</span>
+                  </div>
+                  <div class="text-2xl font-bold" :class="isFocus ? 'text-slate-900' : 'text-white font-mono'">{{ formatNumber(currentSubScore.metrics?.clicks || 0) }}</div>
+                  <div class="text-xs text-emerald-500 font-bold mt-1">+8.1%</div>
+                </div>
+                <div class="p-4 rounded-2xl" :class="isFocus ? 'bg-stone-50' : 'bg-slate-950 border border-slate-800'">
+                  <div class="flex items-center gap-2 mb-2 text-slate-400">
+                    <Percent class="w-4 h-4" />
+                    <span class="text-[10px] uppercase font-bold">CTR</span>
+                  </div>
+                  <div class="text-2xl font-bold" :class="isFocus ? 'text-slate-900' : 'text-white font-mono'">{{ currentSubScore.metrics?.ctr ?? '—' }}%</div>
+                  <div class="text-xs text-slate-400 font-bold mt-1">Avg</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-6 rounded-[1.5rem] flex flex-col gap-4" :class="isFocus ? 'bg-white border border-stone-100 shadow-sm' : 'bg-slate-900 border border-slate-800'">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="p-2 rounded-lg" :class="isFocus ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-800 text-amplify-green'">
+                    <Bot class="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 class="font-bold" :class="isFocus ? 'text-slate-900' : 'text-white font-mono'">Generative Visibility</h3>
+                    <p class="text-xs text-slate-500">DataForSEO AI Overview</p>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div class="text-3xl font-black" :class="isFocus ? 'text-slate-900' : 'text-white'">{{ currentSubScore.composition?.ai ?? '--' }}</div>
+                  <div class="text-[10px] uppercase font-bold text-slate-400">Score contribution</div>
+                </div>
+              </div>
+              <div class="grid grid-cols-3 gap-4">
+                <div class="p-4 rounded-2xl group relative" :class="isFocus ? 'bg-indigo-50/70' : 'bg-slate-950 border border-slate-800'">
+                  <div class="flex items-center gap-2 mb-2 text-slate-400">
+                    <Bot class="w-4 h-4" />
+                    <span class="text-[10px] uppercase font-bold">Reach</span>
+                  </div>
+                  <div class="text-2xl font-bold" :class="isFocus ? 'text-slate-900' : 'text-white font-mono'">{{ formatNumber(currentSubScore.metrics?.aiReach || 0) }}</div>
+                  <div class="text-xs text-emerald-500 font-bold mt-1">+12%</div>
+                  <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 rounded-lg text-[10px] shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10" :class="isFocus ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'">
+                    Estimated visibility derived from DataForSEO SERP Volume x AI Overview presence.
+                  </div>
+                </div>
+                <div class="p-4 rounded-2xl group relative" :class="isFocus ? 'bg-indigo-50/70' : 'bg-slate-950 border border-slate-800'">
+                  <div class="flex items-center gap-2 mb-2 text-slate-400">
+                    <MessageCircle class="w-4 h-4" />
+                    <span class="text-[10px] uppercase font-bold">Mentions</span>
+                  </div>
+                  <div class="text-2xl font-bold" :class="isFocus ? 'text-slate-900' : 'text-white font-mono'">{{ formatNumber(currentSubScore.metrics?.mentions || 0) }}</div>
+                  <div class="text-xs text-emerald-500 font-bold mt-1">+5.2%</div>
+                  <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 rounded-lg text-[10px] shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10" :class="isFocus ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'">
+                    Direct brand citations found within DataForSEO AI Overview text feeds.
+                  </div>
+                </div>
+                <div class="p-4 rounded-2xl group relative" :class="isFocus ? 'bg-indigo-50/70' : 'bg-slate-950 border border-slate-800'">
+                  <div class="flex items-center gap-2 mb-2 text-slate-400">
+                    <ThumbsUp class="w-4 h-4" />
+                    <span class="text-[10px] uppercase font-bold">Sent.</span>
+                  </div>
+                  <div class="text-2xl font-bold" :class="isFocus ? 'text-slate-900' : 'text-white font-mono'">{{ currentSubScore.metrics?.aiSentiment ?? '—' }}</div>
+                  <div class="text-xs text-slate-400 font-bold mt-1">/ 100</div>
+                  <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 rounded-lg text-[10px] shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10" :class="isFocus ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'">
+                    Automated sentiment analysis of AI Overview text.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else-if="currentSubScore.metrics" class="grid md:grid-cols-3 gap-4">
+            <div v-if="currentSubScore.metrics.impressions !== undefined" class="p-4 rounded-xl border" :class="isFocus ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'">
+              <div class="flex items-center gap-2 text-slate-400 text-xs uppercase font-bold">
+                <Eye class="w-4 h-4" />
+                <span>Impressions</span>
+              </div>
+              <p class="text-2xl font-black mt-1" :class="isFocus ? 'text-slate-900' : 'text-white'">{{ formatNumber(currentSubScore.metrics.impressions) }}</p>
+            </div>
+            <div v-if="currentSubScore.metrics.engagementRate !== undefined" class="p-4 rounded-xl border" :class="isFocus ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'">
+              <div class="flex items-center gap-2 text-slate-400 text-xs uppercase font-bold">
+                <Activity class="w-4 h-4" />
+                <span>Engagement</span>
+              </div>
+              <p class="text-2xl font-black mt-1" :class="isFocus ? 'text-slate-900' : 'text-white'">{{ currentSubScore.metrics.engagementRate }}%</p>
+            </div>
+            <div v-if="currentSubScore.metrics.followers !== undefined" class="p-4 rounded-xl border" :class="isFocus ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'">
+              <div class="flex items-center gap-2 text-slate-400 text-xs uppercase font-bold">
+                <Hash class="w-4 h-4" />
+                <span>Followers</span>
+              </div>
+              <p class="text-2xl font-black mt-1" :class="isFocus ? 'text-slate-900' : 'text-white'">{{ formatNumber(currentSubScore.metrics.followers) }}</p>
+            </div>
+          </div>
+
+          <div
+            v-if="isSearchDetail && currentSubScore.syntheticQueries?.length"
+            class="rounded-[1.5rem] overflow-hidden border"
+            :class="isFocus ? 'bg-white border-stone-100 shadow-sm' : 'bg-slate-900 border-slate-800'"
+          >
+            <div class="flex items-center gap-3 p-5 border-b" :class="isFocus ? 'border-stone-100' : 'border-slate-800 bg-slate-950/60'">
+              <Terminal class="w-5 h-5" :class="isFocus ? 'text-slate-500' : 'text-amplify-green'" />
+              <div>
+                <p class="text-sm font-bold" :class="isFocus ? 'text-slate-900' : 'text-white font-mono uppercase'">DataForSEO Log</p>
+                <p class="text-xs" :class="isFocus ? 'text-slate-500' : 'text-slate-500 font-mono'">Raw feed of AI Overviews and Labs data.</p>
+              </div>
+            </div>
+            <div>
+              <div
+                v-for="(query, idx) in currentSubScore.syntheticQueries"
+                :key="query.query"
+                class="border-b last:border-0"
+                :class="isFocus ? 'border-stone-100' : 'border-slate-800'"
+              >
+                <button
+                  class="w-full text-left p-4 flex items-center justify-between gap-4"
+                  :class="isFocus ? 'hover:bg-stone-50' : 'hover:bg-slate-800/60'"
+                  @click="toggleQuery(idx)"
+                >
+                  <div class="flex items-center gap-4">
+                    <div
+                      class="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold"
+                      :class="query.model === 'Gemini'
+                        ? 'bg-blue-100 text-blue-600'
+                        : query.model === 'GPT-4'
+                          ? 'bg-emerald-100 text-emerald-600'
+                          : 'bg-amber-100 text-amber-600'"
+                    >
+                      {{ query.model[0] }}
+                    </div>
+                    <div>
+                      <p class="font-bold" :class="isFocus ? 'text-slate-900' : 'text-white'">{{ query.query }}</p>
+                      <p class="text-xs" :class="isFocus ? 'text-slate-500' : 'text-slate-400 font-mono'">{{ query.date }}</p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-4">
+                    <span class="text-xs font-bold px-3 py-1 rounded-full" :class="query.sentiment === 'Positive' ? 'bg-emerald-50 text-emerald-600' : query.sentiment === 'Negative' ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-600'">
+                      {{ query.sentiment }}
+                    </span>
+                    <div class="text-right text-xs" :class="isFocus ? 'text-slate-500' : 'text-slate-400 font-mono'">
+                      <div class="font-bold" :class="isFocus ? 'text-slate-800' : 'text-white'">{{ query.rank ? `#${query.rank}` : 'N/A' }}</div>
+                      <div>{{ isFocus ? 'Rank' : 'RANK' }}</div>
+                    </div>
+                    <component :is="expandedQueries[idx] ? ChevronUp : ChevronDown" class="w-4 h-4 text-slate-400" />
+                  </div>
+                </button>
+                <div
+                  v-if="expandedQueries[idx]"
+                  class="p-4 pl-16 text-sm italic"
+                  :class="isFocus ? 'bg-stone-50 text-slate-700' : 'bg-slate-950 text-slate-300 font-mono'"
+                >
+                  "{{ query.snippet }}"
+                </div>
+              </div>
+            </div>
+            <div class="p-3 text-center text-[11px] uppercase font-bold" :class="isFocus ? 'bg-stone-50 text-slate-500' : 'bg-slate-950 text-slate-500 font-mono'">
+              Showing recent {{ currentSubScore.syntheticQueries.length }} of 50 tracked queries
+            </div>
+          </div>
+
+          <div class="p-6 md:p-8 rounded-[1.5rem] border" :class="isFocus ? 'bg-white border-stone-100 shadow-sm' : 'bg-slate-900 border-slate-800'">
+            <div class="flex justify-between items-end mb-6">
+              <div>
+                <span class="text-xs font-bold uppercase tracking-[0.25em]" :class="isFocus ? 'text-slate-400' : 'text-amplify-green font-mono'">
+                  {{ isSearchDetail ? 'Unified Velocity Index Trend' : 'Current Score Trend' }}
+                </span>
+                <div class="text-5xl font-black" :class="isFocus ? 'text-slate-900' : 'text-white font-mono'">{{ currentSubScore.score }}</div>
+              </div>
+              <div class="text-right" :class="!isFocus ? 'font-mono' : ''">
+                <div class="text-lg font-bold" :class="currentSubScore.trend.trend === 'up' ? 'text-emerald-500' : 'text-rose-500'">
+                  {{ currentSubScore.trend.trend === 'up' ? '+' : '' }}{{ currentSubScore.trend.percentageChange }}%
+                </div>
+                <span class="text-xs text-slate-500">vs last 30 days</span>
+              </div>
+            </div>
+            <ApexChart type="area" height="240" :options="detailHistoryOptions" :series="detailHistorySeries" />
+          </div>
+
+          <div>
+            <div class="flex items-center gap-3 mb-4">
+              <div class="p-2 rounded-lg" :class="isFocus ? 'bg-amplify-purple/10 text-amplify-purple' : 'bg-amplify-green/10 text-amplify-green'">
+                <Zap class="w-5 h-5" />
+              </div>
+              <h2 class="text-xl font-bold" :class="isFocus ? 'text-slate-900' : 'text-white font-mono uppercase'">
+                {{ isFocus ? 'Recommended Actions' : 'Optimization Protocols' }}
+              </h2>
+            </div>
+            <div class="grid gap-4">
+              <div
+                v-for="rec in currentSubScore.recommendations"
+                :key="rec.id"
+                class="group p-6 rounded-3xl transition-all border"
+                :class="isFocus ? 'bg-white border-stone-200 hover:border-amplify-purple hover:shadow-lg' : 'bg-slate-950 border-slate-800 hover:border-amplify-green'"
+              >
+                <div class="flex flex-col md:flex-row gap-6 items-start md:items-center">
+                  <div class="shrink-0 px-4 py-2 rounded-xl text-center min-w-[100px]" :class="rec.impact === 'High'
+                    ? (isFocus ? 'bg-rose-50 text-rose-600' : 'bg-rose-900/30 text-rose-500 border border-rose-800')
+                    : rec.impact === 'Medium'
+                      ? (isFocus ? 'bg-amber-50 text-amber-600' : 'bg-amber-900/30 text-amber-500 border border-amber-800')
+                      : (isFocus ? 'bg-emerald-50 text-emerald-600' : 'bg-emerald-900/30 text-emerald-500 border border-emerald-800')">
+                    <span class="block text-[10px] font-bold uppercase tracking-wider mb-1">Impact</span>
+                    <span class="block font-black text-lg">{{ rec.impact }}</span>
+                  </div>
+                  <div class="flex-1">
+                    <h3 class="text-lg font-bold mb-2 group-hover:underline" :class="isFocus ? 'text-slate-900' : 'text-white font-mono'">{{ rec.title }}</h3>
+                    <p :class="isFocus ? 'text-slate-600' : 'text-slate-400 font-mono text-sm'">{{ rec.description }}</p>
+                  </div>
+                  <button class="shrink-0 px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all" :class="isFocus ? 'bg-slate-900 text-white hover:bg-amplify-purple' : 'bg-transparent border border-amplify-green text-amplify-green hover:bg-amplify-green hover:text-slate-900 font-mono uppercase'">
+                    <span>Execute</span>
+                    <ArrowRight class="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="isSearchDetail" class="grid md:grid-cols-2 gap-4">
+            <div class="p-5 rounded-[1.25rem] border" :class="isFocus ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'">
+              <div class="flex items-center justify-between mb-3">
+                <div>
+                  <p class="text-xs uppercase font-bold tracking-[0.2em] text-slate-400">AI Visibility</p>
+                  <p class="text-3xl font-black" :class="isFocus ? 'text-slate-900' : 'text-white'">{{ data.aiInsights.overallVisibility }}%</p>
+                </div>
+                <CheckCircle class="w-6 h-6 text-amplify-green" />
+              </div>
+              <p class="text-sm" :class="['text-slate-500', hallucinRiskTone].join(' ')">Hallucination Risk: {{ data.aiInsights.hallucinationRisk }}</p>
+              <div class="mt-3 space-y-2">
+                <div v-for="model in data.aiInsights.models" :key="model.name" class="flex items-center justify-between text-sm">
+                  <span>{{ model.name }}</span>
+                  <span class="font-bold" :class="trendTone(model.trend)">{{ model.shareOfModel }}%</span>
+                </div>
+              </div>
+            </div>
+            <div class="p-5 rounded-[1.25rem] border space-y-2" :class="isFocus ? 'bg-white border-stone-200 shadow-sm' : 'bg-slate-900 border-slate-800'">
+              <div class="flex items-center gap-2">
+                <AlertCircle class="w-5 h-5 text-amber-500" />
+                <p class="text-sm font-bold" :class="isFocus ? 'text-slate-900' : 'text-white'">Narrative Gaps</p>
+              </div>
+              <p class="text-sm" :class="isFocus ? 'text-slate-600' : 'text-slate-300'">{{ data.aiInsights.narrativeAnalysis.missingTopics.join(' • ') }}</p>
+              <div class="pt-2 border-t" :class="isFocus ? 'border-stone-200' : 'border-slate-800'">
+                <p class="text-xs uppercase font-bold tracking-[0.2em] text-slate-400">Top Citations</p>
+                <div class="space-y-1 mt-1">
+                  <div v-for="citation in data.aiInsights.citations.slice(0, 3)" :key="citation.source" class="flex justify-between text-sm">
+                    <span>{{ citation.source }}</span>
+                    <span class="font-bold">{{ citation.count }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <template v-else>
+        <div class="p-6 rounded-xl border border-stone-200 bg-white text-slate-600" :class="!isFocus ? 'bg-slate-900 border-slate-800 text-slate-300' : ''">
+          Channel not found.
+          <button class="ml-2 text-amplify-purple font-bold" @click="backToOverview">Return to Brand Voice</button>
+        </div>
+      </template>
     </div>
   </div>
 </template>

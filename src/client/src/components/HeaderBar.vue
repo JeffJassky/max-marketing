@@ -8,7 +8,7 @@ const props = defineProps<{
 
 const title = computed(() => {
   if (props.routeName === 'dashboard') return 'My Momentum';
-  if (props.routeName === 'brand-voice') return 'Brand Voice Tracker';
+  if (props.routeName?.startsWith('brand-voice')) return 'Brand Voice Tracker';
   if (props.routeName === 'google-ads') return 'Google Ads Suite';
   if (props.routeName === 'social-spark') return 'Social Spark';
   return 'Dashboard';

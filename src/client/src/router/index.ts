@@ -7,6 +7,7 @@ import SocialSparkView from '../views/SocialSparkView.vue';
 export const routes: RouteRecordRaw[] = [
   { path: '/', name: 'dashboard', component: DashboardView },
   { path: '/brand-voice', name: 'brand-voice', component: BrandVoiceView },
+  { path: '/brand-voice/:channel', name: 'brand-voice-channel', component: BrandVoiceView },
   { path: '/google-ads', name: 'google-ads', component: GoogleAdsView },
   { path: '/social-spark', name: 'social-spark', component: SocialSparkView },
   { path: '/local-seo', name: 'local-seo', component: BrandVoiceView },

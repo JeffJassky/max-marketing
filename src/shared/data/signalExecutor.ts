@@ -19,6 +19,19 @@ export class SignalExecutor {
 	constructor(private readonly projectId: string) {}
 
 	async run(signal: Signal, sourceEntity: Entity, options: SignalRunOptions = {}): Promise<void> {
+		if (signal.snapshot?.enabled) {
+			await this.runSnapshot(signal, sourceEntity, options)
+			return
+		}
+
+		await this.runRowLevel(signal, sourceEntity, options)
+	}
+
+	private async runRowLevel(
+		signal: Signal,
+		sourceEntity: Entity,
+		options: SignalRunOptions = {}
+	): Promise<void> {
 		const bq = createBigQueryClient()
 
 		// 1. Resolve Source Table
@@ -104,29 +117,127 @@ export class SignalExecutor {
 		})
 	}
 
-	private translatePredicate(expression: string): string {
-		const parseTree = jsep(expression)
-		return this.astToSql(parseTree)
+	private async runSnapshot(
+		signal: Signal,
+		sourceEntity: Entity,
+		options: SignalRunOptions = {}
+	): Promise<void> {
+		const bq = createBigQueryClient()
+
+		const { dataset, table } = sourceEntity.pipeline.storage
+		const sourceTableId = `${dataset}.${table}`
+
+		const { startDate, endDate, dateField } = this.resolveWindow(options, signal)
+		const snapshot = signal.snapshot
+		if (!snapshot) return
+
+		const qbSelect = qb.from(qb.raw(`\`${sourceTableId}\``))
+
+		qbSelect.select(
+			...snapshot.attributionKey.map(key => qb.raw(key)),
+			qb.raw(`'${signal.id}' as signal_id`),
+			qb.raw('CURRENT_TIMESTAMP() as detected_at')
+		)
+
+		const metricAliasMap: Record<string, string> = {}
+		const metricExprMap: Record<string, string> = {}
+		Object.entries(snapshot.metrics).forEach(([alias, metric]) => {
+			const aggregateFn = metric.aggregate.toUpperCase()
+			const aggregateSql =
+				metric.field === '*' ? `${aggregateFn}(*)` : `${aggregateFn}(${metric.field})`
+			qbSelect.select(qb.raw(`${aggregateSql} as ${alias}`))
+			metricAliasMap[alias] = alias // use alias in HAVING to avoid nested aggregates
+			metricExprMap[alias] = aggregateSql // raw aggregate expression for formulas
+		})
+
+		const impactExpr = metricExprMap[signal.output.impact.formula] ?? signal.output.impact.formula
+		const confidenceVal = signal.output.confidence.value
+		qbSelect.select(qb.raw(`${impactExpr} as impact`))
+		qbSelect.select(qb.raw(`${confidenceVal} as confidence`))
+
+		if (startDate) {
+			qbSelect.whereRaw(`${dateField} >= ${startDate}`)
+		}
+		if (endDate) {
+			qbSelect.whereRaw(`${dateField} <= ${endDate}`)
+		}
+
+		qbSelect.groupBy(snapshot.attributionKey.map(key => qb.raw(key)))
+
+		const havingClause = this.translatePredicate(signal.predicate.expression, metricAliasMap)
+		qbSelect.havingRaw(havingClause)
+
+		const query = qbSelect.toQuery()
+
+		console.log(`Executing Snapshot Signal Job for ${signal.id}...`)
+		console.log(`Source: ${sourceTableId}`)
+		console.log(`Query: ${query}`)
+
+		const [job] = await bq.createQueryJob({ query, location: 'US' })
+		const [rows] = await job.getQueryResults()
+
+		console.log(`Found ${rows.length} aggregated signals.`)
+		if (rows.length === 0) return
+
+		const serializableRows = rows.map(rawRow => {
+			const row = JSON.parse(JSON.stringify(rawRow))
+			const normalizedEntries = Object.entries(row).map(([key, value]) => {
+				if (value instanceof Date) {
+					const iso = value.toISOString()
+					return [key, key === 'date' ? iso.slice(0, 10) : iso]
+				}
+				return [key, value]
+			})
+			const normalizedRow = Object.fromEntries(normalizedEntries)
+			const detected = row.detected_at ?? row.detectedAt
+			const detectedDate = detected ? new Date(detected) : new Date()
+			const detectedIso = Number.isNaN(detectedDate.getTime())
+				? new Date().toISOString()
+				: detectedDate.toISOString()
+			return {
+				...normalizedRow,
+				detected_at: detectedIso
+			}
+		})
+
+		const destDataset = 'gold_signals'
+		const destTable = signal.id
+
+		await upsertPartitionedClusteredTable(serializableRows, {
+			datasetId: destDataset,
+			tableId: destTable,
+			partitionField: 'detected_at',
+			clusteringFields: signal.output.keyFields
+		})
 	}
 
-	private astToSql(node: jsep.Expression): string {
+	private translatePredicate(expression: string, identifierMap?: Record<string, string>): string {
+		const parseTree = jsep(expression)
+		return this.astToSql(parseTree, identifierMap)
+	}
+
+	private astToSql(node: jsep.Expression, identifierMap?: Record<string, string>): string {
 		switch (node.type) {
 			case 'BinaryExpression': {
 				const binary = node as jsep.BinaryExpression
-				const left = this.astToSql(binary.left)
-				const right = this.astToSql(binary.right)
+				const left = this.astToSql(binary.left, identifierMap)
+				const right = this.astToSql(binary.right, identifierMap)
 				const op = this.mapOperator(binary.operator)
 				return `(${left} ${op} ${right})`
 			}
 			case 'LogicalExpression': {
 				const logical = node as jsep.BinaryExpression
-				const left = this.astToSql(logical.left)
-				const right = this.astToSql(logical.right)
+				const left = this.astToSql(logical.left, identifierMap)
+				const right = this.astToSql(logical.right, identifierMap)
 				const op = logical.operator === '&&' ? 'AND' : 'OR'
 				return `(${left} ${op} ${right})`
 			}
 			case 'Identifier': {
-				return (node as jsep.Identifier).name
+				const name = (node as jsep.Identifier).name
+				if (identifierMap && identifierMap[name]) {
+					return identifierMap[name]
+				}
+				return name
 			}
 			case 'Literal': {
 				const literal = node as jsep.Literal

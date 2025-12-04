@@ -1,11 +1,23 @@
 {
   "name": "MaxMarketing",
   "version": "1.0.0",
+  "private": true,
   "main": "index.js",
   "license": "MIT",
+  "workspaces": [
+    "src/client"
+  ],
+  "scripts": {
+    "start:server": "ts-node --transpile-only --compiler-options '{\"module\":\"commonjs\",\"esModuleInterop\":true,\"moduleResolution\":\"node\"}' src/server/index.ts",
+    "dev:server": "nodemon --watch src/server --watch src/shared --exec \"ts-node --transpile-only --compiler-options '{\\\"module\\\":\\\"commonjs\\\",\\\"esModuleInterop\\\":true,\\\"moduleResolution\\\":\\\"node\\\"}' src/server/index.ts\"",
+    "dev:client": "yarn workspace maxed-marketing-client dev",
+    "build:client": "yarn workspace maxed-marketing-client build",
+    "preview:client": "yarn workspace maxed-marketing-client preview"
+  },
   "dependencies": {
     "@google-cloud/bigquery": "^8.1.1",
     "dotenv": "^17.2.3",
+    "express": "^5.2.1",
     "google-auth-library": "^10.5.0",
     "jsep": "^1.4.0",
     "knex": "^3.1.0",
@@ -13,7 +25,10 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "@types/node": "^24.10.1",
+    "nodemon": "^3.1.11",
+    "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "vitest": "^4.0.14"
   }

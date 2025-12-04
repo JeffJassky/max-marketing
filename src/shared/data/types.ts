@@ -51,8 +51,8 @@ export const EntitySchema = z.object({
 	description: z.string(),
 	pipeline: EntityPipelineSchema,
 	grain: z.array(z.string()),
-	metrics: z.record(EntityMetricSchema),
-	dimensions: z.record(EntityDimensionSchema),
+	metrics: z.record(z.string(), EntityMetricSchema),
+	dimensions: z.record(z.string(), EntityDimensionSchema),
 	defaults: z
 		.object({
 			windowDays: z.number(),
@@ -113,7 +113,7 @@ export const SignalSnapshotSchema = z.object({
 	cadence: z.string(),
 	windowId: z.string(),
 	attributionKey: z.array(z.string()),
-	metrics: z.record(SignalSnapshotMetricSchema),
+	metrics: z.record(z.string(), SignalSnapshotMetricSchema),
 	trackDelta: z.boolean()
 })
 
