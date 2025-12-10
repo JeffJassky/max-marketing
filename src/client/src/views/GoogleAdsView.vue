@@ -99,6 +99,8 @@ interface LowPerformingKeywordSignal {
   roas: number;
   issue: 'Zero Conversions' | 'High CPA' | 'Low ROAS' | 'Low QS';
   confidenceLevel: ConfidenceLevel;
+  strategy_family?: string;
+  bidding_strategy_type?: string;
   keyword_match_type?: string;
   last_seen?: { value?: { value?: string } };
   impact?: number;
@@ -371,6 +373,13 @@ const formatDate = (date: Date) =>
 
 const formatCurrency = (value: number) =>
   `$${(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const formatStrategyFamily = (value?: string) => {
+  if (!value) return 'Other';
+  if (value.toLowerCase() === 'conversion') return 'Conversion';
+  if (value.toLowerCase() === 'click') return 'Click';
+  return 'Other';
+};
 
 const addActionLog = (action: string, savings: string) => {
   wasteWatchLog.value = [{ date: formatDate(new Date()), action, savings }, ...wasteWatchLog.value];
@@ -1302,7 +1311,7 @@ watch(dateRange, () => {
                         {{ k.keyword_text }}
                       </p>
                       <p class="text-xs text-slate-400">{{ k.campaign }}</p>
-                      <div class="flex space-x-3 mt-1 items-center">
+                      <div class="flex flex-wrap gap-3 mt-1 items-center">
                         <span
                           class="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold"
                           >{{ k.issue }}</span
@@ -1310,6 +1319,12 @@ watch(dateRange, () => {
                         <span class="text-xs text-slate-500"
                           >CPA: {{ formatCurrency(k.cpa) }}</span
                         >
+                        <span class="text-xs text-slate-500"
+                          >Strategy: {{ formatStrategyFamily(k.strategy_family) }}</span
+                        >
+                      </div>
+                      <div class="text-xs text-slate-500 mt-1">
+                        Clicks: {{ k.clicks ?? 0 }} · Conversions: {{ k.conversions ?? 0 }}
                       </div>
                     </div>
                     <span
