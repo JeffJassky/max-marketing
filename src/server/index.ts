@@ -1,126 +1,65 @@
 import "dotenv/config";
 import express, { type Request, type Response } from "express";
 import { createBigQueryClient } from "../shared/vendors/google/bigquery/bigquery";
-import { wastedSpendKeyword } from "../jobs/signals";
+import { wastedSpendKeyword } from "../jobs/entities/keyword-daily/signals/wasted-spend-keyword.signal";
+import { googleAdsCoreKeywordPerformance } from "../jobs/imports/google_ads/core-keyword-performance.import";
 
 const app = express();
 app.use(express.json());
 
-type AccountRow = { id: string | number; name?: string | null };
-type AccountsResponse = { accounts: Array<{ id: string; name: string }> };
-
-type SignalRow = Record<string, unknown>;
-type SignalsResponse = { signals: SignalRow[] };
-
-app.get(
-  "/api/accounts",
-  async (_req: Request, res: Response<AccountsResponse>) => {
-    try {
-      const bq = createBigQueryClient();
-      const query = `
+app.get("/api/accounts", async (_req: Request, res: Response) => {
+  try {
+    const bq = createBigQueryClient();
+    const sourceTable = googleAdsCoreKeywordPerformance;
+    const query = `
 			SELECT
 				account_id AS id,
 				ANY_VALUE(account_name) AS name
-			FROM \`amplify-11.bronze.google_ads_keyword_performance_v1\`
+			FROM
+				${sourceTable.fqn}
 			WHERE account_id IS NOT NULL
 			GROUP BY account_id
 		`;
-
-      const [rows] = await bq.query<AccountRow>(query);
-      const accounts: AccountsResponse["accounts"] = rows.map((row) => {
-        const id = String(row.id);
-        return { id, name: row.name ?? id };
-      });
-
-      res.json(accounts);
-    } catch (error) {
-      console.error("Failed to fetch account IDs from BigQuery", error);
-      res.status(500).json({ error: "Failed to fetch account IDs" });
-    }
+    const [rows] = await bq.query(query);
+    res.json(rows);
+  } catch (error) {
+    console.error("Error fetching accounts:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
-);
+});
 
 app.get(
   "/api/signals/wasted-keyword-spend",
-  async (req: Request, res: Response<SignalsResponse | { error: string }>) => {
-    const accountId = req.query.account_id ?? req.query.accountId;
-    if (!accountId || (Array.isArray(accountId) && accountId.length === 0)) {
-      return res.status(400).json({ error: "account_id is required" });
-    }
+  async (req: Request, res: Response) => {
+    const { accountId } = req.query;
 
-    const accountIdValue = Array.isArray(accountId) ? accountId[0] : accountId;
+    if (!accountId) {
+      return res.status(400).json({ error: "accountId is required" });
+    }
 
     try {
       const bq = createBigQueryClient();
-      const snapshot = wastedSpendKeyword.snapshot;
-      if (!snapshot) {
-        return res
-          .status(500)
-          .json({ error: "Signal snapshot definition missing" });
-      }
+      const signal = wastedSpendKeyword;
 
-      const columns = new Set<string>();
-      snapshot.attributionKey.forEach((key) => columns.add(key));
-      Object.keys(snapshot.metrics).forEach((metricAlias) =>
-        columns.add(metricAlias)
+      // The Signal class now generates the query
+      const query = signal.getSignalQuery({ accountId: accountId as string });
+      console.log("[wasted-keyword-spend] Generated query:");
+      console.log(query);
+
+      const [rows] = await bq.query(query);
+
+      console.log(
+        `[wasted-keyword-spend] Returned ${rows.length} row(s) for accountId=${accountId}`
       );
-      columns.add("bidding_strategy_type");
-      columns.add("campaign_id");
-      columns.add("campaign");
-      columns.add("keyword_match_type");
-      columns.add("goal");
-      columns.add("impact");
-      columns.add("confidence");
-      columns.add("detected_at");
-      columns.add("signal_id");
-
-      const selectColumns = Array.from(columns).map((column) => `\`${column}\``);
-      const selectClause = [
-        "CONCAT(CAST(account_id AS STRING), '|', CAST(campaign_id AS STRING), '|', keyword_text, '|', IFNULL(bidding_strategy_type, '')) AS row_id",
-        ...selectColumns,
-      ].join(",\n\t\t\t\t");
-
-      const accountField =
-        snapshot.attributionKey.find((key) =>
-          key.toLowerCase().includes("account_id")
-        ) ?? "account_id";
-
-      const query = `
-				SELECT
-					${selectClause}
-				FROM \`gold_signals.${wastedSpendKeyword.id}\`
-				WHERE \`${accountField}\` = @accountId
-				ORDER BY detected_at DESC
-				LIMIT 500
-			`;
-
-      const [rows] = await bq.query<SignalRow>({
-        query,
-        location: "US",
-        params: { accountId: accountIdValue },
-      });
-
-      const signals = rows.map((row) => {
-        const entries = Object.entries(row).map(([key, value]) => {
-          if (value instanceof Date) {
-            return [key, value.toISOString()];
-          }
-          return [key, value];
-        });
-        return Object.fromEntries(entries);
-      });
-
-      signals.sort((a, b) => b.impact - a.impact);
-
-      res.json(signals);
+      res.json(rows);
     } catch (error) {
-      console.error("Failed to fetch wasted keyword spend signals", error);
-      res.status(500).json({ error: "Failed to fetch signals" });
+      console.error("Error fetching wasted keyword spend signal:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
   }
 );
 
-const port = Number(process.env.PORT) || 3000;
+const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`Server listening on http://localhost:${port}`);
+  console.log(`Server listening on port ${port}`);
 });

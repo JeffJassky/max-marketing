@@ -1,39 +1,47 @@
-import { createBigQueryClient } from '../vendors/google/bigquery/bigquery'
-import type { Entity } from './types'
+import { createBigQueryClient } from '../vendors/google/bigquery/bigquery';
+import type { Entity } from '../../jobs/base';
 
 export class EntityExecutor {
 	constructor(private readonly projectId: string) {}
 
-	async run(entity: Entity): Promise<void> {
-		const bq = createBigQueryClient()
-		const { dataset, table, partitionBy, clusterBy } = entity.pipeline.storage
-		const { sql } = entity.pipeline.transform
+	async run(entity: Entity<any>): Promise<void> {
+		const bq = createBigQueryClient();
+		const { partitionBy, clusterBy } = entity.definition;
 
-		const fullTableId = `${dataset}.${table}`
+		const datasetRef = bq.dataset(entity.dataset);
+		const [datasetExists] = await datasetRef.exists();
+		if (!datasetExists) {
+			await datasetRef.create({ location: 'US' });
+			console.log(`Created dataset ${entity.dataset} in location US.`);
+		}
 
-		// Ensure dataset exists
-		await bq.dataset(dataset).get({ autoCreate: true })
-
-		const safeClusterBy = (clusterBy ?? []).map(c => c.replace(/[^a-zA-Z0-9_]/g, ''))
-		const partitionClause = partitionBy ? `PARTITION BY ${partitionBy} ` : ''
-		const clusterClause = safeClusterBy.length ? `CLUSTER BY ${safeClusterBy.join(', ')} ` : ''
-		const ddl = `CREATE OR REPLACE TABLE \`${fullTableId}\` ${partitionClause}${clusterClause}AS\n${sql}`
-
-		console.log(`Executing Entity Job for ${entity.id}...`)
-		console.log(`Target: ${fullTableId}`)
+		const fullTableId = `${this.projectId}.${entity.fqn}`;
 		
+		let ddl = `CREATE OR REPLACE TABLE \`${fullTableId}\`\n`;
+		if (partitionBy) {
+			ddl += `PARTITION BY ${partitionBy}\n`;
+		}
+		if (clusterBy && clusterBy.length > 0) {
+			ddl += `CLUSTER BY ${clusterBy.join(', ')}\n`;
+		}
+		ddl += `AS\n${entity.getTransformQuery()}`;
+
+		console.log(`Executing Entity Job for ${entity.id}...`);
+		console.log(`Target: ${fullTableId}`);
+		console.log(`DDL: ${ddl}`);
+
 		try {
 			const [job] = await bq.createQueryJob({
 				query: ddl,
-				location: 'US',
-			})
-			console.log(`Job ${job.id} started.`)
-			
-			const [rows] = await job.getQueryResults()
-			console.log(`Job ${job.id} completed.`)
+				location: 'US'
+			});
+			console.log(`Job ${job.id} started.`);
+
+			await job.getQueryResults();
+			console.log(`Job ${job.id} completed.`);
 		} catch (error) {
-			console.error(`Failed to materialize entity ${entity.id}:`, error)
-			throw error
+			console.error(`Failed to materialize entity ${entity.id}:`, error);
+			throw error;
 		}
 	}
 }

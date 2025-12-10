@@ -12,15 +12,18 @@
     "dev:server": "nodemon --watch src/server --watch src/shared --exec \"ts-node --transpile-only --compiler-options '{\\\"module\\\":\\\"commonjs\\\",\\\"esModuleInterop\\\":true,\\\"moduleResolution\\\":\\\"node\\\"}' src/server/index.ts\"",
     "dev:client": "yarn workspace maxed-marketing-client dev",
     "build:client": "yarn workspace maxed-marketing-client build",
-    "preview:client": "yarn workspace maxed-marketing-client preview"
+    "preview:client": "yarn workspace maxed-marketing-client preview",
+    "testImportPipeline": "npx vitest run src/jobs/__tests__/wastedSpendKeywordPipeline.test.ts -t wastedSpendKeyword"
   },
   "dependencies": {
     "@google-cloud/bigquery": "^8.1.1",
+    "@types/lodash": "^4.17.21",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "google-auth-library": "^10.5.0",
     "jsep": "^1.4.0",
     "knex": "^3.1.0",
+    "lodash": "^4.17.21",
     "vite": "^7.2.6",
     "zod": "^4.1.13"
   },

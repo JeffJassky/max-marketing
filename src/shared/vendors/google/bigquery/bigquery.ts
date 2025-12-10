@@ -42,7 +42,14 @@ export async function upsertPartitionedClusteredTable(
 	const { datasetId, tableId, partitionField, clusteringFields = [], schema } = opts
 
 	const bq = createBigQueryClient()
-	const [dataset] = await bq.dataset(datasetId).get({ autoCreate: true })
+	const datasetRef = bq.dataset(datasetId)
+	const [datasetExists] = await datasetRef.exists()
+	const [dataset] = datasetExists
+		? [datasetRef]
+		: await datasetRef.create({ location: 'US' })
+	if (!datasetExists) {
+		console.log(`Created dataset ${datasetId} in location US.`)
+	}
 
 	const effectiveSchema = schema ?? inferSchemaFromRows(rows)
 	const timePartitioning = { type: 'DAY', field: partitionField } as const

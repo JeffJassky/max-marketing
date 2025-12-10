@@ -1,314 +1,172 @@
 import {
-	createBigQueryClient,
-	upsertPartitionedClusteredTable
-} from '../vendors/google/bigquery/bigquery'
-import type { Signal, Entity } from './types'
-import knex from 'knex'
-import jsep from 'jsep'
+  createBigQueryClient,
+  upsertPartitionedClusteredTable,
+} from "../vendors/google/bigquery/bigquery";
+import knex from "knex";
+import type { Signal } from "../../jobs/base";
+import { predicateToSql } from "./predicateToSql";
 
-const qb = knex({ client: 'pg' }) // Generic SQL builder
+const qb = knex({ client: "pg" }); // knex for SQL generation (BQ uses Standard SQL but this is fine for query text)
 
 export interface SignalRunOptions {
-	startDate?: string // YYYY-MM-DD
-	endDate?: string // YYYY-MM-DD
-	dateField?: string // defaults to 'date'
-	windowId?: string // e.g. 'last_90d'
+  startDate?: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
+  accountId?: string;
 }
 
 export class SignalExecutor {
-	constructor(private readonly projectId: string) {}
+  constructor(private readonly projectId: string) {}
 
-	async run(signal: Signal, sourceEntity: Entity, options: SignalRunOptions = {}): Promise<void> {
-		if (signal.snapshot?.enabled) {
-			await this.runSnapshot(signal, sourceEntity, options)
-			return
-		}
+  // ======================================================
+  // PUBLIC: Single entry point
+  // ======================================================
+  async run(
+    signal: Signal<any>,
+    options: SignalRunOptions = {}
+  ): Promise<void> {
+    const query = this.buildSnapshotQuery(signal, options);
 
-		await this.runRowLevel(signal, sourceEntity, options)
-	}
+    console.log(`Executing Signal Job for ${signal.id}...`);
+    console.log(query);
 
-	private async runRowLevel(
-		signal: Signal,
-		sourceEntity: Entity,
-		options: SignalRunOptions = {}
-	): Promise<void> {
-		const bq = createBigQueryClient()
+    const bq = createBigQueryClient();
+    const [job] = await bq.createQueryJob({ query, location: "US" });
+    const [rows] = await job.getQueryResults();
 
-		// 1. Resolve Source Table
-		const { dataset, table } = sourceEntity.pipeline.storage
-		const sourceTableId = `${dataset}.${table}`
+    console.log(`Found ${rows.length} aggregated signals.`);
 
-		// 2. Translate Predicate (JS AST -> SQL)
-		const whereClause = this.translatePredicate(signal.predicate.expression)
-		const { startDate, endDate, dateField } = this.resolveWindow(options, signal)
+    if (rows.length === 0) return;
 
-		// 3. Build Query using Knex
-		const impactExpr = signal.output.impact.formula
-		const confidenceVal = signal.output.confidence.value
+    // Add metadata fields (schema includes these)
+    const rowsToInsert = rows.map((row) => ({
+      ...row,
+      signal_id: signal.id,
+      detected_at: new Date().toISOString(),
+    }));
 
-		const query = qb
-			.select('*')
-			.select(qb.raw(`'${signal.id}' as signal_id`))
-			.select(qb.raw('CURRENT_TIMESTAMP() as detected_at'))
-			.select(qb.raw(`${impactExpr} as impact`))
-			.select(qb.raw(`${confidenceVal} as confidence`))
-			.from(qb.raw(`\`${sourceTableId}\``)) // Raw for BQ table syntax
-			.whereRaw(whereClause)
-			.modify(builder => {
-				if (startDate) {
-					builder.whereRaw(`${dateField} >= ${startDate}`)
-				}
-				if (endDate) {
-					builder.whereRaw(`${dateField} <= ${endDate}`)
-				}
-			})
-			.toQuery()
+    await upsertPartitionedClusteredTable(rowsToInsert, {
+      datasetId: signal.dataset, // signals
+      tableId: signal.tableName, // e.g. wasted_spend_keyword
+      partitionField: "detected_at",
+      clusteringFields: signal.definition.output.keyFields.map(String),
+    });
+  }
 
-		console.log(`Executing Signal Job for ${signal.id}...`)
-		console.log(`Source: ${sourceTableId}`)
-		console.log(`Query: ${query}`)
+  // ======================================================
+  // SNAPSHOT BUILDER (the real engine)
+  // ======================================================
+  private buildSnapshotQuery(
+    signal: Signal<any>,
+    options: SignalRunOptions
+  ): string {
+    const def = signal.definition;
+    const entity = signal.definition.source;
+    const table = entity.fqn;
+    const groupByFields = def.groupBy.map(String);
 
-		// 4. Execute Query to get Signals
-		const [job] = await bq.createQueryJob({ query, location: 'US' })
-		const [rows] = await job.getQueryResults()
+    // ---------------------------------------
+    // WINDOW RESOLUTION
+    // ---------------------------------------
+    const dateField = String(def.window?.dateDimension ?? "date");
 
-		console.log(`Found ${rows.length} signals.`)
+    let windowStartSQL: string | undefined;
 
-		if (rows.length === 0) return
+    if (options.startDate || options.endDate) {
+      windowStartSQL = options.startDate ? `'${options.startDate}'` : undefined;
+    } else if (def.window) {
+      windowStartSQL = `DATE_SUB(CURRENT_DATE(), INTERVAL ${def.window.lookbackDays} DAY)`;
+    }
 
-		const serializableRows = rows.map(rawRow => {
-			const row = JSON.parse(JSON.stringify(rawRow))
-			const normalizedEntries = Object.entries(row).map(([key, value]) => {
-				if (value instanceof Date) {
-					// Keep date-only fields as YYYY-MM-DD so they infer as DATE
-					const iso = value.toISOString()
-					return [key, key === 'date' ? iso.slice(0, 10) : iso]
-				}
-				return [key, value]
-			})
-			const normalizedRow = Object.fromEntries(normalizedEntries)
-			if (normalizedRow.date) {
-				const dateCandidate = normalizedRow.date
-				const parsed = new Date(dateCandidate)
-				normalizedRow.date = Number.isNaN(parsed.getTime())
-					? new Date().toISOString().slice(0, 10)
-					: parsed.toISOString().slice(0, 10)
-			}
-			const detected = row.detected_at ?? row.detectedAt
-			const detectedDate = detected ? new Date(detected) : new Date()
-			const detectedIso = Number.isNaN(detectedDate.getTime())
-				? new Date().toISOString()
-				: detectedDate.toISOString()
-			return {
-				...normalizedRow,
-				detected_at: detectedIso
-			}
-		})
+    // ---------------------------------------
+    // SELECT LIST
+    // Must include:
+    // - groupBy fields
+    // - aggregated metrics
+    // - derived fields
+    // - metadata fields
+    // ---------------------------------------
+    const baseSelects: string[] = [];
 
-		// 5. Write to Gold Layer
-		const destDataset = 'gold_signals'
-		const destTable = signal.id
+    // GROUP BY fields
+    groupByFields.forEach((dim) => {
+      baseSelects.push(`${dim} AS ${dim}`);
+    });
 
-		await upsertPartitionedClusteredTable(serializableRows, {
-			datasetId: destDataset,
-			tableId: destTable,
-			partitionField: 'detected_at',
-			clusteringFields: signal.output.keyFields
-		})
-	}
+    // Non-key/pass-through dimensions
+    def.output.includeDimensions?.forEach((dim) => {
+      baseSelects.push(`ANY_VALUE(${String(dim)}) AS ${String(dim)}`);
+    });
 
-	private async runSnapshot(
-		signal: Signal,
-		sourceEntity: Entity,
-		options: SignalRunOptions = {}
-	): Promise<void> {
-		const bq = createBigQueryClient()
+    // METRICS (entity-based or derived)
+    const metricAliasMap: Record<string, string> = {}; // alias → alias (for HAVING)
+    Object.entries(def.output.metrics).forEach(([alias, metric]) => {
+      if (metric.expression) {
+        // A derived metric expression like MAX(date)
+        baseSelects.push(`${metric.expression} AS ${alias}`);
+      } else if (metric.sourceMetric) {
+        // Use entity aggregation unless overridden
+        const entityMetric = entity.definition.metrics[metric.sourceMetric];
+        const agg = metric.aggregation ?? entityMetric.aggregation;
+        baseSelects.push(
+          `${agg.toUpperCase()}(${String(entityMetric.sourceField)}) AS ${alias}`
+        );
+      }
+      metricAliasMap[alias] = alias;
+    });
 
-		const { dataset, table } = sourceEntity.pipeline.storage
-		const sourceTableId = `${dataset}.${table}`
+    // ---------------------------------------
+    // BUILD BASE QUERY
+    // ---------------------------------------
+    const queryBuilder = qb
+      .from(qb.raw(`\`${table}\``))
+      .select(qb.raw(baseSelects.join(", ")));
 
-		const { startDate, endDate, dateField } = this.resolveWindow(options, signal)
-		const snapshot = signal.snapshot
-		if (!snapshot) return
+    // WINDOW WHERE CLAUSE
+    if (windowStartSQL) {
+      queryBuilder.whereRaw(`${dateField} >= ${windowStartSQL}`);
+    }
 
-		const qbSelect = qb.from(qb.raw(`\`${sourceTableId}\``))
+    if (options.endDate) {
+      queryBuilder.whereRaw(`${dateField} <= '${options.endDate}'`);
+    }
 
-		qbSelect.select(
-			...snapshot.attributionKey.map(key => qb.raw(key)),
-			qb.raw(`'${signal.id}' as signal_id`),
-			qb.raw('CURRENT_TIMESTAMP() as detected_at')
-		)
+    if (options.accountId) {
+      queryBuilder.whereRaw("account_id = ?", [options.accountId]);
+    }
 
-		const metricAliasMap: Record<string, string> = {}
-		const metricExprMap: Record<string, string> = {}
-		Object.entries(snapshot.metrics).forEach(([alias, metric]) => {
-			const aggregateFn = metric.aggregate.toUpperCase()
-			const aggregateSql =
-				metric.field === '*' ? `${aggregateFn}(*)` : `${aggregateFn}(${metric.field})`
-			qbSelect.select(qb.raw(`${aggregateSql} as ${alias}`))
-			metricAliasMap[alias] = alias // use alias in HAVING to avoid nested aggregates
-			metricExprMap[alias] = aggregateSql // raw aggregate expression for formulas
-		})
+    // ---------------------------------------
+    // GROUP BY
+    // ---------------------------------------
+    queryBuilder.groupBy(groupByFields.map((dim) => qb.raw(dim)));
 
-		const impactExpr = metricExprMap[signal.output.impact.formula] ?? signal.output.impact.formula
-		const confidenceVal = signal.output.confidence.value
-		qbSelect.select(qb.raw(`${impactExpr} as impact`))
-		qbSelect.select(qb.raw(`${confidenceVal} as confidence`))
+    // ---------------------------------------
+    // HAVING (TRANSLATED PREDICATE)
+    // ---------------------------------------
+    const having = predicateToSql(def.predicate, metricAliasMap);
+    if (having && having.trim().length > 0) {
+      queryBuilder.havingRaw(having);
+    }
 
-		if (startDate) {
-			qbSelect.whereRaw(`${dateField} >= ${startDate}`)
-		}
-		if (endDate) {
-			qbSelect.whereRaw(`${dateField} <= ${endDate}`)
-		}
+    const baseQuery = queryBuilder.toQuery();
 
-		qbSelect.groupBy(snapshot.attributionKey.map(key => qb.raw(key)))
+    // ---------------------------------------
+    // OUTER PROJECTION (DERIVED + METADATA)
+    // ---------------------------------------
+    const outerSelects: string[] = ["t.*"];
 
-		const havingClause = this.translatePredicate(signal.predicate.expression, metricAliasMap)
-		qbSelect.havingRaw(havingClause)
+    if (def.output.derivedFields) {
+      for (const [alias, cfg] of Object.entries(def.output.derivedFields)) {
+        outerSelects.push(`${cfg.expression} AS ${alias}`);
+      }
+    }
 
-		const query = qbSelect.toQuery()
+    outerSelects.push(`'${def.id}' AS signal_id`);
+    outerSelects.push(`CURRENT_TIMESTAMP() AS detected_at`);
 
-		console.log(`Executing Snapshot Signal Job for ${signal.id}...`)
-		console.log(`Source: ${sourceTableId}`)
-		console.log(`Query: ${query}`)
+    const finalQuery = qb
+      .from(qb.raw(`(${baseQuery}) as t`))
+      .select(qb.raw(outerSelects.join(", ")));
 
-		const [job] = await bq.createQueryJob({ query, location: 'US' })
-		const [rows] = await job.getQueryResults()
-
-		console.log(`Found ${rows.length} aggregated signals.`)
-		if (rows.length === 0) return
-
-		const serializableRows = rows.map(rawRow => {
-			const row = JSON.parse(JSON.stringify(rawRow))
-			const normalizedEntries = Object.entries(row).map(([key, value]) => {
-				if (value instanceof Date) {
-					const iso = value.toISOString()
-					return [key, key === 'date' ? iso.slice(0, 10) : iso]
-				}
-				return [key, value]
-			})
-			const normalizedRow = Object.fromEntries(normalizedEntries)
-			const detected = row.detected_at ?? row.detectedAt
-			const detectedDate = detected ? new Date(detected) : new Date()
-			const detectedIso = Number.isNaN(detectedDate.getTime())
-				? new Date().toISOString()
-				: detectedDate.toISOString()
-			return {
-				...normalizedRow,
-				detected_at: detectedIso
-			}
-		})
-
-		const destDataset = 'gold_signals'
-		const destTable = signal.id
-
-		await upsertPartitionedClusteredTable(serializableRows, {
-			datasetId: destDataset,
-			tableId: destTable,
-			partitionField: 'detected_at',
-			clusteringFields: signal.output.keyFields
-		})
-	}
-
-	private translatePredicate(expression: string, identifierMap?: Record<string, string>): string {
-		const parseTree = jsep(expression)
-		return this.astToSql(parseTree, identifierMap)
-	}
-
-	private astToSql(node: jsep.Expression, identifierMap?: Record<string, string>): string {
-		switch (node.type) {
-			case 'BinaryExpression': {
-				const binary = node as jsep.BinaryExpression
-				const left = this.astToSql(binary.left, identifierMap)
-				const right = this.astToSql(binary.right, identifierMap)
-				const op = this.mapOperator(binary.operator)
-				return `(${left} ${op} ${right})`
-			}
-			case 'LogicalExpression': {
-				const logical = node as jsep.BinaryExpression
-				const left = this.astToSql(logical.left, identifierMap)
-				const right = this.astToSql(logical.right, identifierMap)
-				const op = logical.operator === '&&' ? 'AND' : 'OR'
-				return `(${left} ${op} ${right})`
-			}
-			case 'Identifier': {
-				const name = (node as jsep.Identifier).name
-				if (identifierMap && identifierMap[name]) {
-					return identifierMap[name]
-				}
-				return name
-			}
-			case 'Literal': {
-				const literal = node as jsep.Literal
-				return typeof literal.value === 'string'
-					? `'${literal.value}'`
-					: String(literal.value)
-			}
-			default:
-				throw new Error(`Unsupported expression type: ${node.type}`)
-		}
-	}
-
-	private mapOperator(op: string): string {
-		switch (op) {
-			case '&&':
-				return 'AND'
-			case '||':
-				return 'OR'
-			case '==':
-				return '='
-			case '===':
-				return '='
-			case '!=':
-				return '<>'
-			case '!==':
-				return '<>'
-			default:
-				return op
-		}
-	}
-
-	private resolveWindow(options: SignalRunOptions, signal: Signal): {
-		startDate?: string
-		endDate?: string
-		dateField: string
-	} {
-		const dateField = options.dateField ?? 'date'
-		const windowId = options.windowId ?? signal.snapshot?.windowId
-
-		if (options.startDate || options.endDate) {
-			return {
-				startDate: options.startDate ? `'${options.startDate}'` : undefined,
-				endDate: options.endDate ? `'${options.endDate}'` : undefined,
-				dateField
-			}
-		}
-
-		const startFromWindow = this.mapWindowIdToStart(windowId)
-		return {
-			startDate: startFromWindow,
-			endDate: undefined,
-			dateField
-		}
-	}
-
-	private mapWindowIdToStart(windowId?: string): string | undefined {
-		switch (windowId) {
-			case 'last_7d':
-				return 'DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)'
-			case 'last_30d':
-				return 'DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)'
-			case 'last_60d':
-				return 'DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY)'
-			case 'last_90d':
-				return 'DATE_SUB(CURRENT_DATE(), INTERVAL 90 DAY)'
-			case 'last_month':
-				return 'DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 MONTH)'
-			case 'last_year':
-				return 'DATE_SUB(DATE_TRUNC(CURRENT_DATE(), YEAR), INTERVAL 1 YEAR)'
-			default:
-				return undefined
-		}
-	}
+    return finalQuery.toQuery();
+  }
 }

@@ -53,7 +53,7 @@ interface NegativeKeywordOpportunity {
   keyword_text?: string;
   keyword_match_type?: 'Broad' | 'Phrase' | 'Exact';
   campaign?: string;
-  goal: 'conversions' | 'clicks' | 'unknown';
+  strategy_family: 'conversions' | 'clicks' | 'unknown';
   spend: number;
   conversions: number;
   clicks: number;
@@ -229,7 +229,7 @@ interface WastedKeywordSignal {
   campaign_id?: string;
   campaign?: string;
   keyword_text: string;
-  goal?: string;
+  strategy_family?: string;
   bidding_strategy_type?: string;
   spend: number;
   clicks: number;
@@ -1134,7 +1134,7 @@ watch(dateRange, () => {
                           <span
                             class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide bg-slate-100 text-slate-600 border border-slate-200"
                           >
-                            {{ nk.goal || 'unknown' }}
+                            {{ nk.strategy_family || 'unknown' }}
                           </span>
                         </td>
                         <td
@@ -1556,6 +1556,9 @@ watch(dateRange, () => {
                       <div>
                         <p class="text-xs text-green-800 font-bold">
                           Shift {{ bp.reallocationOpportunity.amount }} to "{{ bp.reallocationOpportunity.targetCampaign
+
+
+
 
 
 
