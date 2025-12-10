@@ -13,7 +13,8 @@
     "dev:client": "yarn workspace maxed-marketing-client dev",
     "build:client": "yarn workspace maxed-marketing-client build",
     "preview:client": "yarn workspace maxed-marketing-client preview",
-    "testImportPipeline": "npx vitest run src/jobs/__tests__/wastedSpendKeywordPipeline.test.ts -t wastedSpendKeyword"
+    "testImportPipeline": "npx vitest run src/jobs/__tests__/wastedSpendKeywordPipeline.test.ts -t wastedSpendKeyword",
+    "testLowPerformingKeywordPipeline": "npx vitest run src/jobs/__tests__/lowPerformingKeywordPipeline.test.ts"
   },
   "dependencies": {
     "@google-cloud/bigquery": "^8.1.1",

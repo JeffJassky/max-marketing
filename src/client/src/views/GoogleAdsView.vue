@@ -84,6 +84,29 @@ interface LowPerfKeyword {
   confidenceLevel: ConfidenceLevel;
 }
 
+interface LowPerformingKeywordSignal {
+  row_id?: string;
+  account_id: string;
+  campaign_id?: string;
+  campaign?: string;
+  keyword_text: string;
+  spend: number;
+  clicks: number;
+  impressions: number;
+  conversions: number;
+  conversions_value: number;
+  cpa: number;
+  roas: number;
+  issue: 'Zero Conversions' | 'High CPA' | 'Low ROAS' | 'Low QS';
+  confidenceLevel: ConfidenceLevel;
+  keyword_match_type?: string;
+  last_seen?: { value?: { value?: string } };
+  impact?: number;
+  confidence?: number;
+  detected_at?: { value?: string };
+  signal_id: string;
+}
+
 interface WasteMetric {
   id: string;
   dimension: 'Location' | 'Device' | 'Time' | 'Network' | 'Placement';
@@ -280,8 +303,11 @@ const selectedAccount = ref<Account | null>(null);
 const accountsLoading = ref(false);
 const accountsError = ref<string | null>(null);
 const wastedKeywordSignals = ref<WastedKeywordSignal[]>([]);
+const lowPerformingKeywordSignals = ref<LowPerformingKeywordSignal[]>([]);
 const keywordSignalsLoading = ref(false);
+const lowPerformingKeywordSignalsLoading = ref(false);
 const keywordSignalsError = ref<string | null>(null);
+const lowPerformingKeywordSignalsError = ref<string | null>(null);
 const lastAccountIdForSignals = ref<string | null>(null);
 
 const selectedNegatives = ref<string[]>([]);
@@ -325,6 +351,14 @@ const filteredNegatives = computed(() => {
   return source.filter((nk: any) => {
     const id = nk.row_id ?? nk.id ?? `${nk.account_id ?? 'acct'}-${nk.campaign_id ?? 'camp'}-${nk.keyword_text ?? 'kw'}`;
     return !blockedNegatives.value.includes(id);
+  });
+});
+
+const filteredLowPerforming = computed(() => {
+  const source = useKeywordSignals.value ? lowPerformingKeywordSignals.value : report.value?.clusterA.lowPerf || [];
+  return source.filter((k: any) => {
+    const id = k.row_id ?? k.id ?? `${k.account_id ?? 'acct'}-${k.campaign_id ?? 'camp'}-${k.keyword_text ?? 'kw'}`;
+    return !pausedKeywords.value.includes(id);
   });
 });
 
@@ -397,6 +431,30 @@ const loadWastedKeywordSignals = async (accountId?: string) => {
     wastedKeywordSignals.value = [];
   } finally {
     keywordSignalsLoading.value = false;
+  }
+};
+
+const loadLowPerformingKeywordSignals = async (accountId?: string) => {
+  const targetAccountId = accountId || selectedAccount.value?.id;
+  if (!targetAccountId) return;
+
+  lowPerformingKeywordSignalsLoading.value = true;
+  lowPerformingKeywordSignalsError.value = null;
+
+  try {
+    const response = await fetch(`/api/signals/low-performing-keyword?accountId=${encodeURIComponent(targetAccountId)}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch low-performing keyword signals: ${response.status}`);
+    }
+    const data = (await response.json()) as LowPerformingKeywordSignal[];
+    lowPerformingKeywordSignals.value = Array.isArray(data) ? data : [];
+    lastAccountIdForSignals.value = targetAccountId;
+  } catch (err) {
+    console.error(err);
+    lowPerformingKeywordSignalsError.value = 'Unable to load low-performing keyword signals';
+    lowPerformingKeywordSignals.value = [];
+  } finally {
+    lowPerformingKeywordSignalsLoading.value = false;
   }
 };
 
@@ -555,8 +613,6 @@ const getFullSuiteReport = async (_clientId: string): Promise<GoogleAdsFullRepor
         }
       ],
       lowPerf: [
-        { id: 'k1', keyword: 'buy drums online cheap', campaign: 'Drums - General', spend: '$145.20', cpa: '$145.20', roas: '0.1x', qs: 3, issue: 'High CPA', confidenceLevel: 'High' },
-        { id: 'k2', keyword: 'synthesizer repair DIY', campaign: 'Synths', spend: '$41.00', cpa: '-', roas: '0.0x', qs: 4, issue: 'Zero Conversions', confidenceLevel: 'Medium' }
       ]
     },
     clusterB: {
@@ -643,6 +699,7 @@ watch(
     if (tab === GoogleAdsSubView.KEYWORD_INTEL && selectedAccount.value) {
       if (lastAccountIdForSignals.value !== selectedAccount.value.id || !wastedKeywordSignals.value.length) {
         loadWastedKeywordSignals(selectedAccount.value.id);
+        loadLowPerformingKeywordSignals(selectedAccount.value.id);
       }
     }
   }
@@ -652,6 +709,7 @@ watch(selectedAccount, (account, prevAccount) => {
     loadReport(account.id);
     if (activeTab.value === GoogleAdsSubView.KEYWORD_INTEL) {
       loadWastedKeywordSignals(account.id);
+      loadLowPerformingKeywordSignals(account.id);
     }
   }
 });
@@ -1223,14 +1281,25 @@ watch(dateRange, () => {
                   Low-Performing Keywords
                 </h3>
                 <div class="space-y-3">
+                  <div v-if="lowPerformingKeywordSignalsLoading">
+                    Loading low-performing keyword signals...
+                  </div>
+                  <div v-else-if="lowPerformingKeywordSignalsError">
+                    {{ lowPerformingKeywordSignalsError }}
+                  </div>
                   <div
-                    v-for="k in report.clusterA.lowPerf"
-                    :key="k.id"
+                    v-else-if="useKeywordSignals && !filteredLowPerforming.length"
+                  >
+                    No low-performing keyword signals found.
+                  </div>
+                  <div
+                    v-for="k in filteredLowPerforming"
+                    :key="k.row_id"
                     class="flex items-center justify-between p-3 border border-slate-100 rounded-lg hover:bg-slate-50 transition-colors"
                   >
                     <div>
                       <p class="text-sm font-bold text-slate-900">
-                        {{ k.keyword }}
+                        {{ k.keyword_text }}
                       </p>
                       <p class="text-xs text-slate-400">{{ k.campaign }}</p>
                       <div class="flex space-x-3 mt-1 items-center">
@@ -1239,15 +1308,12 @@ watch(dateRange, () => {
                           >{{ k.issue }}</span
                         >
                         <span class="text-xs text-slate-500"
-                          >QS: {{ k.qs }}</span
-                        >
-                        <span class="text-xs text-slate-500"
-                          >CPA: {{ k.cpa }}</span
+                          >CPA: {{ formatCurrency(k.cpa) }}</span
                         >
                       </div>
                     </div>
                     <span
-                      v-if="pausedKeywords.includes(k.id)"
+                      v-if="pausedKeywords.includes(k.row_id)"
                       class="text-xs font-bold text-slate-400 flex items-center"
                     >
                       <PauseCircle class="w-3 h-3 mr-1" />
