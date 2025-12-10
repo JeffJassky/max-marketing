@@ -1,21 +1,27 @@
 import { Entity } from "../../base";
-import { googleAdsCoreKeywordPerformance } from "../../imports/google_ads/core-keyword-performance.import";
+import { googleAdsCoreSearchTermPerformance } from "../../imports/google_ads/core-search-term-performance.import";
 import { z } from "zod";
 
-export const keywordDaily = new Entity({
-  id: "keywordDaily",
-  description: "Daily keyword performance across ad platforms.",
-  source: googleAdsCoreKeywordPerformance,
+export const searchTermDaily = new Entity({
+  id: "searchTermDaily",
+  description: "Daily search term performance with matched keyword context.",
+  source: googleAdsCoreSearchTermPerformance,
   partitionBy: "date",
-  clusterBy: ["account_id", "campaign_id", "ad_group_id", "keyword_info_text"],
+  clusterBy: [
+    "account_id",
+    "campaign_id",
+    "ad_group_id",
+    "keyword_info_text",
+    "search_term",
+  ],
   grain: [
     "date",
     "account_id",
     "campaign_id",
     "ad_group_id",
-    "search_term",
     "keyword_info_text",
     "keyword_info_match_type",
+    "search_term",
     "bidding_strategy_type",
     "campaign",
     "ad_group",
@@ -23,20 +29,21 @@ export const keywordDaily = new Entity({
   dimensions: {
     date: { type: z.string(), sourceField: "date" },
     account_id: { type: z.string(), sourceField: "account_id" },
+    account_name: { type: z.string(), sourceField: "account_name" },
     campaign_id: { type: z.string(), sourceField: "campaign_id" },
+    campaign: { type: z.string(), sourceField: "campaign" },
     ad_group_id: { type: z.string(), sourceField: "ad_group_id" },
-    search_term: { type: z.string(), sourceField: "search_term" },
+    ad_group: { type: z.string(), sourceField: "ad_group" },
     keyword_info_text: { type: z.string(), sourceField: "keyword_info_text" },
     keyword_info_match_type: {
       type: z.string(),
       sourceField: "keyword_info_match_type",
     },
+    search_term: { type: z.string(), sourceField: "search_term" },
     bidding_strategy_type: {
       type: z.string(),
       sourceField: "bidding_strategy_type",
     },
-    campaign: { type: z.string(), sourceField: "campaign" },
-    ad_group_name: { type: z.string(), sourceField: "ad_group" },
   },
   metrics: {
     impressions: {
@@ -45,7 +52,11 @@ export const keywordDaily = new Entity({
       sourceField: "impressions",
     },
     clicks: { type: z.number(), aggregation: "sum", sourceField: "clicks" },
-    spend: { type: z.number(), aggregation: "sum", sourceField: "spend" },
+    cost_micros: {
+      type: z.number(),
+      aggregation: "sum",
+      sourceField: "cost_micros",
+    },
     conversions: {
       type: z.number(),
       aggregation: "sum",

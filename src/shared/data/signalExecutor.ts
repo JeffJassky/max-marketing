@@ -2,6 +2,7 @@ import {
   createBigQueryClient,
   upsertPartitionedClusteredTable,
 } from "../vendors/google/bigquery/bigquery";
+import { getDatasetInfo, resolveDatasetLocation } from "./bigQueryLocation";
 import knex from "knex";
 import type { Signal } from "../../jobs/base";
 import { predicateToSql } from "./predicateToSql";
@@ -30,7 +31,12 @@ export class SignalExecutor {
     console.log(query);
 
     const bq = createBigQueryClient();
-    const [job] = await bq.createQueryJob({ query, location: "US" });
+    const sourceDataset = await getDatasetInfo(
+      bq,
+      signal.definition.source.dataset
+    );
+    const location = resolveDatasetLocation(sourceDataset);
+    const [job] = await bq.createQueryJob({ query, location });
     const [rows] = await job.getQueryResults();
 
     console.log(`Found ${rows.length} aggregated signals.`);

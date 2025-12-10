@@ -1,5 +1,6 @@
 import { createBigQueryClient } from '../vendors/google/bigquery/bigquery';
 import type { Entity } from '../../jobs/base';
+import { getDatasetInfo, resolveDatasetLocation } from './bigQueryLocation';
 
 export class EntityExecutor {
 	constructor(private readonly projectId: string) {}
@@ -8,11 +9,18 @@ export class EntityExecutor {
 		const bq = createBigQueryClient();
 		const { partitionBy, clusterBy } = entity.definition;
 
-		const datasetRef = bq.dataset(entity.dataset);
-		const [datasetExists] = await datasetRef.exists();
-		if (!datasetExists) {
-			await datasetRef.create({ location: 'US' });
-			console.log(`Created dataset ${entity.dataset} in location US.`);
+		const targetDataset = await getDatasetInfo(bq, entity.dataset);
+		const sourceDataset = await getDatasetInfo(
+			bq,
+			entity.definition.source.dataset
+		);
+		const location = resolveDatasetLocation(targetDataset, sourceDataset);
+
+		if (!targetDataset.exists) {
+			await targetDataset.ref.create({ location });
+			console.log(
+				`Created dataset ${entity.dataset} in location ${location}.`
+			);
 		}
 
 		const fullTableId = `${this.projectId}.${entity.fqn}`;
@@ -33,7 +41,7 @@ export class EntityExecutor {
 		try {
 			const [job] = await bq.createQueryJob({
 				query: ddl,
-				location: 'US'
+				location
 			});
 			console.log(`Job ${job.id} started.`);
 

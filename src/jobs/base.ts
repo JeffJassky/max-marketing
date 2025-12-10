@@ -49,7 +49,7 @@ export type BronzeImportDef<E extends WindsorEndpoint> = {
   metrics: { [key: string]: z.ZodType };
   dimensions: { [key: string]: z.ZodType };
   version: number;
-  partitionBy?: string;
+  partitionBy: string;
   clusterBy?: string[];
   params?: WindsorRequestParams;
 };
@@ -318,7 +318,7 @@ export type SignalDef<T extends Entity<any>> = {
 
   /**
    * Dimensions on the source entity that define the attribution/grouping grain
-   * for this signal's snapshot (e.g. account_id, campaign_id, keyword_text,
+   * for this signal's snapshot (e.g. account_id, campaign_id, keyword_info_text,
    * bidding_strategy_type for wastedSpendKeyword).
    *
    * The executor groups by these before computing metrics and applying `predicate`.
@@ -398,7 +398,9 @@ export class Signal<T extends Entity<any>> extends BaseData {
         const entityMetric = entity.definition.metrics[metric.sourceMetric];
         const agg = metric.aggregation ?? entityMetric.aggregation;
         baseSelects.push(
-          `${agg.toUpperCase()}(${String(entityMetric.sourceField)}) AS ${alias}`
+          `${agg.toUpperCase()}(${String(
+            entityMetric.sourceField
+          )}) AS ${alias}`
         );
       }
       metricAliasMap[alias] = alias;

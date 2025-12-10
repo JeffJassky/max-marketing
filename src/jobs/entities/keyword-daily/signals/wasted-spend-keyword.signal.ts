@@ -26,7 +26,7 @@ export const wastedSpendKeyword = new Signal({
   // Applied after window + groupBy + aggregation.
   // ---------------------------------------------------------
   predicate: `
-    keyword_text != null AND (
+    keyword_info_text != null AND (
       (spend > 0 AND bidding_strategy_type in ${JSON.stringify(
         CONVERSION_FOCUSED_STRATEGIES
       )} AND conversions == 0)
@@ -53,7 +53,7 @@ export const wastedSpendKeyword = new Signal({
   groupBy: [
     "account_id",
     "campaign_id",
-    "keyword_text",
+    "keyword_info_text",
     "bidding_strategy_type",
   ],
 
@@ -67,12 +67,12 @@ export const wastedSpendKeyword = new Signal({
     keyFields: [
       "account_id",
       "campaign_id",
-      "keyword_text",
+      "keyword_info_text",
       "bidding_strategy_type",
     ],
 
     // Non-key label fields to carry through the snapshot
-    includeDimensions: ["campaign", "keyword_match_type"],
+    includeDimensions: ["campaign", "keyword_info_match_type"],
 
     metrics: {
       impressions: {

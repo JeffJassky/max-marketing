@@ -50,8 +50,8 @@ interface Account {
 
 interface NegativeKeywordOpportunity {
   id: string;
-  keyword_text?: string;
-  keyword_match_type?: 'Broad' | 'Phrase' | 'Exact';
+  keyword_info_text?: string;
+  keyword_info_match_type?: 'Broad' | 'Phrase' | 'Exact';
   campaign?: string;
   strategy_family: 'conversions' | 'clicks' | 'unknown';
   spend: number;
@@ -89,7 +89,7 @@ interface LowPerformingKeywordSignal {
   account_id: string;
   campaign_id?: string;
   campaign?: string;
-  keyword_text: string;
+  keyword_info_text: string;
   spend: number;
   clicks: number;
   impressions: number;
@@ -101,7 +101,7 @@ interface LowPerformingKeywordSignal {
   confidenceLevel: ConfidenceLevel;
   strategy_family?: string;
   bidding_strategy_type?: string;
-  keyword_match_type?: string;
+  keyword_info_match_type?: string;
   last_seen?: { value?: { value?: string } };
   impact?: number;
   confidence?: number;
@@ -253,7 +253,7 @@ interface WastedKeywordSignal {
   account_id: string;
   campaign_id?: string;
   campaign?: string;
-  keyword_text: string;
+  keyword_info_text: string;
   strategy_family?: string;
   bidding_strategy_type?: string;
   spend: number;
@@ -261,7 +261,7 @@ interface WastedKeywordSignal {
   impressions: number;
   conversions: number;
   conversions_value: number;
-  keyword_match_type?: string;
+  keyword_info_match_type?: string;
   last_seen?: { value?: { value?: string } };
   impact?: number;
   confidence?: number;
@@ -351,7 +351,7 @@ const filteredNegatives = computed(() => {
   const source = useKeywordSignals.value ? wastedKeywordSignals.value : report.value?.clusterA.negativeKeywords || [];
 
   return source.filter((nk: any) => {
-    const id = nk.row_id ?? nk.id ?? `${nk.account_id ?? 'acct'}-${nk.campaign_id ?? 'camp'}-${nk.keyword_text ?? 'kw'}`;
+    const id = nk.row_id ?? nk.id ?? `${nk.account_id ?? 'acct'}-${nk.campaign_id ?? 'camp'}-${nk.keyword_info_text ?? 'kw'}`;
     return !blockedNegatives.value.includes(id);
   });
 });
@@ -359,7 +359,7 @@ const filteredNegatives = computed(() => {
 const filteredLowPerforming = computed(() => {
   const source = useKeywordSignals.value ? lowPerformingKeywordSignals.value : report.value?.clusterA.lowPerf || [];
   return source.filter((k: any) => {
-    const id = k.row_id ?? k.id ?? `${k.account_id ?? 'acct'}-${k.campaign_id ?? 'camp'}-${k.keyword_text ?? 'kw'}`;
+    const id = k.row_id ?? k.id ?? `${k.account_id ?? 'acct'}-${k.campaign_id ?? 'camp'}-${k.keyword_info_text ?? 'kw'}`;
     return !pausedKeywords.value.includes(id);
   });
 });
@@ -1187,11 +1187,11 @@ watch(dateRange, () => {
                         <td class="px-6 py-4">
                           <span
                             class="text-sm font-medium text-slate-900 block"
-                            >{{ nk.keyword_text }}</span
+                            >{{ nk.keyword_info_text }}</span
                           >
                           <span
                             class="text-xs text-slate-400"
-                            >{{ nk.keyword_match_type  || '—' }}</span
+                            >{{ nk.keyword_info_match_type  || '—' }}</span
                           >
                         </td>
                         <td class="px-6 py-4 text-sm text-slate-700">
@@ -1308,7 +1308,7 @@ watch(dateRange, () => {
                   >
                     <div>
                       <p class="text-sm font-bold text-slate-900">
-                        {{ k.keyword_text }}
+                        {{ k.keyword_info_text }}
                       </p>
                       <p class="text-xs text-slate-400">{{ k.campaign }}</p>
                       <div class="flex flex-wrap gap-3 mt-1 items-center">
@@ -1320,11 +1320,13 @@ watch(dateRange, () => {
                           >CPA: {{ formatCurrency(k.cpa) }}</span
                         >
                         <span class="text-xs text-slate-500"
-                          >Strategy: {{ formatStrategyFamily(k.strategy_family) }}</span
+                          >Strategy:
+                          {{ formatStrategyFamily(k.strategy_family) }}</span
                         >
                       </div>
                       <div class="text-xs text-slate-500 mt-1">
-                        Clicks: {{ k.clicks ?? 0 }} · Conversions: {{ k.conversions ?? 0 }}
+                        Clicks: {{ k.clicks ?? 0 }} · Conversions:
+                        {{ k.conversions ?? 0 }}
                       </div>
                     </div>
                     <span
@@ -1637,6 +1639,8 @@ watch(dateRange, () => {
                       <div>
                         <p class="text-xs text-green-800 font-bold">
                           Shift {{ bp.reallocationOpportunity.amount }} to "{{ bp.reallocationOpportunity.targetCampaign
+
+
 
 
 

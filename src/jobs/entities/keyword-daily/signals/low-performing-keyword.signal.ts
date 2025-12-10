@@ -28,9 +28,11 @@ export const lowPerformingKeyword = new Signal({
   // Applied after window + groupBy + aggregation.
   // ---------------------------------------------------------
   predicate: `
-    keyword_text != null AND (
+    keyword_info_text != null AND (
       (
-        bidding_strategy_type in ${JSON.stringify(CONVERSION_FOCUSED_STRATEGIES)}
+        bidding_strategy_type in ${JSON.stringify(
+          CONVERSION_FOCUSED_STRATEGIES
+        )}
         AND conversions > 0
         AND (
           (spend > 0 AND (conversions_value / spend) < ${LOW_ROAS_THRESHOLD})
@@ -63,7 +65,12 @@ export const lowPerformingKeyword = new Signal({
   // Attribution Grain (Group By)
   // These must correspond to dimensions on keywordDaily.
   // ---------------------------------------------------------
-  groupBy: ["account_id", "campaign_id", "keyword_text", "bidding_strategy_type"],
+  groupBy: [
+    "account_id",
+    "campaign_id",
+    "keyword_info_text",
+    "bidding_strategy_type",
+  ],
 
   // ---------------------------------------------------------
   // Output Snapshot Specification
@@ -75,12 +82,12 @@ export const lowPerformingKeyword = new Signal({
     keyFields: [
       "account_id",
       "campaign_id",
-      "keyword_text",
+      "keyword_info_text",
       "bidding_strategy_type",
     ],
 
     // Non-key label fields to carry through the snapshot
-    includeDimensions: ["campaign", "keyword_match_type"],
+    includeDimensions: ["campaign", "keyword_info_match_type"],
 
     metrics: {
       impressions: {
@@ -106,11 +113,13 @@ export const lowPerformingKeyword = new Signal({
 
     derivedFields: {
       cpa: {
-        expression: "CASE WHEN conversions > 0 THEN spend / conversions ELSE 0 END",
+        expression:
+          "CASE WHEN conversions > 0 THEN spend / conversions ELSE 0 END",
         type: "number",
       },
       roas: {
-        expression: "CASE WHEN spend > 0 THEN conversions_value / spend ELSE 0 END",
+        expression:
+          "CASE WHEN spend > 0 THEN conversions_value / spend ELSE 0 END",
         type: "number",
       },
       issue: {
@@ -118,13 +127,19 @@ export const lowPerformingKeyword = new Signal({
           CASE
             WHEN bidding_strategy_type IN (${CONVERSION_FOCUSED_STRATEGIES.map(
               (s) => `'${s}'`
-            ).join(",")}) AND (spend / conversions) > ${HIGH_CPA_THRESHOLD} THEN 'High CPA'
+            ).join(
+              ","
+            )}) AND (spend / conversions) > ${HIGH_CPA_THRESHOLD} THEN 'High CPA'
             WHEN bidding_strategy_type IN (${CONVERSION_FOCUSED_STRATEGIES.map(
               (s) => `'${s}'`
-            ).join(",")}) AND (conversions_value / spend) < ${LOW_ROAS_THRESHOLD} THEN 'Low ROAS'
+            ).join(
+              ","
+            )}) AND (conversions_value / spend) < ${LOW_ROAS_THRESHOLD} THEN 'Low ROAS'
             WHEN bidding_strategy_type IN (${CLICK_FOCUSED_STRATEGIES.map(
               (s) => `'${s}'`
-            ).join(",")}) AND (conversions_value / spend) < ${LOW_ROAS_THRESHOLD} THEN 'Low ROAS (click strategy)'
+            ).join(
+              ","
+            )}) AND (conversions_value / spend) < ${LOW_ROAS_THRESHOLD} THEN 'Low ROAS (click strategy)'
             ELSE 'Other'
           END
         `,

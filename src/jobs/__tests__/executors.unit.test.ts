@@ -19,6 +19,11 @@ describe('Executors', () => {
 		getQueryResults: vi.fn(),
 		id: 'job_123'
 	}
+	const mockDataset = {
+		exists: vi.fn(),
+		getMetadata: vi.fn(),
+		create: vi.fn()
+	}
 
 	beforeEach(() => {
 		vi.clearAllMocks()
@@ -26,6 +31,9 @@ describe('Executors', () => {
 		createBigQueryClient.mockReturnValue(mockBq)
 		mockBq.createQueryJob.mockResolvedValue([mockJob])
 		mockJob.getQueryResults.mockResolvedValue([[]]) // Default no rows
+		mockDataset.exists.mockResolvedValue([true])
+		mockDataset.getMetadata.mockResolvedValue([{ location: 'US' }])
+		mockBq.dataset.mockReturnValue(mockDataset as any)
 	})
 
 	describe('EntityExecutor', () => {
@@ -66,6 +74,9 @@ describe('Executors', () => {
 			}))
 			expect(mockBq.createQueryJob).toHaveBeenCalledWith(expect.objectContaining({
 				query: expect.stringContaining('AS\nSELECT * FROM source')
+			}))
+			expect(mockBq.createQueryJob).toHaveBeenCalledWith(expect.objectContaining({
+				location: 'US'
 			}))
 		})
 	})
@@ -123,6 +134,9 @@ describe('Executors', () => {
 			// Verify Selection
 			expect(mockBq.createQueryJob).toHaveBeenCalledWith(expect.objectContaining({
 				query: expect.stringContaining("'testSignal' as signal_id")
+			}))
+			expect(mockBq.createQueryJob).toHaveBeenCalledWith(expect.objectContaining({
+				location: 'US'
 			}))
 
 			// Verify Upsert
