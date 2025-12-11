@@ -1,5 +1,6 @@
 import { Signal } from "../../../base";
 import { keywordDaily } from "../keyword-daily.entity";
+import { z } from "zod";
 
 
 export const wastedSpendKeyword = new Signal({
@@ -80,7 +81,7 @@ export const wastedSpendKeyword = new Signal({
       // Can be replaced with more nuanced formula later.
       impact: {
         expression: "spend",
-        type: "number",
+        type: z.number(),
       },
     },
   },

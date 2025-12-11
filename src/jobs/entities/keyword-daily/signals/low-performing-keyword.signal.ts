@@ -1,5 +1,6 @@
 import { Signal } from "../../../base";
 import { keywordDaily } from "../keyword-daily.entity";
+import { z } from "zod";
 
 const HIGH_CPA_THRESHOLD = 100; // Example value
 const LOW_ROAS_THRESHOLD = 1.5; // Example value
@@ -93,12 +94,12 @@ export const lowPerformingKeyword = new Signal({
       cpa: {
         expression:
           "CASE WHEN conversions > 0 THEN spend / conversions ELSE 0 END",
-        type: "number",
+        type: z.number(),
       },
       roas: {
         expression:
           "CASE WHEN spend > 0 THEN conversions_value / spend ELSE 0 END",
-        type: "number",
+        type: z.number(),
       },
       issue: {
         expression: `
@@ -109,7 +110,7 @@ export const lowPerformingKeyword = new Signal({
             ELSE 'Other'
           END
         `,
-        type: "string",
+        type: z.string(),
       },
       confidenceLevel: {
         expression: `
@@ -119,11 +120,11 @@ export const lowPerformingKeyword = new Signal({
             ELSE 'Low'
           END
         `,
-        type: "string",
+        type: z.string(),
       },
       impact: {
         expression: "spend",
-        type: "number",
+        type: z.number(),
       },
     },
   },

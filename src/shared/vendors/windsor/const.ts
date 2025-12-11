@@ -762,6 +762,7 @@ const WINDSOR_GOOGLE_ADS_FIELDS = [
   "conversions_value",
   "average_cpc",
   "cost_per_conversion",
+  "cost_micros",
   "bidding_strategy_type",
   "conversion_rate",
   "quality_score",

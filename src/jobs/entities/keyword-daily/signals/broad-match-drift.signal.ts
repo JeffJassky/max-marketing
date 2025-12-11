@@ -1,5 +1,6 @@
 import { Signal } from "../../../base";
 import { keywordDaily } from "../keyword-daily.entity";
+import { z } from "zod";
 
 const MIN_SPEND_THRESHOLD = 0;
 
@@ -56,24 +57,24 @@ export const broadMatchDriftSearchTerm = new Signal({
     derivedFields: {
       spend: {
         expression: "spend",
-        type: "number",
+        type: z.number(),
       },
       cpc: {
         expression: "CASE WHEN clicks > 0 THEN spend / clicks ELSE 0 END",
-        type: "number",
+        type: z.number(),
       },
       cvr: {
         expression: "CASE WHEN clicks > 0 THEN conversions / clicks ELSE 0 END",
-        type: "number",
+        type: z.number(),
       },
       roas: {
         expression:
           "CASE WHEN spend > 0 THEN conversions_value / spend ELSE 0 END",
-        type: "number",
+        type: z.number(),
       },
       drift_score: {
         expression: `(100 * spend) / (spend + 50)`,
-        type: "number",
+        type: z.number(),
       },
     },
   },

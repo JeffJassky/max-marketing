@@ -40,19 +40,9 @@ app.get(
     }
 
     try {
-      const bq = createBigQueryClient();
       const signal = wastedSpendKeyword;
 
-      // The Signal class now generates the query
-      const query = signal.getSignalQuery({ accountId: accountId as string });
-      console.log("[wasted-keyword-spend] Generated query:");
-      console.log(query);
-
-      const [rows] = await bq.query(query);
-
-      console.log(
-        `[wasted-keyword-spend] Returned ${rows.length} row(s) for accountId=${accountId}`
-      );
+      const rows = await signal.getRows({ accountId: accountId as string });
       res.json(rows);
     } catch (error) {
       console.error("Error fetching wasted keyword spend signal:", error);
@@ -71,19 +61,10 @@ app.get(
     }
 
     try {
-      const bq = createBigQueryClient();
       const signal = lowPerformingKeyword;
 
-      // The Signal class now generates the query
-      const query = signal.getSignalQuery({ accountId: accountId as string });
-      console.log("[low-performing-keyword] Generated query:");
-      console.log(query);
+      const rows = await signal.getRows({ accountId: accountId as string });
 
-      const [rows] = await bq.query(query);
-
-      console.log(
-        `[low-performing-keyword] Returned ${rows.length} row(s) for accountId=${accountId}`
-      );
       res.json(rows);
     } catch (error) {
       console.error("Error fetching low performing keyword signal:", error);
@@ -102,19 +83,9 @@ app.get(
     }
 
     try {
-      const bq = createBigQueryClient();
       const signal = broadMatchDriftSearchTerm;
 
-      // The Signal class now generates the query
-      const query = signal.getSignalQuery({ accountId: accountId as string });
-      console.log("[broad-match-drift-search-term] Generated query:");
-      console.log(query);
-
-      const [rows] = await bq.query(query);
-
-      console.log(
-        `[broad-match-drift-search-term] Returned ${rows.length} row(s) for accountId=${accountId}`
-      );
+      const rows = await signal.getRows({ accountId: accountId as string });
       res.json(rows);
     } catch (error) {
       console.error(

@@ -76,17 +76,14 @@ export declare const windsorEndpoints: Record<
 	>
 >
 
-export type WindsorEndpoint = keyof typeof windsorEndpoints
+export type WindsorEndpoint = string
 
-export type EndpointMetrics<E extends WindsorEndpoint> =
-	(typeof windsorEndpoints)[E]['metrics'][number]
+export type EndpointMetrics<E extends WindsorEndpoint = string> = string
 
-export type EndpointDimensions<E extends WindsorEndpoint> =
-	(typeof windsorEndpoints)[E]['dimensions'][number]
+export type EndpointDimensions<E extends WindsorEndpoint = string> = string
 
-export type WindsorRow<E extends WindsorEndpoint> = Partial<
-	Record<EndpointDimensions<E>, WindsorFilterPrimitive> &
-		Record<EndpointMetrics<E>, WindsorFilterPrimitive>
+export type WindsorRow<E extends WindsorEndpoint = string> = Partial<
+	Record<string, WindsorFilterPrimitive>
 >
 
 export interface WindsorResponseMeta {
@@ -94,16 +91,16 @@ export interface WindsorResponseMeta {
 	returned_count?: number
 }
 
-export interface WindsorResponse<E extends WindsorEndpoint> {
+export interface WindsorResponse<E extends WindsorEndpoint = string> {
 	data: WindsorRow<E>[]
 	meta?: WindsorResponseMeta
 }
 
-export interface WindsorRequest<E extends WindsorEndpoint> {
+export interface WindsorRequest<E extends WindsorEndpoint = string> {
 	endpoint: E
-	connector?: (typeof windsorEndpoints)[E]['connector']
-	metrics: EndpointMetrics<E>[]
-	dimensions: EndpointDimensions<E>[]
+	connector?: WindsorConnector | string
+	metrics: string[]
+	dimensions: string[]
 	params?: WindsorRequestParams
 }
 
@@ -115,7 +112,7 @@ export interface WindsorImportDestination {
 	schema_version: number
 }
 
-export interface WindsorImportQuery<E extends WindsorEndpoint = WindsorEndpoint> {
+export interface WindsorImportQuery<E extends WindsorEndpoint = string> {
 	connector: string
 	platform: string
 	datasetId: string

@@ -178,12 +178,23 @@ function mergeFieldDefinitions(base: TableField, incoming: TableField): TableFie
 }
 
 function mergeFieldCollections(baseFields: TableField[], incomingFields: TableField[]): TableField[] {
-	const map = new Map<string, TableField>(baseFields.map(field => [field.name, { ...field }]))
+	const map = new Map<string, TableField>();
+
+	// Filter and populate map with baseFields that have a defined name
+	baseFields.forEach(field => {
+		if (field.name) {
+			map.set(field.name, { ...field });
+		}
+	});
+
+	// Process incomingFields, only those with defined names
 	for (const field of incomingFields) {
-		const existing = map.get(field.name)
-		map.set(field.name, existing ? mergeFieldDefinitions(existing, field) : field)
+		if (field.name) {
+			const existing = map.get(field.name);
+			map.set(field.name, existing ? mergeFieldDefinitions(existing, field) : field);
+		}
 	}
-	return Array.from(map.values())
+	return Array.from(map.values());
 }
 
 function schemasEqual(a: TableField[], b: TableField[]): boolean {
@@ -193,7 +204,8 @@ function schemasEqual(a: TableField[], b: TableField[]): boolean {
 }
 
 function sortFieldsForComparison(fields: TableField[] = []): TableField[] {
-	return [...fields]
+	return fields
+		.filter((field): field is TableField & { name: string } => !!field.name) // Filter out fields without names and assert type
 		.sort((fieldA, fieldB) => fieldA.name.localeCompare(fieldB.name))
 		.map(field => ({
 			...field,

@@ -9,6 +9,7 @@ import {
 import snakeCase from "lodash/snakeCase";
 import knex from "knex";
 import { predicateToSql } from "../shared/data/predicateToSql";
+import { createBigQueryClient } from "../shared/vendors/google/bigquery/bigquery"; // Added import
 
 const qb = knex({ client: "mysql" });
 
@@ -327,6 +328,12 @@ export type SignalMetricConfig<T extends Entity<BronzeImport<any, any>>> = {
    * (e.g. "spend / NULLIF(clicks, 0)").
    */
   expression?: string;
+
+  /**
+   * Optional Zod type for the metric.
+   * If omitted, inferred from source metric or defaults to number.
+   */
+  type?: z.ZodType;
 };
 
 export type SignalDerivedFieldConfig = {
@@ -334,7 +341,7 @@ export type SignalDerivedFieldConfig = {
   expression: string;
 
   /** Logical type of the value for downstream typing/validation. */
-  type: "number" | "string" | "date" | "boolean";
+  type: z.ZodType;
 };
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -440,32 +447,116 @@ export type SignalDef<T extends Entity<BronzeImport<any, any>>> = {
   enabled?: boolean;
 };
 
+// ~~~~~~~~~~~~~~~~~
+// Signal Inference Helper
+// ~~~~~~~~~~~~~~~~~
+
+type InferSignalRow<T extends Entity<BronzeImport<any, any>>, Def extends SignalDef<T>> = 
+    // Grain (any)
+    { [K in Def['output']['grain'][number]]: any } &
+    // Included Dimensions (any)
+    (Def['output']['includeDimensions'] extends ReadonlyArray<infer K> ? { [P in K & string]: any } : {}) &
+    // Metrics
+    { [K in keyof Def['output']['metrics']]: 
+        Def['output']['metrics'][K]['type'] extends z.ZodType 
+            ? z.infer<Def['output']['metrics'][K]['type']> 
+            : number 
+    } &
+    // Derived Fields
+    (Def['output']['derivedFields'] extends Record<string, any>
+        ? { [K in keyof Def['output']['derivedFields']]: z.infer<Def['output']['derivedFields'][K]['type']> }
+        : {}) &
+    // Metadata
+    {
+        signal_id: string;
+        detected_at: string | { value: string };
+    };
+
 /**
  * Represents a Gold-grade data signal, detecting specific business-relevant events or patterns.
  * It queries an underlying Entity, applies aggregations and predicates, and outputs actionable alerts.
  * @template T - The Entity source class.
  */
-export class Signal<T extends Entity<BronzeImport<any, any>>> extends BaseData {
+export class Signal<
+  T extends Entity<BronzeImport<any, any>>,
+  const Def extends SignalDef<T> = SignalDef<T>
+> extends BaseData {
   readonly grade = "gold";
   readonly dataset = "signals";
-  readonly definition: SignalDef<T>;
+  readonly definition: Def;
 
   /**
    * Creates an instance of Signal.
    * @param definition - The definition object for the Signal.
    */
-  constructor(definition: SignalDef<T>) {
+  constructor(definition: Def) {
     super(definition.id, definition.description);
     this.definition = definition;
   }
 
-  get schema() {
-    // A signal's schema is often the same as its source entity, plus some metadata
-    return this.definition.source.schema.extend({
-      signal_id: z.string(),
-      detected_at: z.string().datetime(),
-      impact: z.number().optional(), // Impact might not always be present
+  /**
+   * Constructs the Zod schema for the signal's output.
+   * This includes grain, included dimensions, metrics, derived fields, and metadata.
+   */
+  get outputSchema() {
+    const def = this.definition;
+    const sourceSchema = def.source.schema.shape;
+    const shape: Record<string, z.ZodTypeAny> = {}; // Changed type here
+
+    // 1. Grain fields
+    def.output.grain.forEach((field) => {
+      const fieldName = field as string;
+      const sourceType = (sourceSchema as Record<string, z.ZodType>)[fieldName];
+      if (sourceType) {
+        shape[fieldName] = sourceType;
+      } else {
+        // Fallback or error? Assuming source schema has it.
+        shape[fieldName] = z.any();
+      }
     });
+
+    // 2. Included dimensions
+    def.output.includeDimensions?.forEach((field) => {
+      const fieldName = field as string;
+      const sourceType = (sourceSchema as Record<string, z.ZodType>)[fieldName];
+      if (sourceType) {
+        shape[fieldName] = sourceType;
+      }
+    });
+
+    // 3. Metrics
+    Object.entries(def.output.metrics).forEach(([alias, config]) => {
+      if (config.type) {
+        shape[alias] = config.type;
+      } else if (config.sourceMetric) {
+         // Try to find type from source entity definition
+         const sourceMetricDef = def.source.definition.metrics[config.sourceMetric as string];
+         if (sourceMetricDef) {
+           shape[alias] = sourceMetricDef.type;
+         } else {
+            shape[alias] = z.number(); // Default to number for metrics
+         }
+      } else {
+        shape[alias] = z.number();
+      }
+    });
+
+    // 4. Derived fields
+    if (def.output.derivedFields) {
+      Object.entries(def.output.derivedFields).forEach(([alias, config]) => {
+        shape[alias] = config.type;
+      });
+    }
+
+    // 5. Metadata
+    shape["signal_id"] = z.string();
+    shape["detected_at"] = z.string().datetime().or(z.object({ value: z.string() })); // Handle BQ timestamp format
+
+    return z.object(shape);
+  }
+
+  get schema(): z.ZodObject<any> {
+    return this.outputSchema;
   }
 
   getSignalQuery(options: {
@@ -560,5 +651,23 @@ export class Signal<T extends Entity<BronzeImport<any, any>>> extends BaseData {
     }
 
     return finalQuery.toQuery();
+  }
+
+  /**
+   * Executes the signal query and returns strongly-typed results.
+   * @param options - Query options (accountId, date range).
+   */
+  async getRows(
+    options: { startDate?: string; endDate?: string; accountId?: string }
+  ): Promise<InferSignalRow<T, Def>[]> {
+    const bqClient = createBigQueryClient(); // Create client internally
+    const query = this.getSignalQuery(options);
+    const [rows] = await bqClient.query(query);
+
+    console.log(
+      `[${this.id}] Returned ${rows.length} row(s) for accountId=${options.accountId || "N/A"}`
+    );
+
+    return rows;
   }
 }

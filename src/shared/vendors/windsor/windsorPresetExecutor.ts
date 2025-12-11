@@ -13,8 +13,7 @@ export interface WindsorImportRunOptions {
 }
 
 export interface WindsorImportExecutionResult {
-	importObj: BronzeImport<any>;
-	rowCount: number;
+	  importObj: BronzeImport<any, any>;	rowCount: number;
 	meta: { requestedAt: Date };
 }
 
@@ -25,8 +24,7 @@ export class WindsorImportExecutor {
 	constructor() {}
 
 	async run(
-		importObj: BronzeImport<any>,
-		options: WindsorImportRunOptions = {}
+		   importObj: BronzeImport<any, any>,		options: WindsorImportRunOptions = {}
 	): Promise<WindsorImportExecutionResult> {
 		const requestedAt = new Date();
 

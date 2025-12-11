@@ -1,4 +1,4 @@
-import { BronzeImport, BronzeImportDef } from "../../base";
+import { BronzeImport } from "../../base";
 import { z } from "zod";
 
 export const googleAdsCoreKeywordPerformance = new BronzeImport({
@@ -9,7 +9,7 @@ export const googleAdsCoreKeywordPerformance = new BronzeImport({
   endpoint: "googleAdsKeywordPerformance",
   version: 1,
   partitionBy: "date",
-  clusterBy: ["campaign_id", "ad_group_id", "keyword_info_text", "search_term"],
+  clusterBy: ["account_id", "campaign_id", "ad_group_id"],
   params: {
     date_preset: "last_90d",
   },

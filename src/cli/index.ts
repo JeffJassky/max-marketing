@@ -14,7 +14,7 @@ import { WindsorImportExecutor } from "../shared/vendors/windsor/windsorPresetEx
 loadEnv();
 
 type JobType = "import" | "entity" | "signal";
-type JobInstance = BronzeImport<any> | Entity<any> | Signal<any>;
+type JobInstance = BronzeImport<any, any> | Entity<any> | Signal<any>;
 
 export type LoadedJob = {
   id: string;
@@ -113,7 +113,7 @@ const promptForJobs = async (jobs: LoadedJob[]): Promise<LoadedJob[]> => {
         ...groupJobs.map((job) => ({
           name:
             job.type === "import"
-              ? `${(job.instance as BronzeImport<any>).definition.platform ?? "unknown"} / ${job.id} (${job.type})`
+              ? `${(job.instance as BronzeImport<any, any>).definition.platform ?? "unknown"} / ${job.id} (${job.type})`
               : `${job.id} (${job.type})`,
           value: job,
         })),
@@ -169,7 +169,7 @@ export const executeJob = async (
     switch (job.type) {
       case "import": {
         const executor = new WindsorImportExecutor();
-        await executor.run(job.instance as BronzeImport<any>);
+        await executor.run(job.instance as BronzeImport<any, any>);
         break;
       }
       case "entity": {

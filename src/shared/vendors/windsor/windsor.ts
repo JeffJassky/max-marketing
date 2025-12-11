@@ -28,34 +28,6 @@ const buildFieldsString = (metrics: string[], dimensions: string[]): string => {
 	return Array.from(fields).join(',')
 }
 
-const validateRequest = <E extends WindsorEndpoint>(request: WindsorRequest<E>): void => {
-	const catalog = windsorEndpoints[request.endpoint]
-
-	const requiredDimensions = catalog.requiredDimensions ?? [WINDSOR_DEFAULT_REQUIRED_DIMENSION]
-
-	requiredDimensions.forEach(dimension => {
-		if (!request.dimensions.includes(dimension as EndpointDimensions<E>)) {
-			throw new Error(`Endpoint "${request.endpoint}" requires dimension "${dimension}".`)
-		}
-	})
-
-	request.metrics.forEach(metric => {
-		if (!catalog.metrics.includes(metric as EndpointMetrics<E>)) {
-			throw new Error(
-				`Metric "${metric}" is not supported by endpoint "${request.endpoint}".`
-			)
-		}
-	})
-
-	request.dimensions.forEach(dimension => {
-		if (!catalog.dimensions.includes(dimension as EndpointDimensions<E>)) {
-			throw new Error(
-				`Dimension "${dimension}" is not supported by endpoint "${request.endpoint}".`
-			)
-		}
-	})
-}
-
 const buildSearchParams = (fields: string, params: WindsorRequestParams = {}): URLSearchParams => {
 	const searchParams = new URLSearchParams()
 	const apiKey = ensureApiKey()
@@ -96,19 +68,24 @@ const ensureFetch = (): typeof fetch => {
 export async function windsorRequest<E extends WindsorEndpoint>(
 	request: WindsorRequest<E>
 ): Promise<WindsorResponse<E>> {
-	validateRequest(request)
+	// validateRequest(request) -- Validation disabled to allow arbitrary endpoints/fields
 
 	console.log('Windsor request', request)
 
 	const catalog = windsorEndpoints[request.endpoint]
-	const connector = request.connector ?? catalog.connector
+	const connector = request.connector ?? catalog?.connector
+	
+	if (!connector) {
+		throw new Error(`Connector not specified for endpoint "${request.endpoint}" and no catalog entry found.`)
+	}
+
 	const url = `${WINDSOR_API_BASE}/${connector}`
 	const resolvedParams: WindsorRequestParams = {
 		...(request.params ?? {})
 	}
 
 	if (
-		catalog.defaultDatePreset &&
+		catalog?.defaultDatePreset &&
 		!resolvedParams.date_from &&
 		!resolvedParams.date_to &&
 		!resolvedParams.date_preset
