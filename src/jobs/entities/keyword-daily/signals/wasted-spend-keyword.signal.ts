@@ -38,21 +38,9 @@ export const wastedSpendKeyword = new Signal({
   // Attribution Grain (Group By)
   // These must correspond to dimensions on keywordDaily.
   // ---------------------------------------------------------
-  groupBy: [
-    "account_id",
-    "campaign_id",
-    "keyword_info_text",
-    "strategy_family",
-  ],
-
-  // ---------------------------------------------------------
-  // Output Snapshot Specification
-  // Defines what gets inserted into signals.wasted_spend_keyword
-  // AFTER aggregation.
-  // ---------------------------------------------------------
   output: {
     // Dedupe keys — typically identical to groupBy
-    keyFields: [
+    grain: [
       "account_id",
       "campaign_id",
       "keyword_info_text",

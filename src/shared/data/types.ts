@@ -91,7 +91,7 @@ export const SignalPredicateSchema = z.object({
 })
 
 export const SignalOutputSchema = z.object({
-	keyFields: z.array(z.string()),
+	grain: z.array(z.string()),
 	impact: z.object({
 		formula: z.string(),
 		unit: z.string(),

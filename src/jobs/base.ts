@@ -41,43 +41,75 @@ export abstract class BaseData {
 // ~~~~~~~~~~~~~~~~~
 // Bronze Import
 // ~~~~~~~~~~~~~~~~~
-export type BronzeImportDef<E extends WindsorEndpoint> = {
+/**
+ * Defines the structure for a Bronze Import, representing raw data imported from an external source.
+ * This data is typically directly from an API or external service, with minimal transformations.
+ * @template DimensionsShape - The Zod shape for the dimensions of the import.
+ * @template MetricsShape - The Zod shape for the metrics of the import.
+ */
+export type BronzeImportDef<
+  DimensionsShape extends z.ZodRawShape = z.ZodRawShape,
+  MetricsShape extends z.ZodRawShape = z.ZodRawShape
+> = {
+  /** A unique identifier for the import (e.g., "coreKeywordPerformance"). */
   id: string;
+  /** A human-readable description of the import's purpose and content. */
   description: string;
+  /** The platform the data is imported from (e.g., "google_ads", "facebook_ads"). */
   platform: string;
-  endpoint: E;
-  metrics: { [key: string]: z.ZodType };
-  dimensions: { [key: string]: z.ZodType };
+  /** The specific endpoint or data source within the platform (e.g., "googleAdsKeywordPerformance"). */
+  endpoint: string;
+  /** The Zod schema defining the metrics available in this import. */
+  metrics: MetricsShape;
+  /** The Zod schema defining the dimensions available in this import. */
+  dimensions: DimensionsShape;
+  /** The version of the import definition, used for schema evolution. */
   version: number;
+  /** The field by which the data is partitioned (e.g., "date"). */
   partitionBy: string;
+  /** Optional: A list of fields to cluster the data by, improving query performance for common filter patterns. */
   clusterBy?: string[];
+  /** Optional: Default parameters to send with the Windsor API request. */
   params?: WindsorRequestParams;
 };
 
-export class BronzeImport<E extends WindsorEndpoint> extends BaseData {
+/**
+ * Represents a Bronze-grade data import, typically raw data directly from an external API.
+ * It extends BaseData and includes definitions for dimensions, metrics, and API request parameters.
+ * @template DimensionsShape - The Zod shape for the dimensions of the import.
+ * @template MetricsShape - The Zod shape for the metrics of the import.
+ */
+export class BronzeImport<
+  DimensionsShape extends z.ZodRawShape,
+  MetricsShape extends z.ZodRawShape
+> extends BaseData {
   readonly grade = "bronze";
   readonly dataset = "imports";
-  readonly definition: BronzeImportDef<E>;
+  readonly definition: BronzeImportDef<DimensionsShape, MetricsShape>;
 
-  constructor(definition: BronzeImportDef<E>) {
+  /**
+   * Creates an instance of BronzeImport.
+   * @param definition - The definition object for the Bronze Import.
+   */
+  constructor(definition: BronzeImportDef<DimensionsShape, MetricsShape>) {
     super(definition.id, definition.description);
     this.definition = definition;
   }
 
-  get schema() {
+  get schema(): z.ZodObject<DimensionsShape & MetricsShape> {
     return z.object({
       ...this.definition.dimensions,
       ...this.definition.metrics,
-    });
+    }) as z.ZodObject<DimensionsShape & MetricsShape>;
   }
 
-  getRequest(paramOverrides: WindsorRequestParams = {}): WindsorRequest<E> {
+  getRequest(paramOverrides: WindsorRequestParams = {}): WindsorRequest {
     const { endpoint, dimensions, metrics, params, platform } = this.definition;
     return {
       endpoint,
       connector: platform as any, //TODO: fix this any
-      dimensions: Object.keys(dimensions) as EndpointDimensions<E>[],
-      metrics: Object.keys(metrics) as EndpointMetrics<E>[],
+      dimensions: Object.keys(dimensions),
+      metrics: Object.keys(metrics),
       params: {
         ...params,
         ...paramOverrides,
@@ -91,45 +123,82 @@ export class BronzeImport<E extends WindsorEndpoint> extends BaseData {
 // ~~~~~~~~~~~~~~~~~
 type MetricAggregation = "sum" | "avg" | "count" | "min" | "max";
 
-export type EntityDef<S extends BronzeImport<any>> = {
+/**
+ * Defines the structure for a Silver Entity, representing clean, enriched data derived from a Bronze Import.
+ * Entities normalize data, apply business logic, and define the grain for analysis.
+ * @template S - The BronzeImport source class.
+ */
+export type EntityDef<S extends BronzeImport<any, any>> = {
+  /** A unique identifier for the entity (e.g., "keywordDaily"). */
   id: string;
 
+  /** A human-readable description of what this entity represents. */
   description: string;
 
+  /** The Bronze Import source that feeds this entity. */
   source: S;
 
-  grain: (keyof z.infer<S["schema"]>["shape"])[];
+  /**
+   * The fields that define the uniqueness/grain of this entity (e.g., ["date", "keyword_id"]).
+   * Equivalent to a primary key or composite key.
+   */
+  grain: (keyof z.infer<S["schema"]>)[];
 
+  /**
+   * Definitions for the dimensions (attributes) of the entity.
+   * Can map directly to source fields or use SQL expressions.
+   */
   dimensions: {
     [key: string]: {
+      /** The Zod type for the dimension. */
       type: z.ZodType;
 
-      sourceField?: keyof z.infer<S["schema"]>["shape"];
+      /** The field name in the source schema to map from. */
+      sourceField?: keyof z.infer<S["schema"]>;
 
+      /** Optional SQL expression to derive this dimension (e.g., CASE statements). */
       expression?: string;
     };
   };
 
+  /**
+   * Definitions for the metrics (quantitative measures) of the entity.
+   * Always involves an aggregation function.
+   */
   metrics: {
     [key: string]: {
+      /** The Zod type for the metric. */
       type: z.ZodType;
 
+      /** The aggregation function to apply (sum, avg, count, min, max). */
       aggregation: MetricAggregation;
 
-      sourceField: keyof z.infer<S["schema"]>["shape"];
+      /** The field name in the source schema to aggregate. */
+      sourceField: keyof z.infer<S["schema"]>;
     };
   };
 
+  /** The field by which the table is partitioned (e.g., "date"). */
   partitionBy?: string;
 
+  /** Optional list of fields to cluster the table by for performance optimization. */
   clusterBy?: string[];
 };
 
-export class Entity<S extends BronzeImport<any>> extends BaseData {
+/**
+ * Represents a Silver-grade data entity, providing a cleaned and modeled view of the raw data.
+ * It handles the transformation logic from Bronze imports to useful analytical tables.
+ * @template S - The BronzeImport source class.
+ */
+export class Entity<S extends BronzeImport<any, any>> extends BaseData {
   readonly grade = "silver";
   readonly dataset = "entities";
   readonly definition: EntityDef<S>;
 
+  /**
+   * Creates an instance of Entity.
+   * @param definition - The definition object for the Entity.
+   */
   constructor(definition: EntityDef<S>) {
     super(definition.id, definition.description);
     this.definition = definition;
@@ -204,17 +273,21 @@ export class Entity<S extends BronzeImport<any>> extends BaseData {
 // ~~~~~~~~~~~~~~~~~
 
 // Helpers to refer to the entity definition keys in a type-safe way
-type EntityDimensions<T extends Entity<any>> = T["definition"]["dimensions"];
-type EntityMetrics<T extends Entity<any>> = T["definition"]["metrics"];
+type EntityDimensions<T extends Entity<BronzeImport<any, any>>> =
+  T["definition"]["dimensions"];
+type EntityMetrics<T extends Entity<BronzeImport<any, any>>> =
+  T["definition"]["metrics"];
 
-type EntityDimensionKey<T extends Entity<any>> = keyof EntityDimensions<T>;
-type EntityMetricKey<T extends Entity<any>> = keyof EntityMetrics<T>;
+type EntityDimensionKey<T extends Entity<BronzeImport<any, any>>> =
+  keyof EntityDimensions<T>;
+type EntityMetricKey<T extends Entity<BronzeImport<any, any>>> =
+  keyof EntityMetrics<T>;
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Window configuration
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-export type SignalWindowConfig<T extends Entity<any>> = {
+export type SignalWindowConfig<T extends Entity<BronzeImport<any, any>>> = {
   /** Identifier for the window preset, e.g. "last_90d". */
   id: string;
 
@@ -232,7 +305,7 @@ export type SignalWindowConfig<T extends Entity<any>> = {
 // Metric & derived field config
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-export type SignalMetricConfig<T extends Entity<any>> = {
+export type SignalMetricConfig<T extends Entity<BronzeImport<any, any>>> = {
   /**
    * Name of the metric on the source Entity to aggregate from.
    * If provided, the executor uses that metric's default aggregation
@@ -268,12 +341,12 @@ export type SignalDerivedFieldConfig = {
 // Snapshot / output configuration
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-export type SignalOutputConfig<T extends Entity<any>> = {
+export type SignalOutputConfig<T extends Entity<BronzeImport<any, any>>> = {
   /**
    * Fields that uniquely identify a signal record and are used for
    * deduping/attribution. Typically the same as `groupBy`.
    */
-  keyFields: EntityDimensionKey<T>[];
+  grain: EntityDimensionKey<T>[];
 
   /**
    * Optional non-key dimensions to include in the snapshot output.
@@ -306,7 +379,12 @@ export type SignalOutputConfig<T extends Entity<any>> = {
 // Full SignalDef
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-export type SignalDef<T extends Entity<any>> = {
+/**
+ * Defines the structure for a Gold Signal, representing actionable insights derived from Silver Entities.
+ * Signals monitor data for specific conditions (predicates) and surface important events or anomalies.
+ * @template T - The Entity source class.
+ */
+export type SignalDef<T extends Entity<BronzeImport<any, any>>> = {
   /** Stable identifier for the signal (e.g. "wastedSpendKeyword"). */
   id: string;
 
@@ -341,7 +419,7 @@ export type SignalDef<T extends Entity<any>> = {
    *
    * The executor groups by these before computing metrics and applying `predicate`.
    */
-  groupBy: EntityDimensionKey<T>[];
+  // groupBy: EntityDimensionKey<T>[]; // Removed in favor of output.grain
 
   /**
    * Describes how to build the materialized signal rows: key fields,
@@ -358,14 +436,24 @@ export type SignalDef<T extends Entity<any>> = {
    * Optional: feature flags / tags for orchestration, ownership, etc.
    */
   tags?: string[];
+  /** Optional: Whether this signal is currently enabled. */
   enabled?: boolean;
 };
 
-export class Signal<T extends Entity<any>> extends BaseData {
+/**
+ * Represents a Gold-grade data signal, detecting specific business-relevant events or patterns.
+ * It queries an underlying Entity, applies aggregations and predicates, and outputs actionable alerts.
+ * @template T - The Entity source class.
+ */
+export class Signal<T extends Entity<BronzeImport<any, any>>> extends BaseData {
   readonly grade = "gold";
   readonly dataset = "signals";
   readonly definition: SignalDef<T>;
 
+  /**
+   * Creates an instance of Signal.
+   * @param definition - The definition object for the Signal.
+   */
   constructor(definition: SignalDef<T>) {
     super(definition.id, definition.description);
     this.definition = definition;
@@ -388,7 +476,7 @@ export class Signal<T extends Entity<any>> extends BaseData {
     const def = this.definition;
     const entity = def.source;
     const table = entity.fqn;
-    const groupByFields = def.groupBy.map(String);
+    const groupByFields = def.output.grain.map(String);
     const dateField = String(def.window?.dateDimension ?? "date");
 
     // Use a fresh knex instance tuned for SQL generation (aligns with SignalExecutor)
@@ -418,7 +506,7 @@ export class Signal<T extends Entity<any>> extends BaseData {
       if (metric.expression) {
         baseSelects.push(`${metric.expression} AS ${alias}`);
       } else if (metric.sourceMetric) {
-        const entityMetric = entity.definition.metrics[metric.sourceMetric];
+        const entityMetric = entity.definition.metrics[metric.sourceMetric as keyof typeof entity.definition.metrics];
         const agg = metric.aggregation ?? entityMetric.aggregation;
         baseSelects.push(
           `${agg.toUpperCase()}(${String(

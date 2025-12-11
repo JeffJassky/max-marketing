@@ -50,7 +50,7 @@ export class SignalExecutor {
       detected_at: new Date().toISOString(),
     }));
 
-    const clusteringFields = signal.definition.output.keyFields.map(String);
+    const clusteringFields = signal.definition.output.grain.map(String);
     const limitedClusteringFields = clusteringFields.slice(0, 4);
     if (clusteringFields.length > 4) {
       console.warn(
@@ -78,7 +78,7 @@ export class SignalExecutor {
     const def = signal.definition;
     const entity = signal.definition.source;
     const table = entity.fqn;
-    const groupByFields = def.groupBy.map(String);
+    const groupByFields = def.output.grain.map(String);
 
     // ---------------------------------------
     // WINDOW RESOLUTION

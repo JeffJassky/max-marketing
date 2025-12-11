@@ -27,23 +27,15 @@ export const broadMatchDriftSearchTerm = new Signal({
     dateDimension: "date",
   },
 
-  groupBy: [
-    "account_id",
-    "campaign_id",
-    "ad_group_id",
-    "keyword_info_text",
-    "search_term",
-    "strategy_family",
-    "keyword_info_match_type",
-  ],
-
   output: {
-    keyFields: [
+    grain: [
       "account_id",
       "campaign_id",
       "ad_group_id",
       "keyword_info_text",
       "search_term",
+      "strategy_family",
+      "keyword_info_match_type",
     ],
 
     // Only carry non-group fields; grouped fields are already present
