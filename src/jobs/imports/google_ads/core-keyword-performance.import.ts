@@ -9,7 +9,7 @@ export const googleAdsCoreKeywordPerformance = new BronzeImport({
   endpoint: "googleAdsKeywordPerformance",
   version: 1,
   partitionBy: "date",
-  clusterBy: ["campaign_id", "ad_group_id", "keyword_info_text"],
+  clusterBy: ["campaign_id", "ad_group_id", "keyword_info_text", "search_term"],
   params: {
     date_preset: "last_90d",
   },

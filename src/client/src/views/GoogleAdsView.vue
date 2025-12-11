@@ -61,15 +61,30 @@ interface NegativeKeywordOpportunity {
   confidence?: number;
 }
 
-interface SearchTermDrift {
-  id: string;
-  keyword: string;
-  matchType: string;
-  searchTerm: string;
-  semanticDistance: 'High' | 'Medium' | 'Low';
-  spend: string;
-  driftScore: number;
-  confidenceLevel: ConfidenceLevel;
+interface BroadMatchDriftSignal {
+  id?: string;
+  row_id?: string;
+  account_id: string;
+  campaign_id?: string;
+  campaign?: string;
+  ad_group_id?: string;
+  ad_group_name?: string;
+  keyword_info_text: string;
+  search_term: string;
+  bidding_strategy_type?: string;
+  keyword_info_match_type?: string;
+  strategy_family?: string;
+  impressions: number;
+  clicks: number;
+  spend: number;
+  conversions: number;
+  conversions_value: number;
+  cpc?: number;
+  cvr?: number;
+  roas?: number;
+  drift_score?: number;
+  last_seen?: { value?: { value?: string } };
+  confidence?: number;
 }
 
 interface LowPerfKeyword {
@@ -226,7 +241,7 @@ interface GoogleAdsFullReport {
   }>;
   clusterA: {
     negativeKeywords: NegativeKeywordOpportunity[];
-    drift: SearchTermDrift[];
+    drift: BroadMatchDriftSignal[];
     lowPerf: LowPerfKeyword[];
   };
   clusterB: {
@@ -305,10 +320,13 @@ const selectedAccount = ref<Account | null>(null);
 const accountsLoading = ref(false);
 const accountsError = ref<string | null>(null);
 const wastedKeywordSignals = ref<WastedKeywordSignal[]>([]);
+const broadMatchDriftSignals = ref<BroadMatchDriftSignal[]>([]);
 const lowPerformingKeywordSignals = ref<LowPerformingKeywordSignal[]>([]);
 const keywordSignalsLoading = ref(false);
+const broadMatchDriftSignalsLoading = ref(false);
 const lowPerformingKeywordSignalsLoading = ref(false);
 const keywordSignalsError = ref<string | null>(null);
+const broadMatchDriftSignalsError = ref<string | null>(null);
 const lowPerformingKeywordSignalsError = ref<string | null>(null);
 const lastAccountIdForSignals = ref<string | null>(null);
 
@@ -368,11 +386,25 @@ const filteredWaste = computed(() =>
   report.value ? report.value.clusterB.waste.filter((w) => !excludedWaste.value.includes(w.id)) : []
 );
 
+const driftSignals = computed(() =>
+  useKeywordSignals.value ? broadMatchDriftSignals.value : report.value?.clusterA.drift || []
+);
+
 const formatDate = (date: Date) =>
   date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 
 const formatCurrency = (value: number) =>
   `$${(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const formatPercent = (value?: number | null) => {
+  if (value === undefined || value === null || Number.isNaN(value)) return '—';
+  return `${(value * 100).toFixed(1)}%`;
+};
+
+const formatRoas = (value?: number | null) => {
+  if (value === undefined || value === null || Number.isNaN(value)) return '—';
+  return `${value.toFixed(1)}x`;
+};
 
 const formatStrategyFamily = (value?: string) => {
   if (!value) return 'Other';
@@ -440,6 +472,32 @@ const loadWastedKeywordSignals = async (accountId?: string) => {
     wastedKeywordSignals.value = [];
   } finally {
     keywordSignalsLoading.value = false;
+  }
+};
+
+const loadBroadMatchDriftSignals = async (accountId?: string) => {
+  const targetAccountId = accountId || selectedAccount.value?.id;
+  if (!targetAccountId) return;
+
+  broadMatchDriftSignalsLoading.value = true;
+  broadMatchDriftSignalsError.value = null;
+
+  try {
+    const response = await fetch(
+      `/api/signals/broad-match-drift-search-term?accountId=${encodeURIComponent(targetAccountId)}`
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to fetch broad match drift signals: ${response.status}`);
+    }
+    const data = (await response.json()) as BroadMatchDriftSignal[];
+    broadMatchDriftSignals.value = Array.isArray(data) ? data : [];
+    lastAccountIdForSignals.value = targetAccountId;
+  } catch (err) {
+    console.error(err);
+    broadMatchDriftSignalsError.value = 'Unable to load broad match drift signals';
+    broadMatchDriftSignals.value = [];
+  } finally {
+    broadMatchDriftSignalsLoading.value = false;
   }
 };
 
@@ -601,24 +659,48 @@ const getFullSuiteReport = async (_clientId: string): Promise<GoogleAdsFullRepor
       negativeKeywords: [],
       drift: [
         {
-          id: 'd1',
-          keyword: 'Gibson Les Paul',
-          matchType: 'Phrase',
-          searchTerm: 'Epiphone Les Paul vs Gibson',
-          semanticDistance: 'Medium',
-          spend: '$95.00',
-          driftScore: 65,
-          confidenceLevel: 'Medium'
+          row_id: 'd1',
+          account_id: 'client_123',
+          campaign_id: 'camp_1',
+          campaign: 'Local - Guitars',
+          ad_group_id: 'ag_1',
+          ad_group_name: 'Les Paul - Broad',
+          keyword_info_text: 'Gibson Les Paul',
+          search_term: 'Epiphone Les Paul vs Gibson',
+          bidding_strategy_type: 'TARGET_ROAS',
+          keyword_info_match_type: 'BROAD',
+          strategy_family: 'conversion',
+          spend: 95,
+          clicks: 34,
+          conversions: 0,
+          conversions_value: 0,
+          cpc: 2.79,
+          cvr: 0,
+          roas: 0,
+          drift_score: 65,
+          last_seen: { value: { value: '2024-10-12' } }
         },
         {
-          id: 'd2',
-          keyword: 'Drum Kit',
-          matchType: 'Exact (Close Variant)',
-          searchTerm: 'Toy Drum Set for Toddlers',
-          semanticDistance: 'High',
-          spend: '$45.00',
-          driftScore: 85,
-          confidenceLevel: 'High'
+          row_id: 'd2',
+          account_id: 'client_123',
+          campaign_id: 'camp_2',
+          campaign: 'Percussion - Prospecting',
+          ad_group_id: 'ag_2',
+          ad_group_name: 'Drum Kits Broad',
+          keyword_info_text: 'Drum Kit',
+          search_term: 'Toy Drum Set for Toddlers',
+          bidding_strategy_type: 'MAXIMIZE_CONVERSIONS',
+          keyword_info_match_type: 'BROAD',
+          strategy_family: 'conversion',
+          spend: 45,
+          clicks: 20,
+          conversions: 0,
+          conversions_value: 0,
+          cpc: 2.25,
+          cvr: 0,
+          roas: 0,
+          drift_score: 85,
+          last_seen: { value: { value: '2024-10-10' } }
         }
       ],
       lowPerf: [
@@ -706,9 +788,15 @@ watch(
   () => activeTab.value,
   (tab) => {
     if (tab === GoogleAdsSubView.KEYWORD_INTEL && selectedAccount.value) {
-      if (lastAccountIdForSignals.value !== selectedAccount.value.id || !wastedKeywordSignals.value.length) {
+      const needsRefresh = lastAccountIdForSignals.value !== selectedAccount.value.id;
+      if (needsRefresh || !wastedKeywordSignals.value.length) {
         loadWastedKeywordSignals(selectedAccount.value.id);
+      }
+      if (needsRefresh || !lowPerformingKeywordSignals.value.length) {
         loadLowPerformingKeywordSignals(selectedAccount.value.id);
+      }
+      if (needsRefresh || !broadMatchDriftSignals.value.length) {
+        loadBroadMatchDriftSignals(selectedAccount.value.id);
       }
     }
   }
@@ -719,6 +807,7 @@ watch(selectedAccount, (account, prevAccount) => {
     if (activeTab.value === GoogleAdsSubView.KEYWORD_INTEL) {
       loadWastedKeywordSignals(account.id);
       loadLowPerformingKeywordSignals(account.id);
+      loadBroadMatchDriftSignals(account.id);
     }
   }
 });
@@ -1235,49 +1324,137 @@ watch(dateRange, () => {
                     >Broad Match analysis</span
                   >
                 </div>
-                <div
-                  v-for="drift in report.clusterA.drift"
-                  :key="drift.id"
-                  class="bg-slate-50 rounded-lg p-4 border border-slate-100 mb-4 last:mb-0"
-                >
-                  <div class="flex items-center justify-between mb-3 text-sm">
-                    <div class="flex-1">
-                      <span
-                        class="block text-[10px] uppercase font-bold text-slate-400 mb-1"
-                        >Keyword</span
-                      >
-                      <div
-                        class="font-mono text-slate-700 bg-white px-2 py-1 rounded border border-slate-200"
-                      >
-                        {{ drift.keyword }}
-                      </div>
-                    </div>
-                    <div class="px-2 text-slate-300">
-                      <ArrowRight class="w-4 h-4" />
-                    </div>
-                    <div class="flex-1 text-right">
-                      <span
-                        class="block text-[10px] uppercase font-bold text-slate-400 mb-1"
-                        >Drifted Query</span
-                      >
-                      <div
-                        class="font-mono text-red-700 bg-red-50 px-2 py-1 rounded border border-red-100"
-                      >
-                        {{ drift.searchTerm }}
-                      </div>
-                    </div>
+                <div class="space-y-4">
+                  <div
+                    v-if="useKeywordSignals && broadMatchDriftSignalsLoading"
+                    class="text-sm text-slate-500"
+                  >
+                    Loading broad match drift signals...
                   </div>
                   <div
-                    class="flex justify-between items-center mt-2 pt-2 border-t border-slate-200/50"
+                    v-else-if="useKeywordSignals && broadMatchDriftSignalsError"
+                    class="text-sm text-red-600"
                   >
-                    <p class="text-xs text-slate-500 font-medium">
-                      Drift Score: {{ drift.driftScore }}/100
-                    </p>
-                    <button
-                      class="text-xs font-bold text-blue-600 hover:text-blue-700 bg-white border border-blue-200 px-3 py-1 rounded hover:bg-blue-50"
+                    {{ broadMatchDriftSignalsError }}
+                  </div>
+                  <div
+                    v-else-if="useKeywordSignals && !driftSignals.length"
+                    class="text-sm text-slate-500"
+                  >
+                    No broad match drift signals found.
+                  </div>
+                  <div
+                    v-else-if="!driftSignals.length"
+                    class="text-sm text-slate-500"
+                  >
+                    No drift data available.
+                  </div>
+                  <div
+                    v-else
+                    v-for="drift in driftSignals"
+                    :key="
+                      drift.row_id ||
+                      drift.id ||
+                      `${drift.account_id ?? 'acct'}-${drift.campaign_id ?? 'camp'}-${drift.keyword_info_text}-${drift.search_term}`
+                    "
+                    class="bg-slate-50 rounded-lg p-4 border border-slate-100"
+                  >
+                    <div class="flex items-center justify-between mb-3 text-sm">
+                      <div class="flex-1">
+                        <span
+                          class="block text-[10px] uppercase font-bold text-slate-400 mb-1"
+                          >Keyword</span
+                        >
+                        <div
+                          class="font-mono text-slate-700 bg-white px-2 py-1 rounded border border-slate-200"
+                        >
+                          {{ drift.keyword_info_text }}
+                        </div>
+                        <div
+                          class="flex items-center gap-2 mt-2 text-[11px] text-slate-500"
+                        >
+                          <span
+                            class="px-2 py-0.5 bg-white border border-slate-200 rounded"
+                            >Match:
+                            {{ drift.keyword_info_match_type || 'Broad' }}</span
+                          >
+                          <span
+                            class="px-2 py-0.5 bg-white border border-slate-200 rounded"
+                            >Strategy:
+                            {{ formatStrategyFamily(drift.strategy_family) }}</span
+                          >
+                        </div>
+                      </div>
+                      <div class="px-2 text-slate-300">
+                        <ArrowRight class="w-4 h-4" />
+                      </div>
+                      <div class="flex-1 text-right">
+                        <span
+                          class="block text-[10px] uppercase font-bold text-slate-400 mb-1"
+                          >Matched Query</span
+                        >
+                        <div
+                          class="font-mono text-red-700 bg-red-50 px-2 py-1 rounded border border-red-100"
+                        >
+                          {{ drift.search_term }}
+                        </div>
+                        <div
+                          class="flex justify-end gap-2 mt-2 text-[11px] text-slate-500"
+                        >
+                          <span
+                            class="px-2 py-0.5 bg-white border border-slate-200 rounded"
+                            >{{ drift.campaign || 'Unknown campaign' }}</span
+                          >
+                          <span
+                            v-if="drift.ad_group_name"
+                            class="px-2 py-0.5 bg-white border border-slate-200 rounded"
+                            >Ad Group:
+                            {{ drift.ad_group_name.split('/').join(' / ') }}</span
+                          >
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 pt-3 border-t border-slate-200/50 text-sm"
                     >
-                      Add Exact Match
-                    </button>
+                      <div>
+                        <p class="text-[11px] text-slate-500">Spend</p>
+                        <p class="text-sm font-bold text-red-600">
+                          {{ formatCurrency(Number(drift.spend) || 0) }}
+                        </p>
+                      </div>
+                      <div>
+                        <p class="text-[11px] text-slate-500">Clicks / CVR</p>
+                        <p class="text-sm font-bold text-slate-800">
+                          {{ drift.clicks ?? 0 }} clicks ·
+                          {{ formatPercent(drift.cvr ?? 0) }}
+                        </p>
+                      </div>
+                      <div>
+                        <p class="text-[11px] text-slate-500">ROAS</p>
+                        <p class="text-sm font-bold text-slate-800">
+                          {{ formatRoas(drift.roas ?? 0) }}
+                        </p>
+                      </div>
+                      <div class="text-right sm:text-left">
+                        <p class="text-[11px] text-slate-500">Drift Score</p>
+                        <div
+                          class="flex items-center justify-end sm:justify-start gap-2"
+                        >
+                          <div
+                            class="w-16 h-2 bg-white border border-slate-200 rounded-full overflow-hidden"
+                          >
+                            <div
+                              class="h-full bg-orange-400"
+                              :style="{ width: `${Math.min(Math.round(drift.drift_score ?? 0), 100)}%` }"
+                            ></div>
+                          </div>
+                          <span class="text-xs font-semibold text-orange-600">
+                            {{ Math.round(drift.drift_score ?? 0) }}/100
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1639,6 +1816,8 @@ watch(dateRange, () => {
                       <div>
                         <p class="text-xs text-green-800 font-bold">
                           Shift {{ bp.reallocationOpportunity.amount }} to "{{ bp.reallocationOpportunity.targetCampaign
+
+
 
 
 

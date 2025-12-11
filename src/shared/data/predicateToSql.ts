@@ -2,6 +2,8 @@ import jsep from "jsep";
 
 // Configure jsep once with operators we rely on in predicates.
 jsep.addBinaryOp("in", 6);
+jsep.addBinaryOp("IN", 6);
+jsep.addBinaryOp("=", 6);
 jsep.addBinaryOp("AND", 2);
 jsep.addBinaryOp("and", 2);
 jsep.addBinaryOp("OR", 1);
@@ -20,11 +22,17 @@ export function predicateToSql(expression: string, aliasMap: AliasMap = {}): str
 }
 
 function astToSql(node: jsep.Expression, aliasMap: AliasMap): string {
+  if ((node as any).type === "Compound" && (node as any).body) {
+    const compound = node as any;
+    return compound.body.map((expr: jsep.Expression) => astToSql(expr, aliasMap)).join(" ");
+  }
+
   switch (node.type) {
     case "BinaryExpression": {
       const binary = node as jsep.BinaryExpression;
       const left = astToSql(binary.left, aliasMap);
       const op = mapOperator(binary.operator);
+      const opLower = op.toLowerCase();
 
       // Normalize null comparisons to IS [NOT] NULL for SQL correctness
       if (isNullLiteral(binary.right)) {
@@ -37,14 +45,8 @@ function astToSql(node: jsep.Expression, aliasMap: AliasMap): string {
         if (op === "<>") return `${right} IS NOT NULL`;
       }
 
-      if (op.toLowerCase() === "in") {
-        if (binary.right.type !== "ArrayExpression") {
-          throw new Error('Right side of "in" operator must be an array expression.');
-        }
-        const rightVals = (binary.right as jsep.ArrayExpression).elements
-          .filter((e): e is jsep.Expression => e !== null)
-          .map((e) => astToSql(e, aliasMap))
-          .join(", ");
+      if (opLower === "in") {
+        const rightVals = astToSql(binary.right, aliasMap);
         return `${left} IN (${rightVals})`;
       }
 
@@ -83,6 +85,11 @@ function astToSql(node: jsep.Expression, aliasMap: AliasMap): string {
       const callee = astToSql(call.callee, aliasMap);
       const args = call.arguments.map((arg) => astToSql(arg, aliasMap)).join(", ");
       return `${callee}(${args})`;
+    }
+
+    case "SequenceExpression": {
+      const seq = node as jsep.SequenceExpression;
+      return seq.expressions.map((expr) => astToSql(expr, aliasMap)).join(", ");
     }
 
     default:

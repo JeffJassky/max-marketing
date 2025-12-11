@@ -61,7 +61,7 @@ describe('broadMatchDrift pipeline (live)', () => {
 			location: 'US',
 			query: `
           SELECT *
-          FROM 
+          FROM \`${broadMatchDriftSearchTerm.dataset}.${broadMatchDriftSearchTerm.tableName}\`
           ORDER BY detected_at DESC
           LIMIT 10
         `

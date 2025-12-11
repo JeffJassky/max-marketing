@@ -112,6 +112,7 @@ export const windsorEndpoints: Record<
       "campaign_id",
       "ad_group",
       "ad_group_id",
+      "search_term",
       "keyword_info_text",
       "keyword_info_match_type",
       "bidding_strategy_type",

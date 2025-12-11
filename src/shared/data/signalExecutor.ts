@@ -28,7 +28,7 @@ export class SignalExecutor {
     const query = this.buildSnapshotQuery(signal, options);
 
     console.log(`Executing Signal Job for ${signal.id}...`);
-    console.log(query);
+    console.log("Query:\n", query);
 
     const bq = createBigQueryClient();
     const sourceDataset = await getDatasetInfo(
@@ -50,11 +50,21 @@ export class SignalExecutor {
       detected_at: new Date().toISOString(),
     }));
 
+    const clusteringFields = signal.definition.output.keyFields.map(String);
+    const limitedClusteringFields = clusteringFields.slice(0, 4);
+    if (clusteringFields.length > 4) {
+      console.warn(
+        `Clustering fields for signal ${signal.id} exceed BigQuery limit (4). Using first 4: ${limitedClusteringFields.join(
+          ", "
+        )}`
+      );
+    }
+
     await upsertPartitionedClusteredTable(rowsToInsert, {
       datasetId: signal.dataset, // signals
       tableId: signal.tableName, // e.g. wasted_spend_keyword
       partitionField: "detected_at",
-      clusteringFields: signal.definition.output.keyFields.map(String),
+      clusteringFields: limitedClusteringFields,
     });
   }
 

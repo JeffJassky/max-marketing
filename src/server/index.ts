@@ -2,6 +2,7 @@ import "dotenv/config";
 import express, { type Request, type Response } from "express";
 import { createBigQueryClient } from "../shared/vendors/google/bigquery/bigquery";
 import { wastedSpendKeyword } from "../jobs/entities/keyword-daily/signals/wasted-spend-keyword.signal";
+import { broadMatchDriftSearchTerm } from "../jobs/entities/keyword-daily/signals/broad-match-drift.signal";
 import { lowPerformingKeyword } from "../jobs/entities/keyword-daily/signals/low-performing-keyword.signal";
 import { googleAdsCoreKeywordPerformance } from "../jobs/imports/google_ads/core-keyword-performance.import";
 
@@ -86,6 +87,40 @@ app.get(
       res.json(rows);
     } catch (error) {
       console.error("Error fetching low performing keyword signal:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
+
+app.get(
+  "/api/signals/broad-match-drift-search-term",
+  async (req: Request, res: Response) => {
+    const { accountId } = req.query;
+
+    if (!accountId) {
+      return res.status(400).json({ error: "accountId is required" });
+    }
+
+    try {
+      const bq = createBigQueryClient();
+      const signal = broadMatchDriftSearchTerm;
+
+      // The Signal class now generates the query
+      const query = signal.getSignalQuery({ accountId: accountId as string });
+      console.log("[broad-match-drift-search-term] Generated query:");
+      console.log(query);
+
+      const [rows] = await bq.query(query);
+
+      console.log(
+        `[broad-match-drift-search-term] Returned ${rows.length} row(s) for accountId=${accountId}`
+      );
+      res.json(rows);
+    } catch (error) {
+      console.error(
+        "Error fetching broad match drift search term signal:",
+        error
+      );
       res.status(500).json({ error: "Internal server error" });
     }
   }
