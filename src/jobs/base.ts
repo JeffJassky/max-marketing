@@ -93,23 +93,35 @@ type MetricAggregation = "sum" | "avg" | "count" | "min" | "max";
 
 export type EntityDef<S extends BronzeImport<any>> = {
   id: string;
+
   description: string;
+
   source: S;
+
   grain: (keyof z.infer<S["schema"]>["shape"])[];
+
   dimensions: {
     [key: string]: {
       type: z.ZodType;
-      sourceField: keyof z.infer<S["schema"]>["shape"];
+
+      sourceField?: keyof z.infer<S["schema"]>["shape"];
+
+      expression?: string;
     };
   };
+
   metrics: {
     [key: string]: {
       type: z.ZodType;
+
       aggregation: MetricAggregation;
+
       sourceField: keyof z.infer<S["schema"]>["shape"];
     };
   };
+
   partitionBy?: string;
+
   clusterBy?: string[];
 };
 
@@ -136,13 +148,15 @@ export class Entity<S extends BronzeImport<any>> extends BaseData {
   getTransformQuery(): string {
     const sourceTable = this.definition.source.fqn;
 
-    const grainAndDimensionSelects: string[] = [];
+    const grainAndDimensionSelects: (string | import("knex").Knex.Raw)[] = [];
 
     // Add grain to selects
     this.definition.grain.forEach((field) => {
-      const isDim = Object.values(this.definition.dimensions).find(
-        (d) => d.sourceField === field
-      );
+      const isDim =
+        this.definition.dimensions[field as string] ||
+        Object.values(this.definition.dimensions).find(
+          (d) => d.sourceField === field
+        );
       const isMet = Object.values(this.definition.metrics).find(
         (m) => m.sourceField === field
       );
@@ -152,12 +166,16 @@ export class Entity<S extends BronzeImport<any>> extends BaseData {
     });
 
     Object.entries(this.definition.dimensions).forEach(([alias, conf]) => {
-      if (alias === conf.sourceField) {
-        grainAndDimensionSelects.push(alias);
-      } else {
-        grainAndDimensionSelects.push(
-          `${String(conf.sourceField)} AS ${alias}`
-        );
+      if (conf.expression) {
+        grainAndDimensionSelects.push(qb.raw(`${conf.expression} AS ${alias}`));
+      } else if (conf.sourceField) {
+        if (alias === conf.sourceField) {
+          grainAndDimensionSelects.push(alias);
+        } else {
+          grainAndDimensionSelects.push(
+            `${String(conf.sourceField)} AS ${alias}`
+          );
+        }
       }
     });
 
@@ -332,6 +350,11 @@ export type SignalDef<T extends Entity<any>> = {
   output: SignalOutputConfig<T>;
 
   /**
+   * Optional default sorting for the signal results.
+   */
+  orderBy?: { field: string; direction: "asc" | "desc" };
+
+  /**
    * Optional: feature flags / tags for orchestration, ownership, etc.
    */
   tags?: string[];
@@ -443,6 +466,10 @@ export class Signal<T extends Entity<any>> extends BaseData {
     const finalQuery = signalQB
       .from(signalQB.raw(`(${baseQuery}) as t`))
       .select(signalQB.raw(outerSelects.join(", ")));
+
+    if (def.orderBy) {
+      finalQuery.orderByRaw(`${def.orderBy.field} ${def.orderBy.direction}`);
+    }
 
     return finalQuery.toQuery();
   }

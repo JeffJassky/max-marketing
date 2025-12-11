@@ -817,7 +817,7 @@ watch(dateRange, () => {
 </script>
 
 <template>
-  <div class="h-full flex flex-col bg-white min-h-screen">
+  <div class="h-full flex flex-col bg-white">
     <div
       v-if="loading"
       class="flex items-center justify-center h-screen bg-slate-50 w-full"
@@ -1467,16 +1467,23 @@ watch(dateRange, () => {
                   Low-Performing Keywords
                 </h3>
                 <div class="space-y-3">
-                  <div v-if="lowPerformingKeywordSignalsLoading">
+                  <div
+                    v-if="lowPerformingKeywordSignalsLoading"
+                    class="text-sm text-slate-500"
+                  >
                     Loading low-performing keyword signals...
                   </div>
-                  <div v-else-if="lowPerformingKeywordSignalsError">
+                  <div
+                    v-else-if="lowPerformingKeywordSignalsError"
+                    class="text-sm text-red-600"
+                  >
                     {{ lowPerformingKeywordSignalsError }}
                   </div>
                   <div
-                    v-else-if="useKeywordSignals && !filteredLowPerforming.length"
+                    v-else-if="!filteredLowPerforming.length"
+                    class="text-sm text-slate-500"
                   >
-                    No low-performing keyword signals found.
+                    No low performing keywords found.
                   </div>
                   <div
                     v-for="k in filteredLowPerforming"
@@ -1816,6 +1823,7 @@ watch(dateRange, () => {
                       <div>
                         <p class="text-xs text-green-800 font-bold">
                           Shift {{ bp.reallocationOpportunity.amount }} to "{{ bp.reallocationOpportunity.targetCampaign
+
 
 
 

@@ -2,6 +2,15 @@ import { Entity } from "../../base";
 import { googleAdsCoreKeywordPerformance } from "../../imports/google_ads/core-keyword-performance.import";
 import { z } from "zod";
 
+const CONVERSION_FOCUSED_STRATEGIES = [
+  "TARGET_CPA",
+  "TARGET_ROAS",
+  "MAXIMIZE_CONVERSIONS",
+  "MAXIMIZE_CONVERSION_VALUE",
+];
+
+const CLICK_FOCUSED_STRATEGIES = ["TARGET_SPEND", "MANUAL_CPC"];
+
 export const keywordDaily = new Entity({
   id: "keywordDaily",
   description: "Daily keyword performance across ad platforms.",
@@ -19,6 +28,7 @@ export const keywordDaily = new Entity({
     "bidding_strategy_type",
     "campaign",
     "ad_group",
+    "strategy_family",
   ],
   dimensions: {
     date: { type: z.string(), sourceField: "date" },
@@ -37,6 +47,16 @@ export const keywordDaily = new Entity({
     },
     campaign: { type: z.string(), sourceField: "campaign" },
     ad_group_name: { type: z.string(), sourceField: "ad_group" },
+    strategy_family: {
+      type: z.string(),
+      expression: `CASE WHEN bidding_strategy_type IN (${CONVERSION_FOCUSED_STRATEGIES.map(
+        (s) => `'${s}'`
+      ).join(
+        ","
+      )}) THEN 'conversion' WHEN bidding_strategy_type IN (${CLICK_FOCUSED_STRATEGIES.map(
+        (s) => `'${s}'`
+      ).join(",")}) THEN 'click' ELSE 'other' END`,
+    },
   },
   metrics: {
     impressions: {

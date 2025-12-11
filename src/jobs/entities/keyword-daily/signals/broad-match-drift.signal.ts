@@ -1,15 +1,7 @@
 import { Signal } from "../../../base";
 import { keywordDaily } from "../keyword-daily.entity";
 
-const CONVERSION_FOCUSED_STRATEGIES = [
-  "TARGET_CPA",
-  "TARGET_ROAS",
-  "MAXIMIZE_CONVERSIONS",
-  "MAXIMIZE_CONVERSION_VALUE",
-];
-
-const CLICK_FOCUSED_STRATEGIES = ["TARGET_SPEND", "MANUAL_CPC"];
-const MIN_SPEND_THRESHOLD = 10; // $10
+const MIN_SPEND_THRESHOLD = 0;
 
 export const broadMatchDriftSearchTerm = new Signal({
   id: "broadMatchDriftSearchTerm",
@@ -23,13 +15,9 @@ export const broadMatchDriftSearchTerm = new Signal({
     keyword_info_match_type = 'BROAD'
     AND spend > ${MIN_SPEND_THRESHOLD}
     AND (
-      (bidding_strategy_type IN (${CONVERSION_FOCUSED_STRATEGIES.map(
-        (s) => `'${s}'`
-      ).join(",")}) AND conversions = 0)
+      (strategy_family = 'conversion' AND conversions = 0)
       OR
-      (bidding_strategy_type IN (${CLICK_FOCUSED_STRATEGIES.map(
-        (s) => `'${s}'`
-      ).join(",")}) AND clicks = 0)
+      (strategy_family = 'click' AND clicks = 0)
     )
   `,
 
@@ -45,7 +33,7 @@ export const broadMatchDriftSearchTerm = new Signal({
     "ad_group_id",
     "keyword_info_text",
     "search_term",
-    "bidding_strategy_type",
+    "strategy_family",
     "keyword_info_match_type",
   ],
 
@@ -79,8 +67,7 @@ export const broadMatchDriftSearchTerm = new Signal({
         type: "number",
       },
       cpc: {
-        expression:
-          "CASE WHEN clicks > 0 THEN spend / clicks ELSE 0 END",
+        expression: "CASE WHEN clicks > 0 THEN spend / clicks ELSE 0 END",
         type: "number",
       },
       cvr: {
@@ -92,26 +79,14 @@ export const broadMatchDriftSearchTerm = new Signal({
           "CASE WHEN spend > 0 THEN conversions_value / spend ELSE 0 END",
         type: "number",
       },
-      strategy_family: {
-        expression: `
-          CASE
-            WHEN bidding_strategy_type IN (${CONVERSION_FOCUSED_STRATEGIES.map(
-              (s) => `'${s}'`
-            ).join(",")}) THEN 'conversion'
-            WHEN bidding_strategy_type IN (${CLICK_FOCUSED_STRATEGIES.map(
-              (s) => `'${s}'`
-            ).join(",")}) THEN 'click'
-            ELSE 'other'
-          END
-        `,
-        type: "string",
-      },
       drift_score: {
         expression: `(100 * spend) / (spend + 50)`,
         type: "number",
       },
     },
   },
+
+  orderBy: { field: "drift_score", direction: "desc" },
 
   enabled: true,
 });

@@ -1,14 +1,6 @@
 import { Signal } from "../../../base";
 import { keywordDaily } from "../keyword-daily.entity";
 
-const CONVERSION_FOCUSED_STRATEGIES = [
-  "TARGET_CPA",
-  "TARGET_ROAS",
-  "MAXIMIZE_CONVERSIONS",
-  "MAXIMIZE_CONVERSION_VALUE",
-];
-
-const CLICK_FOCUSED_STRATEGIES = ["TARGET_SPEND", "MANUAL_CPC"];
 
 export const wastedSpendKeyword = new Signal({
   id: "wastedSpendKeyword",
@@ -27,13 +19,9 @@ export const wastedSpendKeyword = new Signal({
   // ---------------------------------------------------------
   predicate: `
     keyword_info_text != null AND (
-      (spend > 0 AND bidding_strategy_type in ${JSON.stringify(
-        CONVERSION_FOCUSED_STRATEGIES
-      )} AND conversions == 0)
+      (spend > 0 AND strategy_family = 'conversion' AND conversions == 0)
       OR
-      (spend > 0 AND bidding_strategy_type in ${JSON.stringify(
-        CLICK_FOCUSED_STRATEGIES
-      )} AND clicks == 0)
+      (spend > 0 AND strategy_family = 'click' AND clicks == 0)
     )
   `,
 
@@ -54,7 +42,7 @@ export const wastedSpendKeyword = new Signal({
     "account_id",
     "campaign_id",
     "keyword_info_text",
-    "bidding_strategy_type",
+    "strategy_family",
   ],
 
   // ---------------------------------------------------------
@@ -68,7 +56,7 @@ export const wastedSpendKeyword = new Signal({
       "account_id",
       "campaign_id",
       "keyword_info_text",
-      "bidding_strategy_type",
+      "strategy_family",
     ],
 
     // Non-key label fields to carry through the snapshot
@@ -106,24 +94,10 @@ export const wastedSpendKeyword = new Signal({
         expression: "spend",
         type: "number",
       },
-
-      // Helpful classification for debugging & modeling
-      strategy_family: {
-        expression: `
-          CASE
-            WHEN bidding_strategy_type IN (${CONVERSION_FOCUSED_STRATEGIES.map(
-              (s) => `'${s}'`
-            ).join(",")}) THEN 'conversion'
-            WHEN bidding_strategy_type IN (${CLICK_FOCUSED_STRATEGIES.map(
-              (s) => `'${s}'`
-            ).join(",")}) THEN 'click'
-            ELSE 'other'
-          END
-        `,
-        type: "string",
-      },
     },
   },
+
+  orderBy: { field: "impact", direction: "desc" },
 
   enabled: true,
 });

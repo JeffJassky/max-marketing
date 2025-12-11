@@ -4,14 +4,6 @@ import { keywordDaily } from "../keyword-daily.entity";
 const HIGH_CPA_THRESHOLD = 100; // Example value
 const LOW_ROAS_THRESHOLD = 1.5; // Example value
 
-const CONVERSION_FOCUSED_STRATEGIES = [
-  "TARGET_CPA",
-  "TARGET_ROAS",
-  "MAXIMIZE_CONVERSIONS",
-  "MAXIMIZE_CONVERSION_VALUE",
-];
-
-const CLICK_FOCUSED_STRATEGIES = ["TARGET_SPEND", "MANUAL_CPC"];
 
 export const lowPerformingKeyword = new Signal({
   id: "lowPerformingKeyword",
@@ -30,9 +22,7 @@ export const lowPerformingKeyword = new Signal({
   predicate: `
     keyword_info_text != null AND (
       (
-        bidding_strategy_type in ${JSON.stringify(
-          CONVERSION_FOCUSED_STRATEGIES
-        )}
+        strategy_family = 'conversion'
         AND conversions > 0
         AND (
           (spend > 0 AND (conversions_value / spend) < ${LOW_ROAS_THRESHOLD})
@@ -42,7 +32,7 @@ export const lowPerformingKeyword = new Signal({
       )
       OR
       (
-        bidding_strategy_type in ${JSON.stringify(CLICK_FOCUSED_STRATEGIES)}
+        strategy_family = 'click'
         AND clicks > 0
         AND spend > 0
         AND conversions > 0
@@ -69,7 +59,7 @@ export const lowPerformingKeyword = new Signal({
     "account_id",
     "campaign_id",
     "keyword_info_text",
-    "bidding_strategy_type",
+    "strategy_family",
   ],
 
   // ---------------------------------------------------------
@@ -83,7 +73,7 @@ export const lowPerformingKeyword = new Signal({
       "account_id",
       "campaign_id",
       "keyword_info_text",
-      "bidding_strategy_type",
+      "strategy_family",
     ],
 
     // Non-key label fields to carry through the snapshot
@@ -125,21 +115,9 @@ export const lowPerformingKeyword = new Signal({
       issue: {
         expression: `
           CASE
-            WHEN bidding_strategy_type IN (${CONVERSION_FOCUSED_STRATEGIES.map(
-              (s) => `'${s}'`
-            ).join(
-              ","
-            )}) AND (spend / conversions) > ${HIGH_CPA_THRESHOLD} THEN 'High CPA'
-            WHEN bidding_strategy_type IN (${CONVERSION_FOCUSED_STRATEGIES.map(
-              (s) => `'${s}'`
-            ).join(
-              ","
-            )}) AND (conversions_value / spend) < ${LOW_ROAS_THRESHOLD} THEN 'Low ROAS'
-            WHEN bidding_strategy_type IN (${CLICK_FOCUSED_STRATEGIES.map(
-              (s) => `'${s}'`
-            ).join(
-              ","
-            )}) AND (conversions_value / spend) < ${LOW_ROAS_THRESHOLD} THEN 'Low ROAS (click strategy)'
+            WHEN strategy_family = 'conversion' AND (spend / conversions) > ${HIGH_CPA_THRESHOLD} THEN 'High CPA'
+            WHEN strategy_family = 'conversion' AND (conversions_value / spend) < ${LOW_ROAS_THRESHOLD} THEN 'Low ROAS'
+            WHEN strategy_family = 'click' AND (conversions_value / spend) < ${LOW_ROAS_THRESHOLD} THEN 'Low ROAS (click strategy)'
             ELSE 'Other'
           END
         `,
@@ -159,22 +137,10 @@ export const lowPerformingKeyword = new Signal({
         expression: "spend",
         type: "number",
       },
-      strategy_family: {
-        expression: `
-          CASE
-            WHEN bidding_strategy_type IN (${CONVERSION_FOCUSED_STRATEGIES.map(
-              (s) => `'${s}'`
-            ).join(",")}) THEN 'conversion'
-            WHEN bidding_strategy_type IN (${CLICK_FOCUSED_STRATEGIES.map(
-              (s) => `'${s}'`
-            ).join(",")}) THEN 'click'
-            ELSE 'other'
-          END
-        `,
-        type: "string",
-      },
     },
   },
+
+  orderBy: { field: "impact", direction: "desc" },
 
   enabled: true,
 });
