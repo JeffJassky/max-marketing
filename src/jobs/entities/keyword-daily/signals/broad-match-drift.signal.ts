@@ -79,6 +79,7 @@ export const broadMatchDriftSearchTerm = new Signal({
     },
   },
 
+  // Sort by drift score or spend, as the order should remain the same
   orderBy: { field: "drift_score", direction: "desc" },
 
   enabled: true,

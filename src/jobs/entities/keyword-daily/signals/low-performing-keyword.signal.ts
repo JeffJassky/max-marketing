@@ -61,12 +61,14 @@ export const lowPerformingKeyword = new Signal({
     grain: [
       "account_id",
       "campaign_id",
+      "search_term",
       "keyword_info_text",
       "strategy_family",
+      "keyword_info_match_type",
     ],
 
     // Non-key label fields to carry through the snapshot
-    includeDimensions: ["campaign", "keyword_info_match_type"],
+    includeDimensions: ["campaign"],
 
     metrics: {
       impressions: {

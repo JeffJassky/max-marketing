@@ -72,7 +72,11 @@ describe("CLI job loader", () => {
     const jobs = await discoverJobs();
     const ids = jobs.map((job) => job.id);
 
-    expect(ids).toEqual(["coreKeywordPerformance", "keywordDaily", "wastedSpendKeyword"]);
+    expect(ids).toEqual([
+      "coreKeywordPerformance",
+      "keywordDaily",
+      "wastedSpendKeyword",
+    ]);
   });
 });
 
@@ -87,7 +91,7 @@ describe("CLI job executor", () => {
 
   it("requires a project id for entity jobs", async () => {
     const job = await loadJobFromFilePath(entityPath);
-    await expect(executeJob(job)).rejects.toThrow("BIGQUERY_PROJECT_ID");
+    await expect(executeJob(job)).rejects.toThrow("BIGQUERY_PROJECT");
     await executeJob(job, "my-project");
 
     expect(entityRun).toHaveBeenCalledTimes(1);
@@ -96,7 +100,7 @@ describe("CLI job executor", () => {
 
   it("requires a project id for signal jobs", async () => {
     const job = await loadJobFromFilePath(signalPath);
-    await expect(executeJob(job)).rejects.toThrow("BIGQUERY_PROJECT_ID");
+    await expect(executeJob(job)).rejects.toThrow("BIGQUERY_PROJECT");
     await executeJob(job, "my-project");
 
     expect(signalRun).toHaveBeenCalledTimes(1);

@@ -2,7 +2,6 @@ import { Signal } from "../../../base";
 import { keywordDaily } from "../keyword-daily.entity";
 import { z } from "zod";
 
-
 export const wastedSpendKeyword = new Signal({
   id: "wastedSpendKeyword",
 
@@ -44,18 +43,16 @@ export const wastedSpendKeyword = new Signal({
     grain: [
       "account_id",
       "campaign_id",
+      "search_term",
       "keyword_info_text",
       "strategy_family",
+      "keyword_info_match_type",
     ],
 
     // Non-key label fields to carry through the snapshot
-    includeDimensions: ["campaign", "keyword_info_match_type"],
+    includeDimensions: ["campaign"],
 
     metrics: {
-      impressions: {
-        sourceMetric: "impressions",
-        // default aggregation = sum (from entity)
-      },
       clicks: {
         sourceMetric: "clicks",
       },

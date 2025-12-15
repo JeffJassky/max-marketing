@@ -90,6 +90,7 @@ interface BroadMatchDriftSignal {
 interface LowPerfKeyword {
   id: string;
   keyword: string;
+  searchTerm?: string;
   campaign: string;
   spend: string;
   cpa: string;
@@ -105,6 +106,7 @@ interface LowPerformingKeywordSignal {
   campaign_id?: string;
   campaign?: string;
   keyword_info_text: string;
+  search_term: string;
   spend: number;
   clicks: number;
   impressions: number;
@@ -1182,7 +1184,7 @@ watch(dateRange, () => {
                 <div>
                   <h3 class="font-bold text-slate-900 flex items-center">
                     <Ban class="w-4 h-4 mr-2 text-red-500" />
-                    Negative Keyword Analyzer
+                    Wasted Spend Analysis
                   </h3>
                   <p class="text-xs text-slate-500 mt-1">
                     Search terms with high spend &amp; zero value. Select to
@@ -1216,6 +1218,11 @@ watch(dateRange, () => {
                       <th
                         class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase"
                       >
+                        Matched Keyword
+                      </th>
+                      <th
+                        class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase"
+                      >
                         Campaign
                       </th>
                       <th
@@ -1226,12 +1233,12 @@ watch(dateRange, () => {
                       <th
                         class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase"
                       >
-                        Spend (90d)
+                        Stats
                       </th>
                       <th
                         class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase"
                       >
-                        Stats
+                        Spend (90d)
                       </th>
                     </tr>
                   </thead>
@@ -1276,12 +1283,17 @@ watch(dateRange, () => {
                         <td class="px-6 py-4">
                           <span
                             class="text-sm font-medium text-slate-900 block"
+                            >{{ nk.search_term }}</span
+                          >
+                        </td>
+                        <td class="px-6 py-4">
+                          <span
+                            class="text-sm font-medium text-slate-900 block"
                             >{{ nk.keyword_info_text }}</span
                           >
-                          <span
-                            class="text-xs text-slate-400"
-                            >{{ nk.keyword_info_match_type  || '—' }}</span
-                          >
+                          <span class="text-xs text-slate-400"
+                            >{{ nk.keyword_info_match_type  || '—' }}
+                          </span>
                         </td>
                         <td class="px-6 py-4 text-sm text-slate-700">
                           {{ nk.campaign || 'Unknown' }}
@@ -1293,16 +1305,16 @@ watch(dateRange, () => {
                             {{ nk.strategy_family || 'unknown' }}
                           </span>
                         </td>
-                        <td
-                          class="px-6 py-4 text-sm font-bold text-red-600 text-right"
-                        >
-                          {{ formatCurrency(typeof nk.spend === 'number' ? nk.spend : Number(String(nk.spend ?? 0).replace(/[^0-9.-]/g, '')) || 0) }}
-                        </td>
                         <td class="px-6 py-4 text-right">
                           <div class="text-xs text-slate-500">
                             {{ nk.clicks ?? 0 }} Clicks<br />
                             {{ nk.conversions ?? 0 }} Conv.
                           </div>
+                        </td>
+                        <td
+                          class="px-6 py-4 text-sm font-bold text-red-600 text-right"
+                        >
+                          {{ formatCurrency(typeof nk.spend === 'number' ? nk.spend : Number(String(nk.spend ?? 0).replace(/[^0-9.-]/g, '')) || 0) }}
                         </td>
                       </tr>
                     </template>
@@ -1318,7 +1330,7 @@ watch(dateRange, () => {
                 <div class="flex items-center justify-between mb-6">
                   <h3 class="font-bold text-slate-900 flex items-center">
                     <ArrowRightLeft class="w-4 h-4 mr-2 text-blue-500" />
-                    Match Type Drift
+                    Search Intent Drift
                   </h3>
                   <span class="text-xs text-slate-400"
                     >Broad Match analysis</span
@@ -1436,7 +1448,7 @@ watch(dateRange, () => {
                           {{ formatRoas(drift.roas ?? 0) }}
                         </p>
                       </div>
-                      <div class="text-right sm:text-left">
+                      <div class="text-right sm:text-left" v-if="false">
                         <p class="text-[11px] text-slate-500">Drift Score</p>
                         <div
                           class="flex items-center justify-end sm:justify-start gap-2"
@@ -1464,7 +1476,7 @@ watch(dateRange, () => {
               >
                 <h3 class="font-bold text-slate-900 mb-6 flex items-center">
                   <TrendingDown class="w-4 h-4 mr-2 text-orange-500" />
-                  Low-Performing Keywords
+                  Low-Performing Search Terms
                 </h3>
                 <div class="space-y-3">
                   <div
@@ -1492,7 +1504,14 @@ watch(dateRange, () => {
                   >
                     <div>
                       <p class="text-sm font-bold text-slate-900">
-                        {{ k.keyword_info_text }}
+                        {{ k.search_term }}
+                      </p>
+                      <p
+                        class="text-xs text-slate-500 mb-0.5"
+                        v-if="k.search_term && k.keyword_info_text"
+                      >
+                        Matched Keyword: {{ k.keyword_info_text }} (
+                        {{ k.keyword_info_match_type }} match)
                       </p>
                       <p class="text-xs text-slate-400">{{ k.campaign }}</p>
                       <div class="flex flex-wrap gap-3 mt-1 items-center">
@@ -1823,6 +1842,26 @@ watch(dateRange, () => {
                       <div>
                         <p class="text-xs text-green-800 font-bold">
                           Shift {{ bp.reallocationOpportunity.amount }} to "{{ bp.reallocationOpportunity.targetCampaign
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

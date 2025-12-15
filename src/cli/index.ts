@@ -71,7 +71,9 @@ export const loadJobFromFilePath = async (
 
 export const discoverJobs = async (): Promise<LoadedJob[]> => {
   const matches = (
-    await Promise.all(JOB_PATTERNS.map((pattern) => glob(pattern, GLOB_OPTIONS)))
+    await Promise.all(
+      JOB_PATTERNS.map((pattern) => glob(pattern, GLOB_OPTIONS))
+    )
   ).flat();
 
   const jobs: LoadedJob[] = [];
@@ -113,7 +115,10 @@ const promptForJobs = async (jobs: LoadedJob[]): Promise<LoadedJob[]> => {
         ...groupJobs.map((job) => ({
           name:
             job.type === "import"
-              ? `${(job.instance as BronzeImport<any, any>).definition.platform ?? "unknown"} / ${job.id} (${job.type})`
+              ? `${
+                  (job.instance as BronzeImport<any, any>).definition
+                    .platform ?? "unknown"
+                } / ${job.id} (${job.type})`
               : `${job.id} (${job.type})`,
           value: job,
         })),
@@ -140,8 +145,8 @@ const resolveProjectId = async (
     return undefined;
   }
 
-  if (process.env.BIGQUERY_PROJECT_ID) {
-    return process.env.BIGQUERY_PROJECT_ID;
+  if (process.env.BIGQUERY_PROJECT) {
+    return process.env.BIGQUERY_PROJECT;
   }
 
   const { projectId } = await inquirer.prompt([
@@ -174,7 +179,7 @@ export const executeJob = async (
       }
       case "entity": {
         if (!projectId) {
-          throw new VError("BIGQUERY_PROJECT_ID is required to run entity jobs.");
+          throw new VError("BIGQUERY_PROJECT is required to run entity jobs.");
         }
         const executor = new EntityExecutor(projectId);
         await executor.run(job.instance as Entity<any>);
@@ -182,7 +187,7 @@ export const executeJob = async (
       }
       case "signal": {
         if (!projectId) {
-          throw new VError("BIGQUERY_PROJECT_ID is required to run signal jobs.");
+          throw new VError("BIGQUERY_PROJECT is required to run signal jobs.");
         }
         const executor = new SignalExecutor(projectId);
         await executor.run(job.instance as Signal<any>);
