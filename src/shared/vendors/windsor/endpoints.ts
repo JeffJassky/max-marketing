@@ -240,6 +240,47 @@ export const windsorEndpoints: Record<
     requiredDimensions: ["date"] as const,
     defaultDatePreset: "last_30d",
   },
+  googleAdsCampaignPerformance: {
+    connector: "google_ads",
+    metrics: [
+      "spend",
+      "impressions",
+      "clicks",
+      "conversions",
+      "conversions_value",
+      "video_views",
+      "active_view_impressions",
+    ] as const,
+    dimensions: [
+      "account_id",
+      "account_name",
+      "date",
+      "campaign",
+      "campaign_id",
+      "advertising_channel_type",
+      "advertising_channel_sub_type",
+      "ad_network_type",
+    ] as const,
+    requiredDimensions: ["date"] as const,
+    defaultDatePreset: "last_30d",
+  },
+  googleAdsListingGroupPerformance: {
+    connector: "google_ads",
+    metrics: [
+      "spend",
+      "conversions",
+      "conversions_value",
+    ] as const,
+    dimensions: [
+      "account_id",
+      "account_name",
+      "date",
+      "campaign_id",
+      "offer_id",
+    ] as const,
+    requiredDimensions: ["date"] as const,
+    defaultDatePreset: "last_30d",
+  },
   googleAdsKeywordCpaRanking: {
     connector: "google_ads",
     metrics: [

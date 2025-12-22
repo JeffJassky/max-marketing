@@ -780,9 +780,21 @@ const WINDSOR_GOOGLE_ADS_FIELDS = [
   "device",
   "device_category",
   "ad_network_type",
+  "ad_network_type1",
+  "ad_network_type2",
   "age",
   "gender",
   "date",
+  "advertising_channel_type",
+  "advertising_channel_sub_type",
+  "campaign_advertising_channel_type",
+  "offer_id",
+  "asset_group",
+  "asset_group_id",
+  "listing_group_type",
+  "absolute_top_impression_percentage",
+  "video_views",
+  "active_view_impressions",
 ] as const;
 
 const WINDSOR_INSTAGRAM_FIELDS = [

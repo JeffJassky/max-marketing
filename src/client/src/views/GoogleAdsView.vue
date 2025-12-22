@@ -286,6 +286,20 @@ interface WastedKeywordSignal {
   signal_id: string;
 }
 
+interface PMaxSpendBreakdownSignal {
+  campaign_id: string;
+  campaign: string;
+  total_spend: number;
+  shopping_spend: number;
+  youtube_spend: number;
+  display_spend: number;
+  search_spend: number;
+  other_spend: number;
+  total_conversions: number;
+  shopping_share: number;
+  signal_id: string;
+}
+
 interface ActionLog {
   date: string;
   action: string;
@@ -324,12 +338,15 @@ const accountsError = ref<string | null>(null);
 const wastedKeywordSignals = ref<WastedKeywordSignal[]>([]);
 const broadMatchDriftSignals = ref<BroadMatchDriftSignal[]>([]);
 const lowPerformingKeywordSignals = ref<LowPerformingKeywordSignal[]>([]);
+const pmaxSpendBreakdownSignals = ref<PMaxSpendBreakdownSignal[]>([]);
 const keywordSignalsLoading = ref(false);
 const broadMatchDriftSignalsLoading = ref(false);
 const lowPerformingKeywordSignalsLoading = ref(false);
+const pmaxSpendBreakdownSignalsLoading = ref(false);
 const keywordSignalsError = ref<string | null>(null);
 const broadMatchDriftSignalsError = ref<string | null>(null);
 const lowPerformingKeywordSignalsError = ref<string | null>(null);
+const pmaxSpendBreakdownSignalsError = ref<string | null>(null);
 const lastAccountIdForSignals = ref<string | null>(null);
 
 const selectedNegatives = ref<string[]>([]);
@@ -364,6 +381,72 @@ const tabs = computed(() => [
   { id: GoogleAdsSubView.CAMPAIGN_OPS, label: 'Campaign Ops', icon: Sliders },
   { id: GoogleAdsSubView.ROADMAP, label: 'Roadmap', icon: Calendar }
 ]);
+
+const pmaxTotalSpend = computed(() => {
+  if (pmaxSpendBreakdownSignals.value.length > 0) {
+    return pmaxSpendBreakdownSignals.value.reduce((acc, s) => acc + s.total_spend, 0);
+  }
+  return 1300; // Fallback to mock
+});
+
+const pmaxPowerBreakdown = computed(() => {
+  if (pmaxSpendBreakdownSignals.value.length === 0) {
+    return report.value?.clusterE.pmaxBreakdown || [];
+  }
+
+  let total = 0;
+  let shopping = 0;
+  let youtube = 0;
+  let display = 0;
+  let search = 0;
+
+  pmaxSpendBreakdownSignals.value.forEach((s) => {
+    total += s.total_spend;
+    shopping += s.shopping_spend;
+    youtube += s.youtube_spend;
+    display += s.display_spend;
+    search += s.search_spend;
+  });
+
+  if (total === 0) return [];
+
+  const metrics: PMaxChannelMetric[] = [
+    {
+      channel: 'Shopping',
+      spend: formatCurrency(shopping),
+      roas: '—',
+      conversionValue: '—',
+      percentage: Math.round((shopping / total) * 100),
+      isInferred: false
+    },
+    {
+      channel: 'Search',
+      spend: formatCurrency(search),
+      roas: '—',
+      conversionValue: '—',
+      percentage: Math.round((search / total) * 100),
+      isInferred: true
+    },
+    {
+      channel: 'YouTube',
+      spend: formatCurrency(youtube),
+      roas: '—',
+      conversionValue: '—',
+      percentage: Math.round((youtube / total) * 100),
+      isInferred: true
+    },
+    {
+      channel: 'Display',
+      spend: formatCurrency(display),
+      roas: '—',
+      conversionValue: '—',
+      percentage: Math.round((display / total) * 100),
+      isInferred: true
+    }
+  ];
+
+  return metrics.filter(m => m.percentage > 0).sort((a, b) => b.percentage - a.percentage);
+});
 
 const useKeywordSignals = computed(() => lastAccountIdForSignals.value === selectedAccount.value?.id);
 
@@ -527,6 +610,30 @@ const loadLowPerformingKeywordSignals = async (accountId?: string) => {
   }
 };
 
+const loadPMaxSpendBreakdownSignals = async (accountId?: string) => {
+  const targetAccountId = accountId || selectedAccount.value?.id;
+  if (!targetAccountId) return;
+
+  pmaxSpendBreakdownSignalsLoading.value = true;
+  pmaxSpendBreakdownSignalsError.value = null;
+
+  try {
+    const response = await fetch(`/api/signals/pmax-spend-breakdown?accountId=${encodeURIComponent(targetAccountId)}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch PMax spend breakdown signals: ${response.status}`);
+    }
+    const data = (await response.json()) as PMaxSpendBreakdownSignal[];
+    pmaxSpendBreakdownSignals.value = Array.isArray(data) ? data : [];
+    lastAccountIdForSignals.value = targetAccountId;
+  } catch (err) {
+    console.error(err);
+    pmaxSpendBreakdownSignalsError.value = 'Unable to load PMax spend breakdown signals';
+    pmaxSpendBreakdownSignals.value = [];
+  } finally {
+    pmaxSpendBreakdownSignalsLoading.value = false;
+  }
+};
+
 const loadReport = async (accountId?: string) => {
   loading.value = true;
   try {
@@ -659,7 +766,8 @@ const getFullSuiteReport = async (_clientId: string): Promise<GoogleAdsFullRepor
     ],
     clusterA: {
       negativeKeywords: [],
-      drift: [
+		drift: [
+
         {
           row_id: 'd1',
           account_id: 'client_123',
@@ -801,6 +909,12 @@ watch(
         loadBroadMatchDriftSignals(selectedAccount.value.id);
       }
     }
+    if (tab === GoogleAdsSubView.PMAX_POWER && selectedAccount.value) {
+      const needsRefresh = lastAccountIdForSignals.value !== selectedAccount.value.id;
+      if (needsRefresh || !pmaxSpendBreakdownSignals.value.length) {
+        loadPMaxSpendBreakdownSignals(selectedAccount.value.id);
+      }
+    }
   }
 );
 watch(selectedAccount, (account, prevAccount) => {
@@ -810,6 +924,9 @@ watch(selectedAccount, (account, prevAccount) => {
       loadWastedKeywordSignals(account.id);
       loadLowPerformingKeywordSignals(account.id);
       loadBroadMatchDriftSignals(account.id);
+    }
+    if (activeTab.value === GoogleAdsSubView.PMAX_POWER) {
+      loadPMaxSpendBreakdownSignals(account.id);
     }
   }
 });
@@ -1369,101 +1486,70 @@ watch(dateRange, () => {
                       drift.id ||
                       `${drift.account_id ?? 'acct'}-${drift.campaign_id ?? 'camp'}-${drift.keyword_info_text}-${drift.search_term}`
                     "
-                    class="bg-slate-50 rounded-lg p-4 border border-slate-100"
+                    class="bg-white rounded-lg p-4 border border-slate-200 hover:shadow-sm transition-shadow group"
                   >
-                    <div class="flex items-center justify-between mb-3 text-sm">
-                      <div class="flex-1">
-                        <span
-                          class="block text-[10px] uppercase font-bold text-slate-400 mb-1"
-                          >Keyword</span
-                        >
-                        <div
-                          class="font-mono text-slate-700 bg-white px-2 py-1 rounded border border-slate-200"
-                        >
-                          {{ drift.keyword_info_text }}
+                    <div class="flex items-start justify-between gap-4">
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1.5">
+                          <span
+                            class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-wide"
+                            >Query</span
+                          >
+                          <h4
+                            class="text-sm font-bold text-slate-900 truncate"
+                            :title="drift.search_term"
+                          >
+                            {{ drift.search_term }}
+                          </h4>
                         </div>
+
                         <div
-                          class="flex items-center gap-2 mt-2 text-[11px] text-slate-500"
+                          class="flex items-center text-xs text-slate-500 mb-2"
+                        >
+                          <ArrowRight class="w-3 h-3 mr-1.5 text-slate-300" />
+                          <span class="mr-1.5">Matched:</span>
+                          <span
+                            class="font-mono text-slate-600 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100"
+                            >{{ drift.keyword_info_text }}</span
+                          >
+                          <span class="ml-1.5 text-slate-400"
+                            >({{ drift.keyword_info_match_type || 'Broad'
+                            }})</span
+                          >
+                        </div>
+
+                        <div
+                          class="flex items-center gap-2 text-[11px] text-slate-400"
                         >
                           <span
-                            class="px-2 py-0.5 bg-white border border-slate-200 rounded"
-                            >Match:
-                            {{ drift.keyword_info_match_type || 'Broad' }}</span
+                            class="truncate max-w-[150px]"
+                            :title="drift.campaign"
+                            >{{ drift.campaign }}</span
                           >
-                          <span
-                            class="px-2 py-0.5 bg-white border border-slate-200 rounded"
-                            >Strategy:
-                            {{ formatStrategyFamily(drift.strategy_family) }}</span
-                          >
-                        </div>
-                      </div>
-                      <div class="px-2 text-slate-300">
-                        <ArrowRight class="w-4 h-4" />
-                      </div>
-                      <div class="flex-1 text-right">
-                        <span
-                          class="block text-[10px] uppercase font-bold text-slate-400 mb-1"
-                          >Matched Query</span
-                        >
-                        <div
-                          class="font-mono text-red-700 bg-red-50 px-2 py-1 rounded border border-red-100"
-                        >
-                          {{ drift.search_term }}
-                        </div>
-                        <div
-                          class="flex justify-end gap-2 mt-2 text-[11px] text-slate-500"
-                        >
-                          <span
-                            class="px-2 py-0.5 bg-white border border-slate-200 rounded"
-                            >{{ drift.campaign || 'Unknown campaign' }}</span
-                          >
+                          <span v-if="drift.ad_group_name">•</span>
                           <span
                             v-if="drift.ad_group_name"
-                            class="px-2 py-0.5 bg-white border border-slate-200 rounded"
-                            >Ad Group:
-                            {{ drift.ad_group_name.split('/').join(' / ') }}</span
+                            class="truncate max-w-[150px]"
+                            :title="drift.ad_group_name"
+                            >{{ drift.ad_group_name }}</span
                           >
                         </div>
                       </div>
-                    </div>
-                    <div
-                      class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 pt-3 border-t border-slate-200/50 text-sm"
-                    >
-                      <div>
-                        <p class="text-[11px] text-slate-500">Spend</p>
-                        <p class="text-sm font-bold text-red-600">
+
+                      <div
+                        class="text-right flex-shrink-0 flex flex-col items-end"
+                      >
+                        <div class="text-sm font-bold text-slate-900 mb-1">
                           {{ formatCurrency(Number(drift.spend) || 0) }}
-                        </p>
-                      </div>
-                      <div>
-                        <p class="text-[11px] text-slate-500">Clicks / CVR</p>
-                        <p class="text-sm font-bold text-slate-800">
+                        </div>
+                        <div class="text-xs text-slate-500 mb-1">
                           {{ drift.clicks ?? 0 }} clicks ·
-                          {{ formatPercent(drift.cvr ?? 0) }}
-                        </p>
-                      </div>
-                      <div>
-                        <p class="text-[11px] text-slate-500">ROAS</p>
-                        <p class="text-sm font-bold text-slate-800">
-                          {{ formatRoas(drift.roas ?? 0) }}
-                        </p>
-                      </div>
-                      <div class="text-right sm:text-left" v-if="false">
-                        <p class="text-[11px] text-slate-500">Drift Score</p>
+                          {{ formatPercent(drift.cvr ?? 0) }} CVR
+                        </div>
                         <div
-                          class="flex items-center justify-end sm:justify-start gap-2"
+                          class="text-xs font-medium text-slate-600 bg-slate-50 px-2 py-0.5 rounded border border-slate-100"
                         >
-                          <div
-                            class="w-16 h-2 bg-white border border-slate-200 rounded-full overflow-hidden"
-                          >
-                            <div
-                              class="h-full bg-orange-400"
-                              :style="{ width: `${Math.min(Math.round(drift.drift_score ?? 0), 100)}%` }"
-                            ></div>
-                          </div>
-                          <span class="text-xs font-semibold text-orange-600">
-                            {{ Math.round(drift.drift_score ?? 0) }}/100
-                          </span>
+                          ROAS {{ formatRoas(drift.roas ?? 0) }}
                         </div>
                       </div>
                     </div>
@@ -1514,39 +1600,42 @@ watch(dateRange, () => {
                         {{ k.keyword_info_match_type }} match)
                       </p>
                       <p class="text-xs text-slate-400">{{ k.campaign }}</p>
-                      <div class="flex flex-wrap gap-3 mt-1 items-center">
+                    </div>
+
+                    <div class="flex items-center gap-4">
+                      <div class="flex flex-col items-end text-right">
                         <span
-                          class="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold"
+                          class="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold mb-1"
                           >{{ k.issue }}</span
                         >
-                        <span class="text-xs text-slate-500"
-                          >CPA: {{ formatCurrency(k.cpa) }}</span
-                        >
-                        <span class="text-xs text-slate-500"
-                          >Strategy:
-                          {{ formatStrategyFamily(k.strategy_family) }}</span
-                        >
+                        <span class="text-xs text-slate-500 mb-0.5">
+                          Strategy:
+                          {{ formatStrategyFamily(k.strategy_family) }}
+                        </span>
+                        <div class="text-xs text-slate-500 mb-0.5">
+                          Clicks: {{ k.clicks ?? 0 }} · Conversions:
+                          {{ k.conversions ?? 0 }}
+                        </div>
+                        <span class="text-xs font-bold text-slate-900">
+                          {{ formatCurrency(typeof k.spend === 'number' ? k.spend : Number(String(k.spend ?? 0).replace(/[^0-9.-]/g, '')) || 0) }}
+                        </span>
                       </div>
-                      <div class="text-xs text-slate-500 mt-1">
-                        Clicks: {{ k.clicks ?? 0 }} · Conversions:
-                        {{ k.conversions ?? 0 }}
-                      </div>
+                      <span
+                        v-if="pausedKeywords.includes(k.row_id)"
+                        class="text-xs font-bold text-slate-400 flex items-center"
+                      >
+                        <PauseCircle class="w-3 h-3 mr-1" />
+                        Paused
+                      </span>
+                      <button
+                        v-else
+                        class="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                        title="Pause Keyword"
+                        @click="confirmPauseKeyword(k)"
+                      >
+                        <PauseCircle class="w-5 h-5" />
+                      </button>
                     </div>
-                    <span
-                      v-if="pausedKeywords.includes(k.row_id)"
-                      class="text-xs font-bold text-slate-400 flex items-center"
-                    >
-                      <PauseCircle class="w-3 h-3 mr-1" />
-                      Paused
-                    </span>
-                    <button
-                      v-else
-                      class="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                      title="Pause Keyword"
-                      @click="confirmPauseKeyword(k)"
-                    >
-                      <PauseCircle class="w-5 h-5" />
-                    </button>
                   </div>
                 </div>
               </div>
@@ -1879,6 +1968,7 @@ watch(dateRange, () => {
 
 
 
+
                           }}"
                         </p>
                         <p class="text-[10px] text-green-700">
@@ -2032,6 +2122,20 @@ watch(dateRange, () => {
         <template v-else-if="activeTab === GoogleAdsSubView.PMAX_POWER">
           <div class="max-w-7xl mx-auto space-y-8">
             <div
+              v-if="pmaxSpendBreakdownSignalsLoading"
+              class="flex flex-col items-center justify-center p-12 bg-white rounded-xl border border-slate-200"
+            >
+              <RefreshCw class="w-8 h-8 text-indigo-500 animate-spin mb-4" />
+              <p class="text-slate-500 text-sm font-medium">Crunching black box heuristics...</p>
+            </div>
+            <div
+              v-else-if="pmaxSpendBreakdownSignalsError"
+              class="p-12 bg-white rounded-xl border border-red-100 text-center"
+            >
+              <p class="text-red-600 font-medium">{{ pmaxSpendBreakdownSignalsError }}</p>
+            </div>
+            <div
+              v-else
               class="bg-white rounded-xl shadow-sm border border-slate-200 p-8"
             >
               <div class="flex justify-between items-end mb-8">
@@ -2044,7 +2148,7 @@ watch(dateRange, () => {
                   </p>
                 </div>
                 <div class="text-right">
-                  <p class="text-3xl font-bold text-indigo-600">$1,300</p>
+                  <p class="text-3xl font-bold text-indigo-600">{{ formatCurrency(pmaxTotalSpend) }}</p>
                   <p class="text-xs text-slate-400 font-medium uppercase">
                     Total Spend
                   </p>
@@ -2055,7 +2159,7 @@ watch(dateRange, () => {
                 class="flex h-16 rounded-lg overflow-hidden mb-8 shadow-inner ring-4 ring-slate-50"
               >
                 <div
-                  v-for="(item, idx) in report.clusterE.pmaxBreakdown"
+                  v-for="(item, idx) in pmaxPowerBreakdown"
                   :key="`${item.channel}-${idx}`"
                   class="h-full relative group transition-all hover:opacity-90 flex items-center justify-center"
                   :class="idx % 4 === 0 ? 'bg-blue-500' : idx % 4 === 1 ? 'bg-indigo-500' : idx % 4 === 2 ? 'bg-purple-500' : 'bg-red-500'"
@@ -2077,7 +2181,7 @@ watch(dateRange, () => {
 
               <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div
-                  v-for="(item, idx) in report.clusterE.pmaxBreakdown"
+                  v-for="(item, idx) in pmaxPowerBreakdown"
                   :key="`${item.channel}-card-${idx}`"
                   class="p-4 border border-slate-100 rounded-lg hover:shadow-md transition-shadow relative"
                 >

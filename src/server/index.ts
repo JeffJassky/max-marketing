@@ -4,6 +4,7 @@ import { createBigQueryClient } from "../shared/vendors/google/bigquery/bigquery
 import { wastedSpendKeyword } from "../jobs/entities/keyword-daily/signals/wasted-spend-keyword.signal";
 import { broadMatchDriftSearchTerm } from "../jobs/entities/keyword-daily/signals/broad-match-drift.signal";
 import { lowPerformingKeyword } from "../jobs/entities/keyword-daily/signals/low-performing-keyword.signal";
+import { pmaxSpendBreakdown } from "../jobs/entities/pmax-daily/signals/pmax-spend-breakdown.signal";
 import { googleAdsCoreKeywordPerformance } from "../jobs/imports/google_ads/core-keyword-performance.import";
 
 const app = express();
@@ -29,6 +30,27 @@ app.get("/api/accounts", async (_req: Request, res: Response) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+app.get(
+  "/api/signals/pmax-spend-breakdown",
+  async (req: Request, res: Response) => {
+    const { accountId } = req.query;
+
+    if (!accountId) {
+      return res.status(400).json({ error: "accountId is required" });
+    }
+
+    try {
+      const signal = pmaxSpendBreakdown;
+
+      const rows = await signal.getRows({ accountId: accountId as string });
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching pmax spend breakdown signal:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+);
 
 app.get(
   "/api/signals/wasted-keyword-spend",
