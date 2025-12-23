@@ -119,13 +119,20 @@ export class SignalExecutor {
       if (metric.expression) {
         // A derived metric expression like MAX(date)
         baseSelects.push(`${metric.expression} AS ${alias}`);
-      } else if (metric.sourceMetric) {
-        // Use entity aggregation unless overridden
-        const entityMetric = entity.definition.metrics[metric.sourceMetric];
-        const agg = metric.aggregation ?? entityMetric.aggregation;
-        baseSelects.push(
-          `${agg.toUpperCase()}(${String(entityMetric.sourceField)}) AS ${alias}`
-        );
+      } else {
+        const sourceMetricName = (metric.sourceMetric ?? alias) as string;
+        const entityMetric = entity.definition.metrics[sourceMetricName];
+
+        if (entityMetric) {
+          const agg = metric.aggregation ?? entityMetric.aggregation;
+          baseSelects.push(
+            `${agg.toUpperCase()}(${sourceMetricName}) AS ${alias}`
+          );
+        } else if (metric.aggregation) {
+           baseSelects.push(
+            `${metric.aggregation.toUpperCase()}(${sourceMetricName}) AS ${alias}`
+          );
+        }
       }
       metricAliasMap[alias] = alias;
     });

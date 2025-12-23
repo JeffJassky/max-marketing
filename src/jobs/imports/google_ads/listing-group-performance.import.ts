@@ -22,6 +22,8 @@ export const googleAdsListingGroupPerformance = new BronzeImport({
   },
   metrics: {
     spend: z.number(),
+    clicks: z.number(),
+    impressions: z.number(),
     conversions: z.number(),
     conversions_value: z.number(),
   },

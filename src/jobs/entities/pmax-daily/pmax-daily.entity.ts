@@ -95,15 +95,42 @@ export const pmaxDaily = new (class PMaxDailyEntity extends Entity<
         qb.raw(
           "SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0) as other_spend"
         ),
-        qb.raw(
-          "CASE WHEN SUM(c.video_views) > 0 THEN (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) * 0.3 ELSE 0 END as youtube_spend"
-        ),
-        qb.raw(
-          "CASE WHEN SUM(c.active_view_impressions) > 0 THEN (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) * 0.2 ELSE 0 END as display_spend"
-        ),
-        qb.raw(
-          "(SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) - (CASE WHEN SUM(c.video_views) > 0 THEN (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) * 0.3 ELSE 0 END + CASE WHEN SUM(c.active_view_impressions) > 0 THEN (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) * 0.2 ELSE 0 END) as search_spend"
-        ),
+        qb.raw(`
+          CASE 
+            WHEN (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) <= 0 THEN 0
+            ELSE 
+              -- Calculate weights based on interaction density
+              (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) * 
+              SAFE_DIVIDE(
+                SUM(c.video_views) * 0.05, -- Proxy $0.05 CPV
+                (SUM(c.video_views) * 0.05) + (SUM(c.active_view_impressions) * 0.002) + ((SUM(c.clicks) - COALESCE(SUM(l.shopping_clicks), 0)) * 1.5)
+              )
+          END as youtube_spend
+        `),
+        qb.raw(`
+          CASE 
+            WHEN (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) <= 0 THEN 0
+            ELSE 
+              (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) * 
+              SAFE_DIVIDE(
+                SUM(c.active_view_impressions) * 0.002, -- Proxy $2.00 CPM
+                (SUM(c.video_views) * 0.05) + (SUM(c.active_view_impressions) * 0.002) + ((SUM(c.clicks) - COALESCE(SUM(l.shopping_clicks), 0)) * 1.5)
+              )
+          END as display_spend
+        `),
+        qb.raw(`
+          CASE 
+            WHEN (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) <= 0 THEN 0
+            WHEN ((SUM(c.video_views) * 0.05) + (SUM(c.active_view_impressions) * 0.002) + ((SUM(c.clicks) - COALESCE(SUM(l.shopping_clicks), 0)) * 1.5)) = 0 
+              THEN (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) -- Default to search if no signals
+            ELSE 
+              (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) * 
+              SAFE_DIVIDE(
+                ((SUM(c.clicks) - COALESCE(SUM(l.shopping_clicks), 0)) * 1.5), -- Proxy $1.50 CPC
+                (SUM(c.video_views) * 0.05) + (SUM(c.active_view_impressions) * 0.002) + ((SUM(c.clicks) - COALESCE(SUM(l.shopping_clicks), 0)) * 1.5)
+              )
+          END as search_spend
+        `),
         qb.raw("SUM(c.conversions) as total_conversions"),
         qb.raw(
           "COALESCE(SUM(l.shopping_conversions), 0) as shopping_conversions"
@@ -116,6 +143,7 @@ export const pmaxDaily = new (class PMaxDailyEntity extends Entity<
             "date",
             "campaign_id",
             qb.raw("SUM(spend) as shopping_spend"),
+            qb.raw("SUM(clicks) as shopping_clicks"),
             qb.raw("SUM(conversions) as shopping_conversions")
           )
           .from(`${listingTable}`)

@@ -1,11 +1,30 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, onMounted, watch } from 'vue';
 import VueApexCharts from 'vue3-apexcharts';
 import { useRouter } from 'vue-router';
-import { TrendingUp, ArrowUpRight, ArrowRight, LayoutGrid, Sparkles, Target, Zap } from 'lucide-vue-next';
+import { TrendingUp, ArrowUpRight, ArrowRight, LayoutGrid, Sparkles, Target, Zap, PieChart, Wallet, ChevronDown, CheckCircle, BarChart3 } from 'lucide-vue-next';
 import type { ChartDataPoint } from '../types';
+
 const router = useRouter();
 const ApexChart = VueApexCharts;
+
+interface MaxAccount {
+  id: string;
+  name: string;
+  googleAdsId: string | null;
+  facebookAdsId: string | null;
+}
+
+interface SpendSegment {
+  id: string;
+  label: string;
+  value: number;
+  percent: number;
+  relativePercent: number; // Percent relative to platform total
+  color: string;
+  platform: 'Google' | 'Meta';
+  roas: number;
+}
 
 const dataLifetime: ChartDataPoint[] = [
   { name: 'Jan', actions: 4, value: 300 },
@@ -64,14 +83,202 @@ const focusSeries = computed(() => [
   { name: 'Optimizations', type: 'column', data: currentChartData.value.map((d) => d.actions) },
   { name: 'Value ($)', type: 'line', data: currentChartData.value.map((d) => d.value) }
 ]);
+
+const formatCurrency = (value: number) =>
+  `$${(value || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+const formatRoas = (value: number) =>
+  value > 0 ? `${value.toFixed(1)}x` : '—';
+
+// Accounts State
+const maxAccounts = ref<MaxAccount[]>([]);
+const selectedAccount = ref<MaxAccount | null>(null);
+
+const loadAccountState = () => {
+  const savedAccounts = localStorage.getItem('maxMarketingAccounts');
+  const savedSelectionId = localStorage.getItem('selectedMaxAccountId');
+  
+  if (savedAccounts) {
+    maxAccounts.value = JSON.parse(savedAccounts);
+    if (maxAccounts.value.length > 0) {
+      selectedAccount.value = maxAccounts.value.find(a => a.id === savedSelectionId) || maxAccounts.value[0];
+    } else {
+      selectedAccount.value = null;
+    }
+  }
+};
+
+// Spend Distribution Data
+const spendDataLoading = ref(false);
+const spendDataError = ref<string | null>(null);
+const googleSegments = ref<SpendSegment[]>([]);
+const metaSegments = ref<SpendSegment[]>([]);
+const grandTotal = ref(0);
+const googleTotal = ref(0);
+const metaTotal = ref(0);
+const hoveredSegmentId = ref<string | null>(null);
+
+const loadSpendData = async () => {
+  if (!selectedAccount.value) {
+    resetData();
+    return;
+  }
+  
+  const { googleAdsId, facebookAdsId } = selectedAccount.value;
+  if (!googleAdsId && !facebookAdsId) {
+    resetData();
+    return;
+  }
+
+  spendDataLoading.value = true;
+  spendDataError.value = null;
+
+  try {
+    const fetchers = [];
+    if (googleAdsId) {
+      fetchers.push(fetch(`/api/signals/google-spend-breakdown?accountId=${encodeURIComponent(googleAdsId)}`).then(r => r.json()));
+    } else {
+      fetchers.push(Promise.resolve([]));
+    }
+
+    if (facebookAdsId) {
+      fetchers.push(fetch(`/api/signals/facebook-spend-breakdown?accountId=${encodeURIComponent(facebookAdsId)}`).then(r => r.json()));
+    } else {
+      fetchers.push(Promise.resolve([]));
+    }
+
+    const [googleData, fbData] = await Promise.all(fetchers);
+
+    const googleCategories: any[] = Array.isArray(googleData) ? googleData : [];
+    const metaCategories: any[] = Array.isArray(fbData) ? fbData : [];
+
+    let totalG = 0;
+    let totalM = 0;
+    const gSegs: SpendSegment[] = [];
+    const mSegs: SpendSegment[] = [];
+    
+    const googleCatColors: string[] = ['#4285F4', '#34A853', '#FBBC05', '#EA4335', '#1a73e8'];
+    const metaCatColors: string[] = ['#0668E1', '#833AB4', '#E1306C', '#C13584', '#FD1D1D'];
+
+    googleCategories.forEach((item, idx) => {
+      const val = Number(item.spend) || 0;
+      if (val > 0) {
+        totalG += val;
+        gSegs.push({
+          id: `g-${idx}`,
+          label: item.category,
+          value: val,
+          percent: 0,
+          relativePercent: 0,
+          color: googleCatColors[idx % googleCatColors.length],
+          platform: 'Google',
+          roas: Number(item.roas) || 0
+        });
+      }
+    });
+
+    metaCategories.forEach((item, idx) => {
+      const val = Number(item.spend) || 0;
+      if (val > 0) {
+        totalM += val;
+        mSegs.push({
+          id: `m-${idx}`,
+          label: item.category,
+          value: val,
+          percent: 0,
+          relativePercent: 0,
+          color: metaCatColors[idx % metaCatColors.length],
+          platform: 'Meta',
+          roas: Number(item.roas) || 0
+        });
+      }
+    });
+
+    // Sort
+    gSegs.sort((a, b) => b.value - a.value);
+    mSegs.sort((a, b) => b.value - a.value);
+
+    const total = totalG + totalM;
+
+    // Calculate percentages
+    if (total > 0) {
+      gSegs.forEach(s => {
+        s.percent = (s.value / total) * 100;
+        s.relativePercent = (s.value / totalG) * 100;
+      });
+      mSegs.forEach(s => {
+        s.percent = (s.value / total) * 100;
+        s.relativePercent = (s.value / totalM) * 100;
+      });
+    }
+
+    grandTotal.value = total;
+    googleTotal.value = totalG;
+    metaTotal.value = totalM;
+    googleSegments.value = gSegs;
+    metaSegments.value = mSegs;
+
+  } catch (error) {
+    console.error('Failed to load spend data', error);
+    spendDataError.value = 'Failed to load spend data.';
+    resetData();
+  } finally {
+    spendDataLoading.value = false;
+  }
+};
+
+const resetData = () => {
+  grandTotal.value = 0;
+  googleTotal.value = 0;
+  metaTotal.value = 0;
+  googleSegments.value = [];
+  metaSegments.value = [];
+};
+
+const googleWidth = computed(() => {
+  if (grandTotal.value === 0) return 0;
+  return (googleTotal.value / grandTotal.value) * 100;
+});
+
+const metaWidth = computed(() => {
+  if (grandTotal.value === 0) return 0;
+  return (metaTotal.value / grandTotal.value) * 100;
+});
+
+const googleAvgRoas = computed(() => {
+  if (googleTotal.value === 0) return 0;
+  const weightedSum = googleSegments.value.reduce((acc, s) => acc + (s.value * s.roas), 0);
+  return weightedSum / googleTotal.value;
+});
+
+const metaAvgRoas = computed(() => {
+  if (metaTotal.value === 0) return 0;
+  const weightedSum = metaSegments.value.reduce((acc, s) => acc + (s.value * s.roas), 0);
+  return weightedSum / metaTotal.value;
+});
+
+onMounted(() => {
+  loadAccountState();
+  window.addEventListener('accounts-updated', () => {
+    loadAccountState();
+  });
+});
+
+watch(selectedAccount, () => {
+  loadSpendData();
+});
 </script>
 
 <template>
   <div class="flex-1 flex flex-col h-full overflow-hidden bg-stone-50">
     <section class="p-8 font-sans animate-in fade-in duration-500 overflow-y-auto h-full pb-20">
+      
+      <!-- Welcome Header -->
       <div class="mb-8 flex justify-between items-end">
         <div>
-          <h1 class="text-3xl font-bold text-slate-800">Ready to win the week, Alex?</h1>
+          <h1 class="text-3xl font-bold text-slate-800">
+            {{ selectedAccount ? `Ready to win, ${selectedAccount.name}?` : 'Welcome to Maxed Marketing' }}
+          </h1>
           <p class="text-slate-500 mt-1 max-w-2xl">
             You've unlocked <span class="font-bold text-amplify-purple">$9,500</span> in lifetime value.
             We found <span class="font-bold text-slate-800">1 high-impact action</span> for you today.
@@ -80,6 +287,7 @@ const focusSeries = computed(() => [
         <div class="text-[10px] text-amplify-purple font-mono">Design ID: L3-MOMENTUM</div>
       </div>
 
+      <!-- Momentum Chart -->
       <div class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm mb-8">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div>
@@ -87,7 +295,7 @@ const focusSeries = computed(() => [
               <TrendingUp :size="20" class="text-amplify-green fill-amplify-green/20" />
               Maxed Momentum
             </h3>
-            <p class="text-xs text-slate-400">
+            <p class="text-xs text-slate-400 text-slate-800">
               <span v-if="timeRange === 'lifetime'">Your cumulative value unlocked since joining Maxed.</span>
               <span v-else-if="timeRange === 'ytd'">Value unlocked since January 1st.</span>
               <span v-else>Recent optimization impact (Last 90 Days).</span>
@@ -122,6 +330,170 @@ const focusSeries = computed(() => [
         </div>
       </div>
 
+      <!-- Spend Breakdown (Full Width Card) -->
+      <div class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm mb-8">
+        <div class="flex justify-between items-center mb-6">
+          <div>
+            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <BarChart3 :size="20" class="text-blue-500 fill-blue-500/20" />
+              Marketing Spend Breakdown
+            </h3>
+            <p class="text-xs text-slate-400">Total spend across connected platforms (90d).</p>
+          </div>
+          <div class="text-right">
+            <div class="text-2xl font-bold text-slate-800">{{ formatCurrency(grandTotal) }}</div>
+            <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total Spend</div>
+          </div>
+        </div>
+
+        <div v-if="spendDataLoading" class="py-8 flex justify-center">
+          <div class="w-8 h-8 border-4 border-indigo-200 border-t-indigo-500 rounded-full animate-spin"></div>
+        </div>
+        
+        <div v-else-if="spendDataError" class="py-8 text-center text-red-500 text-sm">
+          {{ spendDataError }}
+        </div>
+
+        <div v-else-if="grandTotal === 0" class="py-8 text-center text-slate-400 text-sm italic">
+          No spend data available. Check your account settings.
+        </div>
+
+        <template v-else>
+          <!-- Split Stacked Bar Container -->
+          <div class="w-full flex mb-10 rounded-xl overflow-hidden bg-slate-50 border border-slate-100">
+            <!-- Google Group -->
+            <div v-if="googleTotal > 0" class="flex flex-col gap-y-[2px]" :style="{ width: `${googleWidth}%` }">
+              <!-- Row 1: Categories -->
+              <div class="h-8 w-full flex">
+                <div 
+                  v-for="segment in googleSegments" 
+                  :key="segment.id"
+                  class="h-full transition-all duration-300 relative group cursor-pointer border-r border-white/20 last:border-0"
+                  :class="{ 'opacity-100 z-10': hoveredSegmentId === segment.id, 'opacity-70': hoveredSegmentId && hoveredSegmentId !== segment.id }"
+                  :style="{ width: `${segment.relativePercent}%`, backgroundColor: segment.color }"
+                  @mouseenter="hoveredSegmentId = segment.id"
+                  @mouseleave="hoveredSegmentId = null"
+                >
+                  <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none">
+                    {{ segment.label }}: {{ formatCurrency(segment.value) }}
+                    <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900"></div>
+                  </div>
+                </div>
+              </div>
+              <!-- Row 2: Platform Line -->
+              <div class="h-1.5 w-full bg-[#EA4335]"></div>
+            </div>
+
+            <!-- Meta Group -->
+            <div v-if="metaTotal > 0" class="flex flex-col border-l border-white gap-y-[2px]" :style="{ width: `${metaWidth}%` }">
+              <!-- Row 1: Categories -->
+              <div class="h-8 w-full flex">
+                <div 
+                  v-for="segment in metaSegments" 
+                  :key="segment.id"
+                  class="h-full transition-all duration-300 relative group cursor-pointer border-r border-white/20 last:border-0"
+                  :class="{ 'opacity-100 z-10': hoveredSegmentId === segment.id, 'opacity-70': hoveredSegmentId && hoveredSegmentId !== segment.id }"
+                  :style="{ width: `${segment.relativePercent}%`, backgroundColor: segment.color }"
+                  @mouseenter="hoveredSegmentId = segment.id"
+                  @mouseleave="hoveredSegmentId = null"
+                >
+                  <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none">
+                    {{ segment.label }}: {{ formatCurrency(segment.value) }}
+                    <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900"></div>
+                  </div>
+                </div>
+              </div>
+              <!-- Row 2: Platform Line -->
+              <div class="h-1.5 w-full bg-[#0668E1]"></div>
+            </div>
+          </div>
+
+          <!-- Breakdown Cards Grouped -->
+          <div class="space-y-10">
+            <!-- Google Ads Section -->
+            <div v-if="googleTotal > 0">
+              <div class="flex items-center justify-between mb-4 border-b border-stone-100 pb-2">
+                <h4 class="text-sm font-bold text-slate-700 flex items-center">
+                  <Target class="w-4 h-4 mr-2 text-[#EA4335]" />
+                  Google Ads Breakdown
+                </h4>
+                <div class="flex gap-6 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  <div>Share <span class="text-slate-700 ml-1">{{ googleWidth.toFixed(1) }}%</span></div>
+                  <div>Total <span class="text-slate-700 ml-1">{{ formatCurrency(googleTotal) }}</span></div>
+                  <div>Avg ROAS <span class="text-green-600 ml-1">{{ formatRoas(googleAvgRoas) }}</span></div>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                <div 
+                  v-for="segment in googleSegments" 
+                  :key="segment.id"
+                  class="bg-stone-50 rounded-xl p-3 border transition-all duration-300 cursor-default"
+                  :class="[
+                    hoveredSegmentId === segment.id ? 'border-indigo-400 bg-indigo-50/50 shadow-md transform -translate-y-1' : 'border-stone-100',
+                    { 'opacity-50 grayscale-[0.5]': hoveredSegmentId && hoveredSegmentId !== segment.id }
+                  ]"
+                  @mouseenter="hoveredSegmentId = segment.id"
+                  @mouseleave="hoveredSegmentId = null"
+                >
+                  <div class="flex items-center gap-2 mb-2 overflow-hidden">
+                    <div class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: segment.color }"></div>
+                    <span class="text-xs font-bold text-slate-700 truncate" :title="segment.label">{{ segment.label }}</span>
+                  </div>
+                  <div class="flex items-baseline justify-between mb-1">
+                    <span class="text-sm font-bold text-slate-800">{{ formatCurrency(segment.value) }}</span>
+                    <span class="text-[10px] font-bold text-slate-400">{{ segment.percent.toFixed(1) }}%</span>
+                  </div>
+                  <div class="text-[10px] text-slate-400">
+                    ROAS: <span class="font-bold text-slate-600">{{ formatRoas(segment.roas) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Meta Ads Section -->
+            <div v-if="metaTotal > 0">
+              <div class="flex items-center justify-between mb-4 border-b border-stone-100 pb-2">
+                <h4 class="text-sm font-bold text-slate-700 flex items-center">
+                  <div class="w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center text-[8px] text-white font-bold mr-2 uppercase">f</div>
+                  Meta Ads Breakdown
+                </h4>
+                <div class="flex gap-6 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  <div>Share <span class="text-slate-700 ml-1">{{ metaWidth.toFixed(1) }}%</span></div>
+                  <div>Total <span class="text-slate-700 ml-1">{{ formatCurrency(metaTotal) }}</span></div>
+                  <div>Avg ROAS <span class="text-green-600 ml-1">{{ formatRoas(metaAvgRoas) }}</span></div>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                <div 
+                  v-for="segment in metaSegments" 
+                  :key="segment.id"
+                  class="bg-stone-50 rounded-xl p-3 border transition-all duration-300 cursor-default"
+                  :class="[
+                    hoveredSegmentId === segment.id ? 'border-indigo-400 bg-indigo-50/50 shadow-md transform -translate-y-1' : 'border-stone-100',
+                    { 'opacity-50 grayscale-[0.5]': hoveredSegmentId && hoveredSegmentId !== segment.id }
+                  ]"
+                  @mouseenter="hoveredSegmentId = segment.id"
+                  @mouseleave="hoveredSegmentId = null"
+                >
+                  <div class="flex items-center gap-2 mb-2 overflow-hidden">
+                    <div class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: segment.color }"></div>
+                    <span class="text-xs font-bold text-slate-700 truncate" :title="segment.label">{{ segment.label }}</span>
+                  </div>
+                  <div class="flex items-baseline justify-between mb-1">
+                    <span class="text-sm font-bold text-slate-800">{{ formatCurrency(segment.value) }}</span>
+                    <span class="text-[10px] font-bold text-slate-400">{{ segment.percent.toFixed(1) }}%</span>
+                  </div>
+                  <div class="text-[10px] text-slate-400">
+                    ROAS: <span class="font-bold text-slate-600">{{ formatRoas(segment.roas) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Priority Focus & Grid -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div class="lg:col-span-2 space-y-6">
           <h3 class="text-lg font-bold text-slate-800">Priority Focus</h3>
@@ -138,8 +510,8 @@ const focusSeries = computed(() => [
                   <div class="text-lg font-bold text-green-600">+$420.00<span class="text-xs text-slate-400 font-normal">/mo</span></div>
                 </div>
               </div>
-              <h4 class="text-xl font-bold text-slate-800 mb-2">Negative Keyword Opportunity</h4>
-              <p class="text-slate-500 mb-6 max-w-lg leading-relaxed">
+              <h4 class="text-xl font-bold text-slate-800 mb-2 text-slate-800">Negative Keyword Opportunity</h4>
+              <p class="text-slate-500 mb-6 max-w-lg leading-relaxed text-slate-800">
                 We've detected high spend on the term "free guitars" which has a 95% bounce rate. Blocking this will improve your ROAS immediately.
               </p>
               <div class="flex items-center gap-3 flex-wrap">
@@ -163,7 +535,7 @@ const focusSeries = computed(() => [
 
           <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mt-8">Up Next</h3>
           <div class="space-y-3">
-            <div class="bg-white rounded-2xl p-4 border border-stone-100 flex items-center justify-between hover:border-amplify-green transition-colors cursor-pointer group">
+            <div class="bg-white rounded-2xl p-4 border border-stone-100 flex items-center justify-between hover:border-amplify-green transition-colors cursor-pointer group text-slate-800">
               <div class="flex items-center gap-4">
                 <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
                   <LayoutGrid :size="20" />
@@ -184,7 +556,7 @@ const focusSeries = computed(() => [
               </div>
             </div>
 
-            <div class="bg-white rounded-2xl p-4 border border-stone-100 flex items-center justify-between hover:border-amplify-green transition-colors cursor-pointer group">
+            <div class="bg-white rounded-2xl p-4 border border-stone-100 flex items-center justify-between hover:border-amplify-green transition-colors cursor-pointer group text-slate-800">
               <div class="flex items-center gap-4">
                 <div class="w-10 h-10 rounded-full bg-purple-50 text-amplify-purple flex items-center justify-center">
                   <Sparkles :size="20" />
@@ -205,7 +577,7 @@ const focusSeries = computed(() => [
               </div>
             </div>
 
-            <div class="bg-white rounded-2xl p-4 border border-stone-100 flex items-center justify-between hover:border-amplify-green transition-colors cursor-pointer group">
+            <div class="bg-white rounded-2xl p-4 border border-stone-100 flex items-center justify-between hover:border-amplify-green transition-colors cursor-pointer group text-slate-800">
               <div class="flex items-center gap-4">
                 <div class="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
                   <Target :size="20" />
@@ -231,7 +603,7 @@ const focusSeries = computed(() => [
         <div class="space-y-6">
           <h3 class="text-lg font-bold text-slate-800">Active Apps</h3>
           <div class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm space-y-6">
-            <div class="flex items-start gap-4 pb-6 border-b border-stone-50">
+            <div class="flex items-start gap-4 pb-6 border-b border-stone-50 text-slate-800">
               <div class="mt-1">
                 <div class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
               </div>
@@ -241,7 +613,7 @@ const focusSeries = computed(() => [
                 <p class="text-[10px] text-slate-400 mt-0.5">Last check: 20m ago</p>
               </div>
             </div>
-            <div class="flex items-start gap-4 pb-6 border-b border-stone-50">
+            <div class="flex items-start gap-4 pb-6 border-b border-stone-50 text-slate-800">
               <div class="mt-1">
                 <div class="w-2 h-2 rounded-full bg-slate-300" />
               </div>
@@ -250,7 +622,7 @@ const focusSeries = computed(() => [
                 <p class="text-xs text-slate-400 mt-1">Ready for input</p>
               </div>
             </div>
-            <div class="flex items-start gap-4">
+            <div class="flex items-start gap-4 text-slate-800">
               <div class="mt-1">
                 <div class="w-2 h-2 rounded-full bg-amber-400" />
               </div>

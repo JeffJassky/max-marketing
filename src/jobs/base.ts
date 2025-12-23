@@ -175,7 +175,10 @@ export type EntityDef<S extends BronzeImport<any, any>> = {
       aggregation: MetricAggregation;
 
       /** The field name in the source schema to aggregate. */
-      sourceField: keyof z.infer<S["schema"]>;
+      sourceField?: keyof z.infer<S["schema"]>;
+
+      /** Optional SQL expression for the metric (overrides sourceField). */
+      expression?: string;
     };
   };
 
@@ -251,6 +254,9 @@ export class Entity<S extends BronzeImport<any, any>> extends BaseData {
 
     const metricSelects = Object.entries(this.definition.metrics).map(
       ([alias, conf]) => {
+        if (conf.expression) {
+          return qb.raw(`${conf.expression} AS ${alias}`);
+        }
         return qb.raw(
           `${conf.aggregation.toUpperCase()}(${String(
             conf.sourceField
@@ -593,20 +599,36 @@ export class Signal<
     });
 
     const metricAliasMap: Record<string, string> = {};
+    console.log(`[DEBUG] metrics keys: ${Object.keys(def.output.metrics).join(", ")}`);
     Object.entries(def.output.metrics).forEach(([alias, metric]) => {
       if (metric.expression) {
         baseSelects.push(`${metric.expression} AS ${alias}`);
-      } else if (metric.sourceMetric) {
-        const entityMetric = entity.definition.metrics[metric.sourceMetric as keyof typeof entity.definition.metrics];
-        const agg = metric.aggregation ?? entityMetric.aggregation;
-        baseSelects.push(
-          `${agg.toUpperCase()}(${String(
-            entityMetric.sourceField
-          )}) AS ${alias}`
-        );
+      } else {
+        // Determine the column name on the source Entity
+        const sourceMetricName = (metric.sourceMetric ?? alias) as string;
+
+        // Look up the metric definition on the Entity to get default aggregation
+        const entityMetric =
+          entity.definition.metrics[
+            sourceMetricName as keyof typeof entity.definition.metrics
+          ];
+
+        if (entityMetric) {
+          const agg = metric.aggregation ?? entityMetric.aggregation;
+          baseSelects.push(
+            `${agg.toUpperCase()}(${sourceMetricName}) AS ${alias}`
+          );
+        } else if (metric.aggregation) {
+          // Fallback: if aggregation is explicit but metric not found in entity def (rare), assume column exists
+          baseSelects.push(
+            `${metric.aggregation.toUpperCase()}(${sourceMetricName}) AS ${alias}`
+          );
+        }
       }
       metricAliasMap[alias] = alias;
     });
+
+    console.log(`[DEBUG] baseSelects: ${baseSelects.join(" | ")}`);
 
     const baseQueryBuilder = signalQB
       .from(signalQB.raw(`\`${table}\``))

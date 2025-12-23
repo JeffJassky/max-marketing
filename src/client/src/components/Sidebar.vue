@@ -17,6 +17,7 @@ import {
   Star,
   Globe
 } from 'lucide-vue-next';
+import AccountSelector from './AccountSelector.vue';
 const router = useRouter();
 const route = useRoute();
 
@@ -69,6 +70,8 @@ const isChildActive = (childPath: string) => route.path === childPath;
         </div>
       </div>
     </div>
+
+    <AccountSelector />
 
     <nav class="flex-1 px-3 space-y-1 mt-4">
       <div class="px-3 mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Apps</div>

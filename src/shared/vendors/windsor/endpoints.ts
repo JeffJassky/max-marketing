@@ -268,6 +268,8 @@ export const windsorEndpoints: Record<
     connector: "google_ads",
     metrics: [
       "spend",
+      "clicks",
+      "impressions",
       "conversions",
       "conversions_value",
     ] as const,

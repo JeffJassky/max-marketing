@@ -3,6 +3,7 @@ import DashboardView from '../views/DashboardView.vue';
 import BrandVoiceView from '../views/BrandVoiceView.vue';
 import GoogleAdsView from '../views/GoogleAdsView.vue';
 import SocialSparkView from '../views/SocialSparkView.vue';
+import SettingsView from '../views/SettingsView.vue';
 
 export const routes: RouteRecordRaw[] = [
   { path: '/', name: 'dashboard', component: DashboardView },
@@ -11,5 +12,5 @@ export const routes: RouteRecordRaw[] = [
   { path: '/google-ads', name: 'google-ads', component: GoogleAdsView },
   { path: '/social-spark', name: 'social-spark', component: SocialSparkView },
   { path: '/local-seo', name: 'local-seo', component: BrandVoiceView },
-  { path: '/settings', name: 'settings', component: DashboardView }
+  { path: '/settings', name: 'settings', component: SettingsView }
 ];
