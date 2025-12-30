@@ -122,7 +122,7 @@ export const pmaxDaily = new (class PMaxDailyEntity extends Entity<
           CASE 
             WHEN (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) <= 0 THEN 0
             WHEN ((SUM(c.video_views) * 0.05) + (SUM(c.active_view_impressions) * 0.002) + ((SUM(c.clicks) - COALESCE(SUM(l.shopping_clicks), 0)) * 1.5)) = 0 
-              THEN (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) -- Default to search if no signals
+              THEN (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) -- Default to search if no aggregateReports
             ELSE 
               (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) * 
               SAFE_DIVIDE(

@@ -4,65 +4,68 @@ import {
 } from "../vendors/google/bigquery/bigquery";
 import { getDatasetInfo, resolveDatasetLocation } from "./bigQueryLocation";
 import knex from "knex";
-import type { Signal } from "../../jobs/base";
+import type { AggregateReport } from "../../jobs/base";
 import { predicateToSql } from "./predicateToSql";
 
 const qb = knex({ client: "pg" }); // knex for SQL generation (BQ uses Standard SQL but this is fine for query text)
 
-export interface SignalRunOptions {
+export interface AggregateReportRunOptions {
   startDate?: string; // YYYY-MM-DD
   endDate?: string; // YYYY-MM-DD
   accountId?: string;
 }
 
-export class SignalExecutor {
+export class AggregateReportExecutor {
   constructor(private readonly projectId: string) {}
 
   // ======================================================
   // PUBLIC: Single entry point
   // ======================================================
   async run(
-    signal: Signal<any>,
-    options: SignalRunOptions = {}
+    aggregateReport: AggregateReport<any>,
+    options: AggregateReportRunOptions = {}
   ): Promise<void> {
-    const query = this.buildSnapshotQuery(signal, options);
+    const query = this.buildSnapshotQuery(aggregateReport, options);
 
-    console.log(`Executing Signal Job for ${signal.id}...`);
+    console.log(`Executing AggregateReport Job for ${aggregateReport.id}...`);
     console.log("Query:\n", query);
 
     const bq = createBigQueryClient();
     const sourceDataset = await getDatasetInfo(
       bq,
-      signal.definition.source.dataset
+      aggregateReport.definition.source.dataset
     );
     const location = resolveDatasetLocation(sourceDataset);
     const [job] = await bq.createQueryJob({ query, location });
     const [rows] = await job.getQueryResults();
 
-    console.log(`Found ${rows.length} aggregated signals.`);
+    console.log(`Found ${rows.length} aggregated aggregateReports.`);
 
     if (rows.length === 0) return;
 
     // Add metadata fields (schema includes these)
     const rowsToInsert = rows.map((row) => ({
       ...row,
-      signal_id: signal.id,
+      report_id: aggregateReport.id,
       detected_at: new Date().toISOString(),
     }));
 
-    const clusteringFields = signal.definition.output.grain.map(String);
+    const clusteringFields =
+      aggregateReport.definition.output.grain.map(String);
     const limitedClusteringFields = clusteringFields.slice(0, 4);
     if (clusteringFields.length > 4) {
       console.warn(
-        `Clustering fields for signal ${signal.id} exceed BigQuery limit (4). Using first 4: ${limitedClusteringFields.join(
+        `Clustering fields for aggregateReport ${
+          aggregateReport.id
+        } exceed BigQuery limit (4). Using first 4: ${limitedClusteringFields.join(
           ", "
         )}`
       );
     }
 
     await upsertPartitionedClusteredTable(rowsToInsert, {
-      datasetId: signal.dataset, // signals
-      tableId: signal.tableName, // e.g. wasted_spend_keyword
+      datasetId: aggregateReport.dataset, // aggregateReports
+      tableId: aggregateReport.tableName, // e.g. wasted_spend_keyword
       partitionField: "detected_at",
       clusteringFields: limitedClusteringFields,
     });
@@ -72,11 +75,11 @@ export class SignalExecutor {
   // SNAPSHOT BUILDER (the real engine)
   // ======================================================
   private buildSnapshotQuery(
-    signal: Signal<any>,
-    options: SignalRunOptions
+    aggregateReport: AggregateReport<any>,
+    options: AggregateReportRunOptions
   ): string {
-    const def = signal.definition;
-    const entity = signal.definition.source;
+    const def = aggregateReport.definition;
+    const entity = aggregateReport.definition.source;
     const table = entity.fqn;
     const groupByFields = def.output.grain.map(String);
 
@@ -129,7 +132,7 @@ export class SignalExecutor {
             `${agg.toUpperCase()}(${sourceMetricName}) AS ${alias}`
           );
         } else if (metric.aggregation) {
-           baseSelects.push(
+          baseSelects.push(
             `${metric.aggregation.toUpperCase()}(${sourceMetricName}) AS ${alias}`
           );
         }
@@ -183,7 +186,7 @@ export class SignalExecutor {
       }
     }
 
-    outerSelects.push(`'${def.id}' AS signal_id`);
+    outerSelects.push(`'${def.id}' AS report_id`);
     outerSelects.push(`CURRENT_TIMESTAMP() AS detected_at`);
 
     const finalQuery = qb

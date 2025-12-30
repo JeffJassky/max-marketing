@@ -1,8 +1,8 @@
-import { Signal } from "../../../base";
+import { AggregateReport } from "../../../base";
 import { pmaxDaily } from "../pmax-daily.entity";
 import { z } from "zod";
 
-export const pmaxSpendBreakdown = new Signal({
+export const pmaxSpendBreakdown = new AggregateReport({
   id: "pmaxSpendBreakdown",
   description:
     "Breakdown of PMax spend into Shopping vs Other (Search, Display, Video).",
@@ -47,8 +47,7 @@ export const pmaxSpendBreakdown = new Signal({
     },
     derivedFields: {
       shopping_share: {
-        expression:
-          "SAFE_DIVIDE(shopping_spend, total_spend)",
+        expression: "SAFE_DIVIDE(shopping_spend, total_spend)",
         type: z.number(),
       },
     },

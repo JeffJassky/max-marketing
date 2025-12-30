@@ -27,7 +27,7 @@ export const keywordDaily = new Entity({
     "keyword_info_match_type",
     "bidding_strategy_type",
     "campaign",
-    "ad_group",
+    "ad_group_name",
   ],
   dimensions: {
     date: { type: z.string(), sourceField: "date" },

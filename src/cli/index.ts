@@ -6,15 +6,21 @@ import path from "path";
 import { pathToFileURL } from "url";
 import { VError } from "verror";
 
-import { BronzeImport, Entity, Signal } from "../jobs/base";
+import { BronzeImport, Entity, AggregateReport } from "../jobs/base";
 import { EntityExecutor } from "../shared/data/entityExecutor";
-import { SignalExecutor } from "../shared/data/signalExecutor";
+import { AggregateReportExecutor } from "../shared/data/aggregateReportExecutor";
+import { MonitorExecutor } from "../shared/data/monitorExecutor";
+import { Monitor } from "../shared/data/monitor";
 import { WindsorImportExecutor } from "../shared/vendors/windsor/windsorPresetExecutor";
 
 loadEnv();
 
-type JobType = "import" | "entity" | "signal";
-type JobInstance = BronzeImport<any, any> | Entity<any> | Signal<any>;
+type JobType = "import" | "entity" | "aggregateReport" | "monitor";
+type JobInstance =
+  | BronzeImport<any, any>
+  | Entity<any>
+  | AggregateReport<any>
+  | Monitor;
 
 export type LoadedJob = {
   id: string;
@@ -26,7 +32,8 @@ export type LoadedJob = {
 const JOB_PATTERNS = [
   "src/jobs/**/*.import.ts",
   "src/jobs/**/*.entity.ts",
-  "src/jobs/**/*.signal.ts",
+  "src/jobs/**/*.aggregateReport.ts",
+  "src/jobs/**/*.monitor.ts",
 ];
 
 const GLOB_OPTIONS = {
@@ -37,36 +44,42 @@ const GLOB_OPTIONS = {
 const isJobInstance = (value: unknown): value is JobInstance =>
   value instanceof BronzeImport ||
   value instanceof Entity ||
-  value instanceof Signal;
+  value instanceof AggregateReport ||
+  value instanceof Monitor;
 
 const getJobTypeFromInstance = (instance: JobInstance): JobType => {
   if (instance instanceof BronzeImport) return "import";
   if (instance instanceof Entity) return "entity";
-  if (instance instanceof Signal) return "signal";
+  if (instance instanceof AggregateReport) return "aggregateReport";
+  if (instance instanceof Monitor) return "monitor";
   throw new VError("Unsupported job instance type");
 };
 
-export const loadJobFromFilePath = async (
+export const loadJobsFromFilePath = async (
   filePath: string
-): Promise<LoadedJob> => {
+): Promise<LoadedJob[]> => {
   const absolutePath = path.isAbsolute(filePath)
     ? filePath
     : path.resolve(process.cwd(), filePath);
 
   const moduleUrl = pathToFileURL(absolutePath).href;
   const moduleExports = await import(moduleUrl);
-  const jobInstance = Object.values(moduleExports).find(isJobInstance);
+  const jobInstances = Object.values(moduleExports).filter(isJobInstance);
 
-  if (!jobInstance) {
-    throw new VError(`Could not find a job export in file: ${filePath}`);
+  if (jobInstances.length === 0) {
+    // Warn but don't fail, or just return empty?
+    // Existing logic threw error. Let's return empty to be safe, or throw if strict.
+    // Given usage, let's return empty if it's just a helper file, but likely we want to know.
+    // For now, let's return empty.
+    return [];
   }
 
-  return {
+  return jobInstances.map((jobInstance) => ({
     id: jobInstance.id,
     type: getJobTypeFromInstance(jobInstance),
     filePath: absolutePath,
     instance: jobInstance,
-  };
+  }));
 };
 
 export const discoverJobs = async (): Promise<LoadedJob[]> => {
@@ -76,15 +89,17 @@ export const discoverJobs = async (): Promise<LoadedJob[]> => {
     )
   ).flat();
 
-  const jobs: LoadedJob[] = [];
-  for (const match of matches) {
-    jobs.push(await loadJobFromFilePath(match));
-  }
+  const nestedJobs = await Promise.all(
+    matches.map((match) => loadJobsFromFilePath(match))
+  );
+
+  const jobs = nestedJobs.flat();
 
   const typeOrder: Record<JobType, number> = {
     import: 0,
     entity: 1,
-    signal: 2,
+    aggregateReport: 2,
+    monitor: 3,
   };
 
   return jobs.sort((a, b) => {
@@ -103,39 +118,80 @@ const promptForJobs = async (jobs: LoadedJob[]): Promise<LoadedJob[]> => {
   const typeLabels: Record<JobType, string> = {
     import: "Imports",
     entity: "Entities",
-    signal: "Signals",
+    aggregateReport: "AggregateReports",
+    monitor: "Monitors",
   };
 
-  const groupedChoices = (["import", "entity", "signal"] as JobType[]).flatMap(
-    (type) => {
-      const groupJobs = jobs.filter((job) => job.type === type);
-      if (!groupJobs.length) return [];
-      return [
-        new inquirer.Separator(typeLabels[type]),
-        ...groupJobs.map((job) => ({
-          name:
-            job.type === "import"
-              ? `${
-                  (job.instance as BronzeImport<any, any>).definition
-                    .platform ?? "unknown"
-                } / ${job.id} (${job.type})`
-              : `${job.id} (${job.type})`,
-          value: job,
-        })),
-      ];
-    }
-  );
+  const groupedChoices = (
+    ["import", "entity", "aggregateReport", "monitor"] as JobType[]
+  ).flatMap((type) => {
+    const groupJobs = jobs.filter((job) => job.type === type);
+    if (!groupJobs.length) return [];
+    return [
+      new inquirer.Separator(typeLabels[type]),
+      {
+        name: chalk.cyan(`  [ SELECT ALL ${typeLabels[type].toUpperCase()} ]`),
+        value: `all:${type}`,
+      },
+      ...groupJobs.map((job) => ({
+        name:
+          job.type === "import"
+            ? `  ${
+                (job.instance as BronzeImport<any, any>).definition.platform ??
+                "unknown"
+              } / ${job.id} (${job.type})`
+            : `  ${job.id} (${job.type})`,
+        value: job,
+      })),
+    ];
+  });
 
-  const { selectedJobs } = await inquirer.prompt([
+  const { selectedValues } = await inquirer.prompt([
     {
       type: "checkbox",
-      name: "selectedJobs",
+      name: "selectedValues",
       message: "Select jobs to run",
       choices: groupedChoices,
+      pageSize: 20,
     },
   ]);
 
-  return selectedJobs as LoadedJob[];
+  const finalJobs: LoadedJob[] = [];
+  const selectAllTypes = new Set<string>();
+
+  selectedValues.forEach((val: any) => {
+    if (typeof val === "string" && val.startsWith("all:")) {
+      selectAllTypes.add(val.replace("all:", ""));
+    } else {
+      finalJobs.push(val);
+    }
+  });
+
+  if (selectAllTypes.size > 0) {
+    jobs.forEach((job) => {
+      if (selectAllTypes.has(job.type)) {
+        if (
+          !finalJobs.find((fj) => fj.id === job.id && fj.type === job.type)
+        ) {
+          finalJobs.push(job);
+        }
+      }
+    });
+  }
+
+  // Deduplicate and Sort
+  const typeOrder: Record<JobType, number> = {
+    import: 0,
+    entity: 1,
+    aggregateReport: 2,
+    monitor: 3,
+  };
+
+  return finalJobs.sort((a, b) => {
+    const typeDiff = typeOrder[a.type] - typeOrder[b.type];
+    if (typeDiff !== 0) return typeDiff;
+    return a.id.localeCompare(b.id);
+  });
 };
 
 const resolveProjectId = async (
@@ -157,7 +213,7 @@ const resolveProjectId = async (
       validate: (input: string) =>
         input && input.trim().length > 0
           ? true
-          : "Project ID is required for entity/signal jobs",
+          : "Project ID is required for entity/aggregateReport jobs",
     },
   ]);
 
@@ -185,12 +241,28 @@ export const executeJob = async (
         await executor.run(job.instance as Entity<any>);
         break;
       }
-      case "signal": {
+      case "aggregateReport": {
         if (!projectId) {
-          throw new VError("BIGQUERY_PROJECT is required to run signal jobs.");
+          throw new VError(
+            "BIGQUERY_PROJECT is required to run aggregateReport jobs."
+          );
         }
-        const executor = new SignalExecutor(projectId);
-        await executor.run(job.instance as Signal<any>);
+        const executor = new AggregateReportExecutor(projectId);
+        await executor.run(job.instance as AggregateReport<any>);
+        break;
+      }
+      case "monitor": {
+        if (!projectId) {
+          throw new VError("BIGQUERY_PROJECT is required to run monitor jobs.");
+        }
+        const executor = new MonitorExecutor(projectId);
+        const instance = job.instance as Monitor;
+        // Run Monitor: definition, measure, entity
+        await executor.run(
+          instance.definition,
+          instance.measure,
+          instance.entity as Entity<any>
+        );
         break;
       }
       default:

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, watch } from 'vue';
+import { computed, ref, onMounted, watch, inject, type Ref } from 'vue';
 import VueApexCharts from 'vue3-apexcharts';
 import { useRouter } from 'vue-router';
 import { TrendingUp, ArrowUpRight, ArrowRight, LayoutGrid, Sparkles, Target, Zap, PieChart, Wallet, ChevronDown, CheckCircle, BarChart3 } from 'lucide-vue-next';
@@ -25,6 +25,9 @@ interface SpendSegment {
   platform: 'Google' | 'Meta';
   roas: number;
 }
+
+// Global Account State injected from layout
+const selectedAccount = inject<Ref<MaxAccount | null>>('selectedAccount');
 
 const dataLifetime: ChartDataPoint[] = [
   { name: 'Jan', actions: 4, value: 300 },
@@ -90,24 +93,6 @@ const formatCurrency = (value: number) =>
 const formatRoas = (value: number) =>
   value > 0 ? `${value.toFixed(1)}x` : '—';
 
-// Accounts State
-const maxAccounts = ref<MaxAccount[]>([]);
-const selectedAccount = ref<MaxAccount | null>(null);
-
-const loadAccountState = () => {
-  const savedAccounts = localStorage.getItem('maxMarketingAccounts');
-  const savedSelectionId = localStorage.getItem('selectedMaxAccountId');
-  
-  if (savedAccounts) {
-    maxAccounts.value = JSON.parse(savedAccounts);
-    if (maxAccounts.value.length > 0) {
-      selectedAccount.value = maxAccounts.value.find(a => a.id === savedSelectionId) || maxAccounts.value[0];
-    } else {
-      selectedAccount.value = null;
-    }
-  }
-};
-
 // Spend Distribution Data
 const spendDataLoading = ref(false);
 const spendDataError = ref<string | null>(null);
@@ -119,11 +104,11 @@ const metaTotal = ref(0);
 const hoveredSegmentId = ref<string | null>(null);
 
 const loadSpendData = async () => {
-  if (!selectedAccount.value) {
+  if (!selectedAccount?.value) {
     resetData();
     return;
   }
-  
+
   const { googleAdsId, facebookAdsId } = selectedAccount.value;
   if (!googleAdsId && !facebookAdsId) {
     resetData();
@@ -136,13 +121,13 @@ const loadSpendData = async () => {
   try {
     const fetchers = [];
     if (googleAdsId) {
-      fetchers.push(fetch(`/api/signals/google-spend-breakdown?accountId=${encodeURIComponent(googleAdsId)}`).then(r => r.json()));
+      fetchers.push(fetch(`/api/aggregateReports/google-spend-breakdown?accountId=${encodeURIComponent(googleAdsId)}`).then(r => r.json()));
     } else {
       fetchers.push(Promise.resolve([]));
     }
 
     if (facebookAdsId) {
-      fetchers.push(fetch(`/api/signals/facebook-spend-breakdown?accountId=${encodeURIComponent(facebookAdsId)}`).then(r => r.json()));
+      fetchers.push(fetch(`/api/aggregateReports/facebook-spend-breakdown?accountId=${encodeURIComponent(facebookAdsId)}`).then(r => r.json()));
     } else {
       fetchers.push(Promise.resolve([]));
     }
@@ -156,7 +141,7 @@ const loadSpendData = async () => {
     let totalM = 0;
     const gSegs: SpendSegment[] = [];
     const mSegs: SpendSegment[] = [];
-    
+
     const googleCatColors: string[] = ['#4285F4', '#34A853', '#FBBC05', '#EA4335', '#1a73e8'];
     const metaCatColors: string[] = ['#0668E1', '#833AB4', '#E1306C', '#C13584', '#FD1D1D'];
 
@@ -258,21 +243,21 @@ const metaAvgRoas = computed(() => {
 });
 
 onMounted(() => {
-  loadAccountState();
-  window.addEventListener('accounts-updated', () => {
-    loadAccountState();
-  });
+  if (selectedAccount?.value) {
+    loadSpendData();
+  }
 });
 
-watch(selectedAccount, () => {
+watch(() => selectedAccount?.value, () => {
   loadSpendData();
-});
+}, { immediate: true });
 </script>
 
 <template>
   <div class="flex-1 flex flex-col h-full overflow-hidden bg-stone-50">
-    <section class="p-8 font-sans animate-in fade-in duration-500 overflow-y-auto h-full pb-20">
-      
+    <section
+      class="p-8 font-sans animate-in fade-in duration-500 overflow-y-auto h-full pb-20"
+    >
       <!-- Welcome Header -->
       <div class="mb-8 flex justify-between items-end">
         <div>
@@ -280,24 +265,42 @@ watch(selectedAccount, () => {
             {{ selectedAccount ? `Ready to win, ${selectedAccount.name}?` : 'Welcome to Maxed Marketing' }}
           </h1>
           <p class="text-slate-500 mt-1 max-w-2xl">
-            You've unlocked <span class="font-bold text-amplify-purple">$9,500</span> in lifetime value.
-            We found <span class="font-bold text-slate-800">1 high-impact action</span> for you today.
+            You've unlocked
+            <span class="font-bold text-amplify-purple">$9,500</span> in
+            lifetime value. We found
+            <span class="font-bold text-slate-800">1 high-impact action</span>
+            for you today.
           </p>
         </div>
-        <div class="text-[10px] text-amplify-purple font-mono">Design ID: L3-MOMENTUM</div>
+        <div class="text-[10px] text-amplify-purple font-mono">
+          Design ID: L3-MOMENTUM
+        </div>
       </div>
 
       <!-- Momentum Chart -->
-      <div class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm mb-8">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+      <div
+        class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm mb-8"
+      >
+        <div
+          class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4"
+        >
           <div>
-            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <TrendingUp :size="20" class="text-amplify-green fill-amplify-green/20" />
+            <h3
+              class="text-lg font-bold text-slate-800 flex items-center gap-2"
+            >
+              <TrendingUp
+                :size="20"
+                class="text-amplify-green fill-amplify-green/20"
+              />
               Maxed Momentum
             </h3>
             <p class="text-xs text-slate-400 text-slate-800">
-              <span v-if="timeRange === 'lifetime'">Your cumulative value unlocked since joining Maxed.</span>
-              <span v-else-if="timeRange === 'ytd'">Value unlocked since January 1st.</span>
+              <span v-if="timeRange === 'lifetime'"
+                >Your cumulative value unlocked since joining Maxed.</span
+              >
+              <span v-else-if="timeRange === 'ytd'"
+                >Value unlocked since January 1st.</span
+              >
               <span v-else>Recent optimization impact (Last 90 Days).</span>
             </p>
           </div>
@@ -326,47 +329,78 @@ watch(selectedAccount, () => {
           </div>
         </div>
         <div class="h-48 w-full">
-          <ApexChart type="line" height="200" :options="focusChartOptions" :series="focusSeries" />
+          <ApexChart
+            type="line"
+            height="200"
+            :options="focusChartOptions"
+            :series="focusSeries"
+          />
         </div>
       </div>
 
       <!-- Spend Breakdown (Full Width Card) -->
-      <div class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm mb-8">
+      <div
+        class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm mb-8"
+      >
         <div class="flex justify-between items-center mb-6">
           <div>
-            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <h3
+              class="text-lg font-bold text-slate-800 flex items-center gap-2"
+            >
               <BarChart3 :size="20" class="text-blue-500 fill-blue-500/20" />
               Marketing Spend Breakdown
             </h3>
-            <p class="text-xs text-slate-400">Total spend across connected platforms (90d).</p>
+            <p class="text-xs text-slate-400">
+              Total spend across connected platforms (90d).
+            </p>
           </div>
           <div class="text-right">
-            <div class="text-2xl font-bold text-slate-800">{{ formatCurrency(grandTotal) }}</div>
-            <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total Spend</div>
+            <div class="text-2xl font-bold text-slate-800">
+              {{ formatCurrency(grandTotal) }}
+            </div>
+            <div
+              class="text-[10px] text-slate-400 font-bold uppercase tracking-wider"
+            >
+              Total Spend
+            </div>
           </div>
         </div>
 
         <div v-if="spendDataLoading" class="py-8 flex justify-center">
-          <div class="w-8 h-8 border-4 border-indigo-200 border-t-indigo-500 rounded-full animate-spin"></div>
+          <div
+            class="w-8 h-8 border-4 border-indigo-200 border-t-indigo-500 rounded-full animate-spin"
+          ></div>
         </div>
-        
-        <div v-else-if="spendDataError" class="py-8 text-center text-red-500 text-sm">
+
+        <div
+          v-else-if="spendDataError"
+          class="py-8 text-center text-red-500 text-sm"
+        >
           {{ spendDataError }}
         </div>
 
-        <div v-else-if="grandTotal === 0" class="py-8 text-center text-slate-400 text-sm italic">
+        <div
+          v-else-if="grandTotal === 0"
+          class="py-8 text-center text-slate-400 text-sm italic"
+        >
           No spend data available. Check your account settings.
         </div>
 
         <template v-else>
           <!-- Split Stacked Bar Container -->
-          <div class="w-full flex mb-10 rounded-xl overflow-hidden bg-slate-50 border border-slate-100">
+          <div
+            class="w-full flex mb-10 rounded-xl overflow-hidden bg-slate-50 border border-slate-100"
+          >
             <!-- Google Group -->
-            <div v-if="googleTotal > 0" class="flex flex-col gap-y-[2px]" :style="{ width: `${googleWidth}%` }">
+            <div
+              v-if="googleTotal > 0"
+              class="flex flex-col gap-y-[2px]"
+              :style="{ width: `${googleWidth}%` }"
+            >
               <!-- Row 1: Categories -->
               <div class="h-8 w-full flex">
-                <div 
-                  v-for="segment in googleSegments" 
+                <div
+                  v-for="segment in googleSegments"
                   :key="segment.id"
                   class="h-full transition-all duration-300 relative group cursor-pointer border-r border-white/20 last:border-0"
                   :class="{ 'opacity-100 z-10': hoveredSegmentId === segment.id, 'opacity-70': hoveredSegmentId && hoveredSegmentId !== segment.id }"
@@ -374,9 +408,13 @@ watch(selectedAccount, () => {
                   @mouseenter="hoveredSegmentId = segment.id"
                   @mouseleave="hoveredSegmentId = null"
                 >
-                  <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none">
+                  <div
+                    class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none"
+                  >
                     {{ segment.label }}: {{ formatCurrency(segment.value) }}
-                    <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900"></div>
+                    <div
+                      class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900"
+                    ></div>
                   </div>
                 </div>
               </div>
@@ -385,11 +423,15 @@ watch(selectedAccount, () => {
             </div>
 
             <!-- Meta Group -->
-            <div v-if="metaTotal > 0" class="flex flex-col border-l border-white gap-y-[2px]" :style="{ width: `${metaWidth}%` }">
+            <div
+              v-if="metaTotal > 0"
+              class="flex flex-col border-l border-white gap-y-[2px]"
+              :style="{ width: `${metaWidth}%` }"
+            >
               <!-- Row 1: Categories -->
               <div class="h-8 w-full flex">
-                <div 
-                  v-for="segment in metaSegments" 
+                <div
+                  v-for="segment in metaSegments"
                   :key="segment.id"
                   class="h-full transition-all duration-300 relative group cursor-pointer border-r border-white/20 last:border-0"
                   :class="{ 'opacity-100 z-10': hoveredSegmentId === segment.id, 'opacity-70': hoveredSegmentId && hoveredSegmentId !== segment.id }"
@@ -397,9 +439,13 @@ watch(selectedAccount, () => {
                   @mouseenter="hoveredSegmentId = segment.id"
                   @mouseleave="hoveredSegmentId = null"
                 >
-                  <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none">
+                  <div
+                    class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded shadow-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-20 pointer-events-none"
+                  >
                     {{ segment.label }}: {{ formatCurrency(segment.value) }}
-                    <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900"></div>
+                    <div
+                      class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900"
+                    ></div>
                   </div>
                 </div>
               </div>
@@ -412,20 +458,43 @@ watch(selectedAccount, () => {
           <div class="space-y-10">
             <!-- Google Ads Section -->
             <div v-if="googleTotal > 0">
-              <div class="flex items-center justify-between mb-4 border-b border-stone-100 pb-2">
+              <div
+                class="flex items-center justify-between mb-4 border-b border-stone-100 pb-2"
+              >
                 <h4 class="text-sm font-bold text-slate-700 flex items-center">
                   <Target class="w-4 h-4 mr-2 text-[#EA4335]" />
                   Google Ads Breakdown
                 </h4>
-                <div class="flex gap-6 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  <div>Share <span class="text-slate-700 ml-1">{{ googleWidth.toFixed(1) }}%</span></div>
-                  <div>Total <span class="text-slate-700 ml-1">{{ formatCurrency(googleTotal) }}</span></div>
-                  <div>Avg ROAS <span class="text-green-600 ml-1">{{ formatRoas(googleAvgRoas) }}</span></div>
+                <div
+                  class="flex gap-6 text-[10px] font-bold uppercase tracking-widest text-slate-400"
+                >
+                  <div>
+                    Share
+                    <span class="text-slate-700 ml-1"
+                      >{{ googleWidth.toFixed(1) }}%</span
+                    >
+                  </div>
+                  <div>
+                    Total
+                    <span
+                      class="text-slate-700 ml-1"
+                      >{{ formatCurrency(googleTotal) }}</span
+                    >
+                  </div>
+                  <div>
+                    Avg ROAS
+                    <span
+                      class="text-green-600 ml-1"
+                      >{{ formatRoas(googleAvgRoas) }}</span
+                    >
+                  </div>
                 </div>
               </div>
-              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                <div 
-                  v-for="segment in googleSegments" 
+              <div
+                class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+              >
+                <div
+                  v-for="segment in googleSegments"
                   :key="segment.id"
                   class="bg-stone-50 rounded-xl p-3 border transition-all duration-300 cursor-default"
                   :class="[
@@ -436,15 +505,31 @@ watch(selectedAccount, () => {
                   @mouseleave="hoveredSegmentId = null"
                 >
                   <div class="flex items-center gap-2 mb-2 overflow-hidden">
-                    <div class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: segment.color }"></div>
-                    <span class="text-xs font-bold text-slate-700 truncate" :title="segment.label">{{ segment.label }}</span>
+                    <div
+                      class="w-2.5 h-2.5 rounded-full shrink-0"
+                      :style="{ backgroundColor: segment.color }"
+                    ></div>
+                    <span
+                      class="text-xs font-bold text-slate-700 truncate"
+                      :title="segment.label"
+                      >{{ segment.label }}</span
+                    >
                   </div>
                   <div class="flex items-baseline justify-between mb-1">
-                    <span class="text-sm font-bold text-slate-800">{{ formatCurrency(segment.value) }}</span>
-                    <span class="text-[10px] font-bold text-slate-400">{{ segment.percent.toFixed(1) }}%</span>
+                    <span
+                      class="text-sm font-bold text-slate-800"
+                      >{{ formatCurrency(segment.value) }}</span
+                    >
+                    <span class="text-[10px] font-bold text-slate-400"
+                      >{{ segment.percent.toFixed(1) }}%</span
+                    >
                   </div>
                   <div class="text-[10px] text-slate-400">
-                    ROAS: <span class="font-bold text-slate-600">{{ formatRoas(segment.roas) }}</span>
+                    ROAS:
+                    <span
+                      class="font-bold text-slate-600"
+                      >{{ formatRoas(segment.roas) }}</span
+                    >
                   </div>
                 </div>
               </div>
@@ -452,20 +537,47 @@ watch(selectedAccount, () => {
 
             <!-- Meta Ads Section -->
             <div v-if="metaTotal > 0">
-              <div class="flex items-center justify-between mb-4 border-b border-stone-100 pb-2">
+              <div
+                class="flex items-center justify-between mb-4 border-b border-stone-100 pb-2"
+              >
                 <h4 class="text-sm font-bold text-slate-700 flex items-center">
-                  <div class="w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center text-[8px] text-white font-bold mr-2 uppercase">f</div>
+                  <div
+                    class="w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center text-[8px] text-white font-bold mr-2 uppercase"
+                  >
+                    f
+                  </div>
                   Meta Ads Breakdown
                 </h4>
-                <div class="flex gap-6 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  <div>Share <span class="text-slate-700 ml-1">{{ metaWidth.toFixed(1) }}%</span></div>
-                  <div>Total <span class="text-slate-700 ml-1">{{ formatCurrency(metaTotal) }}</span></div>
-                  <div>Avg ROAS <span class="text-green-600 ml-1">{{ formatRoas(metaAvgRoas) }}</span></div>
+                <div
+                  class="flex gap-6 text-[10px] font-bold uppercase tracking-widest text-slate-400"
+                >
+                  <div>
+                    Share
+                    <span class="text-slate-700 ml-1"
+                      >{{ metaWidth.toFixed(1) }}%</span
+                    >
+                  </div>
+                  <div>
+                    Total
+                    <span
+                      class="text-slate-700 ml-1"
+                      >{{ formatCurrency(metaTotal) }}</span
+                    >
+                  </div>
+                  <div>
+                    Avg ROAS
+                    <span
+                      class="text-green-600 ml-1"
+                      >{{ formatRoas(metaAvgRoas) }}</span
+                    >
+                  </div>
                 </div>
               </div>
-              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                <div 
-                  v-for="segment in metaSegments" 
+              <div
+                class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+              >
+                <div
+                  v-for="segment in metaSegments"
                   :key="segment.id"
                   class="bg-stone-50 rounded-xl p-3 border transition-all duration-300 cursor-default"
                   :class="[
@@ -476,15 +588,31 @@ watch(selectedAccount, () => {
                   @mouseleave="hoveredSegmentId = null"
                 >
                   <div class="flex items-center gap-2 mb-2 overflow-hidden">
-                    <div class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: segment.color }"></div>
-                    <span class="text-xs font-bold text-slate-700 truncate" :title="segment.label">{{ segment.label }}</span>
+                    <div
+                      class="w-2.5 h-2.5 rounded-full shrink-0"
+                      :style="{ backgroundColor: segment.color }"
+                    ></div>
+                    <span
+                      class="text-xs font-bold text-slate-700 truncate"
+                      :title="segment.label"
+                      >{{ segment.label }}</span
+                    >
                   </div>
                   <div class="flex items-baseline justify-between mb-1">
-                    <span class="text-sm font-bold text-slate-800">{{ formatCurrency(segment.value) }}</span>
-                    <span class="text-[10px] font-bold text-slate-400">{{ segment.percent.toFixed(1) }}%</span>
+                    <span
+                      class="text-sm font-bold text-slate-800"
+                      >{{ formatCurrency(segment.value) }}</span
+                    >
+                    <span class="text-[10px] font-bold text-slate-400"
+                      >{{ segment.percent.toFixed(1) }}%</span
+                    >
                   </div>
                   <div class="text-[10px] text-slate-400">
-                    ROAS: <span class="font-bold text-slate-600">{{ formatRoas(segment.roas) }}</span>
+                    ROAS:
+                    <span
+                      class="font-bold text-slate-600"
+                      >{{ formatRoas(segment.roas) }}</span
+                    >
                   </div>
                 </div>
               </div>
@@ -497,28 +625,53 @@ watch(selectedAccount, () => {
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div class="lg:col-span-2 space-y-6">
           <h3 class="text-lg font-bold text-slate-800">Priority Focus</h3>
-          <div class="bg-white rounded-2xl p-1 shadow-sm border border-stone-100 hover:shadow-md transition-shadow relative overflow-hidden group">
-            <div class="absolute top-0 left-0 w-1.5 h-full bg-amplify-purple"></div>
+          <div
+            class="bg-white rounded-2xl p-1 shadow-sm border border-stone-100 hover:shadow-md transition-shadow relative overflow-hidden group"
+          >
+            <div
+              class="absolute top-0 left-0 w-1.5 h-full bg-amplify-purple"
+            ></div>
             <div class="p-6 pl-8">
               <div class="flex justify-between items-start mb-4">
                 <div class="flex items-center gap-2">
-                  <span class="bg-amplify-purple/10 text-amplify-purple px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider">Top Priority</span>
-                  <span class="text-slate-400 text-xs flex items-center gap-1"><Target :size="12" /> Google Ads Suite</span>
+                  <span
+                    class="bg-amplify-purple/10 text-amplify-purple px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider"
+                    >Top Priority</span
+                  >
+                  <span class="text-slate-400 text-xs flex items-center gap-1"
+                    ><Target :size="12" /> Google Ads Suite</span
+                  >
                 </div>
                 <div class="text-right">
-                  <div class="text-xs text-slate-400 font-medium">Potential Impact</div>
-                  <div class="text-lg font-bold text-green-600">+$420.00<span class="text-xs text-slate-400 font-normal">/mo</span></div>
+                  <div class="text-xs text-slate-400 font-medium">
+                    Potential Impact
+                  </div>
+                  <div class="text-lg font-bold text-green-600">
+                    +$420.00<span class="text-xs text-slate-400 font-normal"
+                      >/mo</span
+                    >
+                  </div>
                 </div>
               </div>
-              <h4 class="text-xl font-bold text-slate-800 mb-2 text-slate-800">Negative Keyword Opportunity</h4>
-              <p class="text-slate-500 mb-6 max-w-lg leading-relaxed text-slate-800">
-                We've detected high spend on the term "free guitars" which has a 95% bounce rate. Blocking this will improve your ROAS immediately.
+              <h4 class="text-xl font-bold text-slate-800 mb-2 text-slate-800">
+                Negative Keyword Opportunity
+              </h4>
+              <p
+                class="text-slate-500 mb-6 max-w-lg leading-relaxed text-slate-800"
+              >
+                We've detected high spend on the term "free guitars" which has a
+                95% bounce rate. Blocking this will improve your ROAS
+                immediately.
               </p>
               <div class="flex items-center gap-3 flex-wrap">
-                <button class="bg-amplify-purple text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-amplify-purple/20 hover:bg-amplify-purple/90 transition-all flex items-center gap-2">
+                <button
+                  class="bg-amplify-purple text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-amplify-purple/20 hover:bg-amplify-purple/90 transition-all flex items-center gap-2"
+                >
                   Fix This Now <ArrowUpRight :size="16" />
                 </button>
-                <button class="px-6 py-2.5 rounded-xl font-bold text-sm text-slate-500 hover:bg-stone-50 transition-colors">
+                <button
+                  class="px-6 py-2.5 rounded-xl font-bold text-sm text-slate-500 hover:bg-stone-50 transition-colors"
+                >
                   View Details
                 </button>
                 <div class="flex-1 text-right">
@@ -533,66 +686,114 @@ watch(selectedAccount, () => {
             </div>
           </div>
 
-          <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mt-8">Up Next</h3>
+          <h3
+            class="text-sm font-bold text-slate-400 uppercase tracking-wider mt-8"
+          >
+            Up Next
+          </h3>
           <div class="space-y-3">
-            <div class="bg-white rounded-2xl p-4 border border-stone-100 flex items-center justify-between hover:border-amplify-green transition-colors cursor-pointer group text-slate-800">
+            <div
+              class="bg-white rounded-2xl p-4 border border-stone-100 flex items-center justify-between hover:border-amplify-green transition-colors cursor-pointer group text-slate-800"
+            >
               <div class="flex items-center gap-4">
-                <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                <div
+                  class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center"
+                >
                   <LayoutGrid :size="20" />
                 </div>
                 <div>
-                  <h5 class="font-bold text-slate-700 group-hover:text-amplify-purple transition-colors">Facebook Ads: Low Efficiency</h5>
-                  <p class="text-xs text-slate-400">Ad Set "Winter Promo" is underperforming.</p>
+                  <h5
+                    class="font-bold text-slate-700 group-hover:text-amplify-purple transition-colors"
+                  >
+                    Facebook Ads: Low Efficiency
+                  </h5>
+                  <p class="text-xs text-slate-400">
+                    Ad Set "Winter Promo" is underperforming.
+                  </p>
                 </div>
               </div>
               <div class="flex items-center gap-6">
                 <div class="text-right hidden sm:block">
-                  <div class="text-[10px] text-slate-400 font-bold uppercase">Potential Impact</div>
-                  <div class="text-sm font-bold text-green-600">+$185.00/mo</div>
+                  <div class="text-[10px] text-slate-400 font-bold uppercase">
+                    Potential Impact
+                  </div>
+                  <div class="text-sm font-bold text-green-600">
+                    +$185.00/mo
+                  </div>
                 </div>
-                <button class="p-2 text-slate-300 hover:text-amplify-green transition-colors">
+                <button
+                  class="p-2 text-slate-300 hover:text-amplify-green transition-colors"
+                >
                   <ArrowUpRight :size="20" />
                 </button>
               </div>
             </div>
 
-            <div class="bg-white rounded-2xl p-4 border border-stone-100 flex items-center justify-between hover:border-amplify-green transition-colors cursor-pointer group text-slate-800">
+            <div
+              class="bg-white rounded-2xl p-4 border border-stone-100 flex items-center justify-between hover:border-amplify-green transition-colors cursor-pointer group text-slate-800"
+            >
               <div class="flex items-center gap-4">
-                <div class="w-10 h-10 rounded-full bg-purple-50 text-amplify-purple flex items-center justify-center">
+                <div
+                  class="w-10 h-10 rounded-full bg-purple-50 text-amplify-purple flex items-center justify-center"
+                >
                   <Sparkles :size="20" />
                 </div>
                 <div>
-                  <h5 class="font-bold text-slate-700 group-hover:text-amplify-purple transition-colors">Social Spark: Event Post</h5>
-                  <p class="text-xs text-slate-400">Create a post for your upcoming weekend sale.</p>
+                  <h5
+                    class="font-bold text-slate-700 group-hover:text-amplify-purple transition-colors"
+                  >
+                    Social Spark: Event Post
+                  </h5>
+                  <p class="text-xs text-slate-400">
+                    Create a post for your upcoming weekend sale.
+                  </p>
                 </div>
               </div>
               <div class="flex items-center gap-6">
                 <div class="text-right hidden sm:block">
-                  <div class="text-[10px] text-slate-400 font-bold uppercase">Value</div>
+                  <div class="text-[10px] text-slate-400 font-bold uppercase">
+                    Value
+                  </div>
                   <div class="text-sm font-bold text-slate-600">Engagement</div>
                 </div>
-                <button class="p-2 text-slate-300 hover:text-amplify-green transition-colors">
+                <button
+                  class="p-2 text-slate-300 hover:text-amplify-green transition-colors"
+                >
                   <ArrowUpRight :size="20" />
                 </button>
               </div>
             </div>
 
-            <div class="bg-white rounded-2xl p-4 border border-stone-100 flex items-center justify-between hover:border-amplify-green transition-colors cursor-pointer group text-slate-800">
+            <div
+              class="bg-white rounded-2xl p-4 border border-stone-100 flex items-center justify-between hover:border-amplify-green transition-colors cursor-pointer group text-slate-800"
+            >
               <div class="flex items-center gap-4">
-                <div class="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+                <div
+                  class="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center"
+                >
                   <Target :size="20" />
                 </div>
                 <div>
-                  <h5 class="font-bold text-slate-700 group-hover:text-amplify-purple transition-colors">Local SEO: 5-Star Review</h5>
-                  <p class="text-xs text-slate-400">New review from "John D." requires response.</p>
+                  <h5
+                    class="font-bold text-slate-700 group-hover:text-amplify-purple transition-colors"
+                  >
+                    Local SEO: 5-Star Review
+                  </h5>
+                  <p class="text-xs text-slate-400">
+                    New review from "John D." requires response.
+                  </p>
                 </div>
               </div>
               <div class="flex items-center gap-6">
                 <div class="text-right hidden sm:block">
-                  <div class="text-[10px] text-slate-400 font-bold uppercase">Value</div>
+                  <div class="text-[10px] text-slate-400 font-bold uppercase">
+                    Value
+                  </div>
                   <div class="text-sm font-bold text-slate-600">Reputation</div>
                 </div>
-                <button class="p-2 text-slate-300 hover:text-amplify-green transition-colors">
+                <button
+                  class="p-2 text-slate-300 hover:text-amplify-green transition-colors"
+                >
                   <ArrowUpRight :size="20" />
                 </button>
               </div>
@@ -602,18 +803,33 @@ watch(selectedAccount, () => {
 
         <div class="space-y-6">
           <h3 class="text-lg font-bold text-slate-800">Active Apps</h3>
-          <div class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm space-y-6">
-            <div class="flex items-start gap-4 pb-6 border-b border-stone-50 text-slate-800">
+          <div
+            class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm space-y-6"
+          >
+            <div
+              class="flex items-start gap-4 pb-6 border-b border-stone-50 text-slate-800"
+            >
               <div class="mt-1">
-                <div class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+                <div
+                  class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"
+                />
               </div>
               <div>
-                <h4 class="font-bold text-slate-700 text-sm">Google Ads Suite</h4>
-                <p class="text-xs text-slate-400 mt-1">Optimization Score: <span class="text-green-600 font-bold">84%</span></p>
-                <p class="text-[10px] text-slate-400 mt-0.5">Last check: 20m ago</p>
+                <h4 class="font-bold text-slate-700 text-sm">
+                  Google Ads Suite
+                </h4>
+                <p class="text-xs text-slate-400 mt-1">
+                  Optimization Score:
+                  <span class="text-green-600 font-bold">84%</span>
+                </p>
+                <p class="text-[10px] text-slate-400 mt-0.5">
+                  Last check: 20m ago
+                </p>
               </div>
             </div>
-            <div class="flex items-start gap-4 pb-6 border-b border-stone-50 text-slate-800">
+            <div
+              class="flex items-start gap-4 pb-6 border-b border-stone-50 text-slate-800"
+            >
               <div class="mt-1">
                 <div class="w-2 h-2 rounded-full bg-slate-300" />
               </div>
@@ -628,23 +844,31 @@ watch(selectedAccount, () => {
               </div>
               <div>
                 <h4 class="font-bold text-slate-700 text-sm">Local SEO</h4>
-                <p class="text-xs text-slate-400 mt-1">1 Review needs response</p>
+                <p class="text-xs text-slate-400 mt-1">
+                  1 Review needs response
+                </p>
               </div>
             </div>
-            <button class="w-full py-3 mt-4 border border-dashed border-slate-300 rounded-xl text-xs font-bold text-slate-400 hover:text-amplify-purple hover:border-amplify-purple transition-colors flex items-center justify-center gap-2">
+            <button
+              class="w-full py-3 mt-4 border border-dashed border-slate-300 rounded-xl text-xs font-bold text-slate-400 hover:text-amplify-purple hover:border-amplify-purple transition-colors flex items-center justify-center gap-2"
+            >
               <Zap :size="14" /> Add New Mini-App
             </button>
           </div>
 
-          <div class="bg-amplify-purple/5 p-6 rounded-[2rem] border border-amplify-purple/10">
-            <h4 class="font-bold text-amplify-purple text-sm mb-2">Did you know?</h4>
+          <div
+            class="bg-amplify-purple/5 p-6 rounded-[2rem] border border-amplify-purple/10"
+          >
+            <h4 class="font-bold text-amplify-purple text-sm mb-2">
+              Did you know?
+            </h4>
             <p class="text-xs text-slate-600 leading-relaxed">
-              Optimizing your negative keywords once a week can save up to 20% of your ad budget. You're doing great!
+              Optimizing your negative keywords once a week can save up to 20%
+              of your ad budget. You're doing great!
             </p>
           </div>
         </div>
       </div>
     </section>
-
   </div>
 </template>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch, inject, type Ref } from 'vue';
 import {
   Search,
   Ban,
@@ -48,6 +48,13 @@ interface Account {
   name: string;
 }
 
+interface MaxAccount {
+  id: string;
+  name: string;
+  googleAdsId: string | null;
+  facebookAdsId: string | null;
+}
+
 interface NegativeKeywordOpportunity {
   id: string;
   keyword_info_text?: string;
@@ -61,7 +68,7 @@ interface NegativeKeywordOpportunity {
   confidence?: number;
 }
 
-interface BroadMatchDriftSignal {
+interface BroadMatchDriftAggregateReport {
   id?: string;
   row_id?: string;
   account_id: string;
@@ -100,7 +107,7 @@ interface LowPerfKeyword {
   confidenceLevel: ConfidenceLevel;
 }
 
-interface LowPerformingKeywordSignal {
+interface LowPerformingKeywordAggregateReport {
   row_id?: string;
   account_id: string;
   campaign_id?: string;
@@ -123,7 +130,7 @@ interface LowPerformingKeywordSignal {
   impact?: number;
   confidence?: number;
   detected_at?: { value?: string };
-  signal_id: string;
+  aggregate_report_idid: string;
 }
 
 interface WasteMetric {
@@ -243,7 +250,7 @@ interface GoogleAdsFullReport {
   }>;
   clusterA: {
     negativeKeywords: NegativeKeywordOpportunity[];
-    drift: BroadMatchDriftSignal[];
+    drift: BroadMatchDriftAggregateReport[];
     lowPerf: LowPerfKeyword[];
   };
   clusterB: {
@@ -265,7 +272,7 @@ interface GoogleAdsFullReport {
   };
 }
 
-interface WastedKeywordSignal {
+interface WastedKeywordAggregateReport {
   row_id?: string;
   account_id: string;
   campaign_id?: string;
@@ -283,10 +290,10 @@ interface WastedKeywordSignal {
   impact?: number;
   confidence?: number;
   detected_at?: { value?: string };
-  signal_id: string;
+  aggregate_report_idid: string;
 }
 
-interface PMaxSpendBreakdownSignal {
+interface PMaxSpendBreakdownAggregateReport {
   campaign_id: string;
   campaign: string;
   total_spend: number;
@@ -297,7 +304,7 @@ interface PMaxSpendBreakdownSignal {
   other_spend: number;
   total_conversions: number;
   shopping_share: number;
-  signal_id: string;
+  aggregate_report_idid: string;
 }
 
 interface ActionLog {
@@ -331,23 +338,23 @@ const report = ref<GoogleAdsFullReport | null>(null);
 const loading = ref(true);
 const dateRange = ref('Last 30 Days');
 const userGoal = ref<UserGoal>('ROAS');
-const accounts = ref<Account[]>([]);
-const selectedAccount = ref<Account | null>(null);
-const accountsLoading = ref(false);
-const accountsError = ref<string | null>(null);
-const wastedKeywordSignals = ref<WastedKeywordSignal[]>([]);
-const broadMatchDriftSignals = ref<BroadMatchDriftSignal[]>([]);
-const lowPerformingKeywordSignals = ref<LowPerformingKeywordSignal[]>([]);
-const pmaxSpendBreakdownSignals = ref<PMaxSpendBreakdownSignal[]>([]);
-const keywordSignalsLoading = ref(false);
-const broadMatchDriftSignalsLoading = ref(false);
-const lowPerformingKeywordSignalsLoading = ref(false);
-const pmaxSpendBreakdownSignalsLoading = ref(false);
-const keywordSignalsError = ref<string | null>(null);
-const broadMatchDriftSignalsError = ref<string | null>(null);
-const lowPerformingKeywordSignalsError = ref<string | null>(null);
-const pmaxSpendBreakdownSignalsError = ref<string | null>(null);
-const lastAccountIdForSignals = ref<string | null>(null);
+
+// Global Account State injected from layout
+const selectedAccount = inject<Ref<MaxAccount | null>>('selectedAccount');
+
+const wastedKeywordAggregateReports = ref<WastedKeywordAggregateReport[]>([]);
+const broadMatchDriftAggregateReports = ref<BroadMatchDriftAggregateReport[]>([]);
+const lowPerformingKeywordAggregateReports = ref<LowPerformingKeywordAggregateReport[]>([]);
+const pmaxSpendBreakdownAggregateReports = ref<PMaxSpendBreakdownAggregateReport[]>([]);
+const keywordAggregateReportsLoading = ref(false);
+const broadMatchDriftAggregateReportsLoading = ref(false);
+const lowPerformingKeywordAggregateReportsLoading = ref(false);
+const pmaxSpendBreakdownAggregateReportsLoading = ref(false);
+const keywordAggregateReportsError = ref<string | null>(null);
+const broadMatchDriftAggregateReportsError = ref<string | null>(null);
+const lowPerformingKeywordAggregateReportsError = ref<string | null>(null);
+const pmaxSpendBreakdownAggregateReportsError = ref<string | null>(null);
+const lastAccountIdForAggregateReports = ref<string | null>(null);
 
 const selectedNegatives = ref<string[]>([]);
 const confirmationAction = ref<ConfirmationAction | null>(null);
@@ -383,14 +390,14 @@ const tabs = computed(() => [
 ]);
 
 const pmaxTotalSpend = computed(() => {
-  if (pmaxSpendBreakdownSignals.value.length > 0) {
-    return pmaxSpendBreakdownSignals.value.reduce((acc, s) => acc + s.total_spend, 0);
+  if (pmaxSpendBreakdownAggregateReports.value.length > 0) {
+    return pmaxSpendBreakdownAggregateReports.value.reduce((acc, s) => acc + s.total_spend, 0);
   }
   return 1300; // Fallback to mock
 });
 
 const pmaxPowerBreakdown = computed(() => {
-  if (pmaxSpendBreakdownSignals.value.length === 0) {
+  if (pmaxSpendBreakdownAggregateReports.value.length === 0) {
     return report.value?.clusterE.pmaxBreakdown || [];
   }
 
@@ -400,7 +407,7 @@ const pmaxPowerBreakdown = computed(() => {
   let display = 0;
   let search = 0;
 
-  pmaxSpendBreakdownSignals.value.forEach((s) => {
+  pmaxSpendBreakdownAggregateReports.value.forEach((s) => {
     total += s.total_spend;
     shopping += s.shopping_spend;
     youtube += s.youtube_spend;
@@ -448,10 +455,10 @@ const pmaxPowerBreakdown = computed(() => {
   return metrics.filter(m => m.percentage > 0).sort((a, b) => b.percentage - a.percentage);
 });
 
-const useKeywordSignals = computed(() => lastAccountIdForSignals.value === selectedAccount.value?.id);
+const useKeywordAggregateReports = computed(() => lastAccountIdForAggregateReports.value === selectedAccount.value?.googleAdsId);
 
 const filteredNegatives = computed(() => {
-  const source = useKeywordSignals.value ? wastedKeywordSignals.value : report.value?.clusterA.negativeKeywords || [];
+  const source = useKeywordAggregateReports.value ? wastedKeywordAggregateReports.value : report.value?.clusterA.negativeKeywords || [];
 
   return source.filter((nk: any) => {
     const id = nk.row_id ?? nk.id ?? `${nk.account_id ?? 'acct'}-${nk.campaign_id ?? 'camp'}-${nk.keyword_info_text ?? 'kw'}`;
@@ -460,7 +467,7 @@ const filteredNegatives = computed(() => {
 });
 
 const filteredLowPerforming = computed(() => {
-  const source = useKeywordSignals.value ? lowPerformingKeywordSignals.value : report.value?.clusterA.lowPerf || [];
+  const source = useKeywordAggregateReports.value ? lowPerformingKeywordAggregateReports.value : report.value?.clusterA.lowPerf || [];
   return source.filter((k: any) => {
     const id = k.row_id ?? k.id ?? `${k.account_id ?? 'acct'}-${k.campaign_id ?? 'camp'}-${k.keyword_info_text ?? 'kw'}`;
     return !pausedKeywords.value.includes(id);
@@ -471,8 +478,8 @@ const filteredWaste = computed(() =>
   report.value ? report.value.clusterB.waste.filter((w) => !excludedWaste.value.includes(w.id)) : []
 );
 
-const driftSignals = computed(() =>
-  useKeywordSignals.value ? broadMatchDriftSignals.value : report.value?.clusterA.drift || []
+const driftAggregateReports = computed(() =>
+  useKeywordAggregateReports.value ? broadMatchDriftAggregateReports.value : report.value?.clusterA.drift || []
 );
 
 const formatDate = (date: Date) =>
@@ -510,127 +517,105 @@ const closeConfirmation = () => {
   confirmationAction.value = null;
 };
 
-const loadAccounts = async () => {
-  accountsLoading.value = true;
-  accountsError.value = null;
+const loadWastedKeywordAggregateReports = async (googleAdsId?: string) => {
+  const targetAccountId = googleAdsId || selectedAccount.value?.googleAdsId;
+  if (!targetAccountId) return;
+
+  keywordAggregateReportsLoading.value = true;
+  keywordAggregateReportsError.value = null;
+
   try {
-    const response = await fetch('/api/accounts');
-    if (!response.ok) {
-      throw new Error(`Failed to fetch accounts: ${response.status}`);
-    }
-
-    const data = (await response.json()) as Account[];
-    accounts.value = Array.isArray(data) ? data : [];
-
-    if (
-      accounts.value.length &&
-      (!selectedAccount.value || !accounts.value.find((account) => account.id === selectedAccount.value?.id))
-    ) {
-      selectedAccount.value = accounts.value[0];
-    }
+    // Wasted spend is a combination of two monitors
+    const fetch1 = fetch(`/api/monitors/anomalies?googleAdsId=${encodeURIComponent(targetAccountId)}&monitorId=wasted_spend_click_monitor`).then(r => r.json());
+    const fetch2 = fetch(`/api/monitors/anomalies?googleAdsId=${encodeURIComponent(targetAccountId)}&monitorId=wasted_spend_conversion_monitor`).then(r => r.json());
+    
+    const [data1, data2] = await Promise.all([fetch1, fetch2]);
+    const data = [...(Array.isArray(data1) ? data1 : []), ...(Array.isArray(data2) ? data2 : [])];
+    
+    wastedKeywordAggregateReports.value = data;
+    lastAccountIdForAggregateReports.value = targetAccountId;
   } catch (err) {
     console.error(err);
-    accountsError.value = 'Unable to load accounts';
+    keywordAggregateReportsError.value = 'Unable to load keyword anomalies';
+    wastedKeywordAggregateReports.value = [];
   } finally {
-    accountsLoading.value = false;
+    keywordAggregateReportsLoading.value = false;
   }
 };
 
-const loadWastedKeywordSignals = async (accountId?: string) => {
-  const targetAccountId = accountId || selectedAccount.value?.id;
+const loadBroadMatchDriftAggregateReports = async (googleAdsId?: string) => {
+  const targetAccountId = googleAdsId || selectedAccount.value?.googleAdsId;
   if (!targetAccountId) return;
 
-  keywordSignalsLoading.value = true;
-  keywordSignalsError.value = null;
-
-  try {
-    const response = await fetch(`/api/signals/wasted-keyword-spend?accountId=${encodeURIComponent(targetAccountId)}`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch keyword signals: ${response.status}`);
-    }
-    const data = (await response.json()) as WastedKeywordSignal[];
-    wastedKeywordSignals.value = Array.isArray(data) ? data : [];
-    lastAccountIdForSignals.value = targetAccountId;
-  } catch (err) {
-    console.error(err);
-    keywordSignalsError.value = 'Unable to load keyword signals';
-    wastedKeywordSignals.value = [];
-  } finally {
-    keywordSignalsLoading.value = false;
-  }
-};
-
-const loadBroadMatchDriftSignals = async (accountId?: string) => {
-  const targetAccountId = accountId || selectedAccount.value?.id;
-  if (!targetAccountId) return;
-
-  broadMatchDriftSignalsLoading.value = true;
-  broadMatchDriftSignalsError.value = null;
+  broadMatchDriftAggregateReportsLoading.value = true;
+  broadMatchDriftAggregateReportsError.value = null;
 
   try {
     const response = await fetch(
-      `/api/signals/broad-match-drift-search-term?accountId=${encodeURIComponent(targetAccountId)}`
+      `/api/monitors/anomalies?googleAdsId=${encodeURIComponent(targetAccountId)}&monitorId=broad_match_drift_monitor`
     );
     if (!response.ok) {
-      throw new Error(`Failed to fetch broad match drift signals: ${response.status}`);
+      throw new Error(`Failed to fetch broad match drift anomalies: ${response.status}`);
     }
-    const data = (await response.json()) as BroadMatchDriftSignal[];
-    broadMatchDriftSignals.value = Array.isArray(data) ? data : [];
-    lastAccountIdForSignals.value = targetAccountId;
+    const data = (await response.json()) as BroadMatchDriftAggregateReport[];
+    broadMatchDriftAggregateReports.value = Array.isArray(data) ? data : [];
+    lastAccountIdForAggregateReports.value = targetAccountId;
   } catch (err) {
     console.error(err);
-    broadMatchDriftSignalsError.value = 'Unable to load broad match drift signals';
-    broadMatchDriftSignals.value = [];
+    broadMatchDriftAggregateReportsError.value = 'Unable to load broad match drift anomalies';
+    broadMatchDriftAggregateReports.value = [];
   } finally {
-    broadMatchDriftSignalsLoading.value = false;
+    broadMatchDriftAggregateReportsLoading.value = false;
   }
 };
 
-const loadLowPerformingKeywordSignals = async (accountId?: string) => {
-  const targetAccountId = accountId || selectedAccount.value?.id;
+const loadLowPerformingKeywordAggregateReports = async (googleAdsId?: string) => {
+  const targetAccountId = googleAdsId || selectedAccount.value?.googleAdsId;
   if (!targetAccountId) return;
 
-  lowPerformingKeywordSignalsLoading.value = true;
-  lowPerformingKeywordSignalsError.value = null;
+  lowPerformingKeywordAggregateReportsLoading.value = true;
+  lowPerformingKeywordAggregateReportsError.value = null;
 
   try {
-    const response = await fetch(`/api/signals/low-performing-keyword?accountId=${encodeURIComponent(targetAccountId)}`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch low-performing keyword signals: ${response.status}`);
-    }
-    const data = (await response.json()) as LowPerformingKeywordSignal[];
-    lowPerformingKeywordSignals.value = Array.isArray(data) ? data : [];
-    lastAccountIdForSignals.value = targetAccountId;
+    const fetch1 = fetch(`/api/monitors/anomalies?googleAdsId=${encodeURIComponent(targetAccountId)}&monitorId=low_roas_keyword_monitor`).then(r => r.json());
+    const fetch2 = fetch(`/api/monitors/anomalies?googleAdsId=${encodeURIComponent(targetAccountId)}&monitorId=high_cpa_keyword_monitor`).then(r => r.json());
+    
+    const [data1, data2] = await Promise.all([fetch1, fetch2]);
+    const results1 = (Array.isArray(data1) ? data1 : []).map(r => ({ ...r, issue: 'Low ROAS' }));
+    const results2 = (Array.isArray(data2) ? data2 : []).map(r => ({ ...r, issue: 'High CPA' }));
+    
+    lowPerformingKeywordAggregateReports.value = [...results1, ...results2];
+    lastAccountIdForAggregateReports.value = targetAccountId;
   } catch (err) {
     console.error(err);
-    lowPerformingKeywordSignalsError.value = 'Unable to load low-performing keyword signals';
-    lowPerformingKeywordSignals.value = [];
+    lowPerformingKeywordAggregateReportsError.value = 'Unable to load low-performing keyword anomalies';
+    lowPerformingKeywordAggregateReports.value = [];
   } finally {
-    lowPerformingKeywordSignalsLoading.value = false;
+    lowPerformingKeywordAggregateReportsLoading.value = false;
   }
 };
 
-const loadPMaxSpendBreakdownSignals = async (accountId?: string) => {
-  const targetAccountId = accountId || selectedAccount.value?.id;
+const loadPMaxSpendBreakdownAggregateReports = async (googleAdsId?: string) => {
+  const targetAccountId = googleAdsId || selectedAccount.value?.googleAdsId;
   if (!targetAccountId) return;
 
-  pmaxSpendBreakdownSignalsLoading.value = true;
-  pmaxSpendBreakdownSignalsError.value = null;
+  pmaxSpendBreakdownAggregateReportsLoading.value = true;
+  pmaxSpendBreakdownAggregateReportsError.value = null;
 
   try {
-    const response = await fetch(`/api/signals/pmax-spend-breakdown?accountId=${encodeURIComponent(targetAccountId)}`);
+    const response = await fetch(`/api/aggregateReports/pmax-spend-breakdown?accountId=${encodeURIComponent(targetAccountId)}`);
     if (!response.ok) {
-      throw new Error(`Failed to fetch PMax spend breakdown signals: ${response.status}`);
+      throw new Error(`Failed to fetch PMax spend breakdown aggregateReports: ${response.status}`);
     }
-    const data = (await response.json()) as PMaxSpendBreakdownSignal[];
-    pmaxSpendBreakdownSignals.value = Array.isArray(data) ? data : [];
-    lastAccountIdForSignals.value = targetAccountId;
+    const data = (await response.json()) as PMaxSpendBreakdownAggregateReport[];
+    pmaxSpendBreakdownAggregateReports.value = Array.isArray(data) ? data : [];
+    lastAccountIdForAggregateReports.value = targetAccountId;
   } catch (err) {
     console.error(err);
-    pmaxSpendBreakdownSignalsError.value = 'Unable to load PMax spend breakdown signals';
-    pmaxSpendBreakdownSignals.value = [];
+    pmaxSpendBreakdownAggregateReportsError.value = 'Unable to load PMax spend breakdown aggregateReports';
+    pmaxSpendBreakdownAggregateReports.value = [];
   } finally {
-    pmaxSpendBreakdownSignalsLoading.value = false;
+    pmaxSpendBreakdownAggregateReportsLoading.value = false;
   }
 };
 
@@ -889,49 +874,48 @@ const getFullSuiteReport = async (_clientId: string): Promise<GoogleAdsFullRepor
 };
 
 onMounted(async () => {
-  await loadAccounts();
-  if (!selectedAccount.value) {
-    loadReport();
+  if (selectedAccount?.value?.googleAdsId) {
+    loadReport(selectedAccount.value.googleAdsId);
   }
 });
 watch(
   () => activeTab.value,
   (tab) => {
-    if (tab === GoogleAdsSubView.KEYWORD_INTEL && selectedAccount.value) {
-      const needsRefresh = lastAccountIdForSignals.value !== selectedAccount.value.id;
-      if (needsRefresh || !wastedKeywordSignals.value.length) {
-        loadWastedKeywordSignals(selectedAccount.value.id);
+    if (tab === GoogleAdsSubView.KEYWORD_INTEL && selectedAccount?.value?.googleAdsId) {
+      const needsRefresh = lastAccountIdForAggregateReports.value !== selectedAccount.value.googleAdsId;
+      if (needsRefresh || !wastedKeywordAggregateReports.value.length) {
+        loadWastedKeywordAggregateReports(selectedAccount.value.googleAdsId);
       }
-      if (needsRefresh || !lowPerformingKeywordSignals.value.length) {
-        loadLowPerformingKeywordSignals(selectedAccount.value.id);
+      if (needsRefresh || !lowPerformingKeywordAggregateReports.value.length) {
+        loadLowPerformingKeywordAggregateReports(selectedAccount.value.googleAdsId);
       }
-      if (needsRefresh || !broadMatchDriftSignals.value.length) {
-        loadBroadMatchDriftSignals(selectedAccount.value.id);
+      if (needsRefresh || !broadMatchDriftAggregateReports.value.length) {
+        loadBroadMatchDriftAggregateReports(selectedAccount.value.googleAdsId);
       }
     }
-    if (tab === GoogleAdsSubView.PMAX_POWER && selectedAccount.value) {
-      const needsRefresh = lastAccountIdForSignals.value !== selectedAccount.value.id;
-      if (needsRefresh || !pmaxSpendBreakdownSignals.value.length) {
-        loadPMaxSpendBreakdownSignals(selectedAccount.value.id);
+    if (tab === GoogleAdsSubView.PMAX_POWER && selectedAccount?.value?.googleAdsId) {
+      const needsRefresh = lastAccountIdForAggregateReports.value !== selectedAccount.value.googleAdsId;
+      if (needsRefresh || !pmaxSpendBreakdownAggregateReports.value.length) {
+        loadPMaxSpendBreakdownAggregateReports(selectedAccount.value.googleAdsId);
       }
     }
   }
 );
-watch(selectedAccount, (account, prevAccount) => {
-  if (account?.id && account.id !== prevAccount?.id) {
-    loadReport(account.id);
+watch(() => selectedAccount?.value, (account, prevAccount) => {
+  if (account?.googleAdsId && account.googleAdsId !== prevAccount?.googleAdsId) {
+    loadReport(account.googleAdsId);
     if (activeTab.value === GoogleAdsSubView.KEYWORD_INTEL) {
-      loadWastedKeywordSignals(account.id);
-      loadLowPerformingKeywordSignals(account.id);
-      loadBroadMatchDriftSignals(account.id);
+      loadWastedKeywordAggregateReports(account.googleAdsId);
+      loadLowPerformingKeywordAggregateReports(account.googleAdsId);
+      loadBroadMatchDriftAggregateReports(account.googleAdsId);
     }
     if (activeTab.value === GoogleAdsSubView.PMAX_POWER) {
-      loadPMaxSpendBreakdownSignals(account.id);
+      loadPMaxSpendBreakdownAggregateReports(account.googleAdsId);
     }
   }
-});
+}, { immediate: true });
 watch(dateRange, () => {
-  loadReport(selectedAccount.value?.id);
+  loadReport(selectedAccount?.value?.googleAdsId);
 });
 </script>
 
@@ -971,76 +955,28 @@ watch(dateRange, () => {
               Google Ads Suite
             </h1>
             <div class="mt-2 flex items-center gap-3">
-              <div class="relative group">
-                <button
-                  class="flex items-center px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:border-indigo-200 hover:text-indigo-700 shadow-sm min-w-[240px]"
-                  :class="accountsLoading ? 'cursor-wait opacity-80' : 'cursor-pointer'"
-                >
-                  <Wallet class="w-4 h-4 mr-3 text-indigo-500" />
-                  <div class="text-left flex-1 leading-tight">
-                    <p
-                      class="text-[11px] uppercase text-slate-400 font-bold tracking-wide"
-                    >
-                      Account
-                    </p>
-                    <p
-                      v-if="selectedAccount"
-                      class="text-sm font-semibold text-slate-900"
-                    >
-                      {{ selectedAccount.name }}
-                    </p>
-                    <p v-if="selectedAccount" class="text-xs text-slate-500">
-                      ID: {{ selectedAccount.id }}
-                    </p>
-                    <p v-else class="text-sm text-slate-500">
-                      {{ accountsLoading ? 'Loading accounts...' : 'Select an account' }}
-                    </p>
-                  </div>
-                  <ChevronDown class="w-4 h-4 ml-2 text-slate-400" />
-                </button>
-                <div
-                  class="absolute top-full left-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-200 hidden group-hover:block z-50 overflow-hidden"
-                >
-                  <div
-                    v-if="accountsLoading"
-                    class="px-4 py-3 text-sm text-slate-500"
+              <div
+                v-if="selectedAccount"
+                class="flex items-center px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-lg text-sm font-medium text-indigo-700 shadow-sm"
+              >
+                <Wallet class="w-4 h-4 mr-3 text-indigo-500" />
+                <div class="text-left leading-tight">
+                  <p
+                    class="text-[10px] uppercase text-indigo-400 font-bold tracking-wide"
                   >
-                    Loading accounts...
-                  </div>
-                  <div
-                    v-else-if="!accounts.length"
-                    class="px-4 py-3 text-sm text-slate-500"
-                  >
-                    No accounts available
-                  </div>
-                  <template v-else>
-                    <button
-                      v-for="account in accounts"
-                      :key="account.id"
-                      class="w-full text-left px-4 py-3 hover:bg-indigo-50 flex items-center justify-between transition-colors"
-                      @click="selectedAccount = account"
-                    >
-                      <div>
-                        <p class="text-sm font-semibold text-slate-900">
-                          {{ account.name }}
-                        </p>
-                        <p class="text-xs text-slate-500">
-                          ID: {{ account.id }}
-                        </p>
-                      </div>
-                      <CheckCircle
-                        v-if="selectedAccount?.id === account.id"
-                        class="w-4 h-4 text-indigo-500"
-                      />
-                    </button>
-                  </template>
+                    Active Account
+                  </p>
+                  <p class="text-sm font-bold text-indigo-900">
+                    {{ selectedAccount.name }}
+                  </p>
                 </div>
               </div>
-              <span
-                v-if="accountsError"
-                class="text-xs text-red-500 font-medium"
-                >{{ accountsError }}</span
+              <div
+                v-else
+                class="px-4 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-500 italic"
               >
+                No account selected in sidebar
+              </div>
             </div>
           </div>
           <div class="flex flex-wrap items-center gap-3" v-if="false">
@@ -1210,6 +1146,13 @@ watch(dateRange, () => {
                 </div>
                 <div class="space-y-4">
                   <div
+                    v-if="report.topPriorityActions.length === 0"
+                    class="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200"
+                  >
+                    <CheckCircle class="w-8 h-8 text-green-400 mx-auto mb-2" />
+                    <p class="text-sm text-slate-500 font-medium">No priority actions detected.</p>
+                  </div>
+                  <div
                     v-for="(action, idx) in report.topPriorityActions"
                     :key="action.id"
                     class="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 hover:border-indigo-200 hover:shadow-sm transition-all group"
@@ -1360,30 +1303,30 @@ watch(dateRange, () => {
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-slate-50">
-                    <tr v-if="keywordSignalsLoading">
+                    <tr v-if="keywordAggregateReportsLoading">
                       <td
                         colspan="8"
                         class="px-6 py-6 text-center text-sm text-slate-500"
                       >
-                        Loading keyword signals...
+                        Loading keyword aggregateReports...
                       </td>
                     </tr>
-                    <tr v-else-if="keywordSignalsError">
+                    <tr v-else-if="keywordAggregateReportsError">
                       <td
                         colspan="8"
                         class="px-6 py-6 text-center text-sm text-red-500"
                       >
-                        {{ keywordSignalsError }}
+                        {{ keywordAggregateReportsError }}
                       </td>
                     </tr>
                     <tr
-                      v-else-if="useKeywordSignals && !filteredNegatives.length"
+                      v-else-if="useKeywordAggregateReports && !filteredNegatives.length"
                     >
                       <td
                         colspan="8"
                         class="px-6 py-6 text-center text-sm text-slate-500"
                       >
-                        No wasted keyword signals found.
+                        No wasted keyword aggregateReports found.
                       </td>
                     </tr>
                     <template v-else>
@@ -1455,32 +1398,32 @@ watch(dateRange, () => {
                 </div>
                 <div class="space-y-4">
                   <div
-                    v-if="useKeywordSignals && broadMatchDriftSignalsLoading"
+                    v-if="useKeywordAggregateReports && broadMatchDriftAggregateReportsLoading"
                     class="text-sm text-slate-500"
                   >
-                    Loading broad match drift signals...
+                    Loading broad match drift aggregateReports...
                   </div>
                   <div
-                    v-else-if="useKeywordSignals && broadMatchDriftSignalsError"
+                    v-else-if="useKeywordAggregateReports && broadMatchDriftAggregateReportsError"
                     class="text-sm text-red-600"
                   >
-                    {{ broadMatchDriftSignalsError }}
+                    {{ broadMatchDriftAggregateReportsError }}
                   </div>
                   <div
-                    v-else-if="useKeywordSignals && !driftSignals.length"
+                    v-else-if="useKeywordAggregateReports && !driftAggregateReports.length"
                     class="text-sm text-slate-500"
                   >
-                    No broad match drift signals found.
+                    No broad match drift aggregateReports found.
                   </div>
                   <div
-                    v-else-if="!driftSignals.length"
+                    v-else-if="!driftAggregateReports.length"
                     class="text-sm text-slate-500"
                   >
                     No drift data available.
                   </div>
                   <div
                     v-else
-                    v-for="drift in driftSignals"
+                    v-for="drift in driftAggregateReports"
                     :key="
                       drift.row_id ||
                       drift.id ||
@@ -1514,6 +1457,9 @@ watch(dateRange, () => {
                           >
                           <span class="ml-1.5 text-slate-400"
                             >({{ drift.keyword_info_match_type || 'Broad'
+
+
+
                             }})</span
                           >
                         </div>
@@ -1566,16 +1512,16 @@ watch(dateRange, () => {
                 </h3>
                 <div class="space-y-3">
                   <div
-                    v-if="lowPerformingKeywordSignalsLoading"
+                    v-if="lowPerformingKeywordAggregateReportsLoading"
                     class="text-sm text-slate-500"
                   >
-                    Loading low-performing keyword signals...
+                    Loading low-performing keyword aggregateReports...
                   </div>
                   <div
-                    v-else-if="lowPerformingKeywordSignalsError"
+                    v-else-if="lowPerformingKeywordAggregateReportsError"
                     class="text-sm text-red-600"
                   >
-                    {{ lowPerformingKeywordSignalsError }}
+                    {{ lowPerformingKeywordAggregateReportsError }}
                   </div>
                   <div
                     v-else-if="!filteredLowPerforming.length"
@@ -1660,6 +1606,13 @@ watch(dateRange, () => {
                 </div>
                 <div class="space-y-6">
                   <div
+                    v-if="filteredWaste.length === 0"
+                    class="p-8 bg-slate-50 rounded-lg border border-dashed border-slate-200 text-center"
+                  >
+                    <CheckCircle class="w-8 h-8 text-green-400 mx-auto mb-2" />
+                    <p class="text-sm text-slate-500 font-medium">No waste detected across dimensions.</p>
+                  </div>
+                  <div
                     v-for="w in filteredWaste"
                     :key="w.id"
                     class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100"
@@ -1719,6 +1672,13 @@ watch(dateRange, () => {
                 </h3>
                 <div class="space-y-4">
                   <div
+                    v-if="report.clusterB.conversionHealth.length === 0"
+                    class="p-4 bg-green-50 rounded-lg border border-green-100 text-center"
+                  >
+                    <CheckCircle class="w-6 h-6 text-green-500 mx-auto mb-2" />
+                    <p class="text-xs text-green-700 font-medium">All conversion actions are healthy.</p>
+                  </div>
+                  <div
                     v-for="c in report.clusterB.conversionHealth"
                     :key="c.id"
                     :class="[
@@ -1760,6 +1720,14 @@ watch(dateRange, () => {
             >
               <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
                 <h3 class="font-bold text-slate-900">Settings Audit Engine</h3>
+              </div>
+              <div
+                v-if="report.clusterB.settingsAudit.length === 0"
+                class="p-12 text-center"
+              >
+                <CheckCircle class="w-10 h-10 text-green-400 mx-auto mb-3" />
+                <p class="text-slate-600 font-medium">No campaign setting optimizations found.</p>
+                <p class="text-xs text-slate-400 mt-1">All campaign settings align with best practices.</p>
               </div>
               <div
                 v-for="s in report.clusterB.settingsAudit"
@@ -1830,6 +1798,13 @@ watch(dateRange, () => {
                   Bid Strategy Validator
                 </h3>
                 <div
+                  v-if="report.clusterC.bidStrategies.length === 0"
+                  class="p-8 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200"
+                >
+                  <CheckCircle class="w-8 h-8 text-green-400 mx-auto mb-2" />
+                  <p class="text-sm text-slate-500">No bid strategy issues found.</p>
+                </div>
+                <div
                   v-for="bs in report.clusterC.bidStrategies"
                   :key="bs.id"
                   class="p-4 bg-slate-50 border border-slate-100 rounded-lg mb-4 last:mb-0"
@@ -1886,6 +1861,13 @@ watch(dateRange, () => {
                   <Wallet class="w-4 h-4 mr-2 text-slate-500" />
                   Budget Pacing &amp; Allocation
                 </h3>
+                <div
+                  v-if="report.clusterC.budgetPacing.length === 0"
+                  class="p-8 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200"
+                >
+                  <CheckCircle class="w-8 h-8 text-green-400 mx-auto mb-2" />
+                  <p class="text-sm text-slate-500">No budget pacing data available.</p>
+                </div>
                 <div
                   v-for="bp in report.clusterC.budgetPacing"
                   :key="bp.id"
@@ -1969,6 +1951,9 @@ watch(dateRange, () => {
 
 
 
+
+
+
                           }}"
                         </p>
                         <p class="text-[10px] text-green-700">
@@ -1999,6 +1984,14 @@ watch(dateRange, () => {
                     <Target class="w-4 h-4 mr-2 text-indigo-500" />
                     Quality Score Breakdown
                   </h3>
+                </div>
+                <div
+                  v-if="report.clusterD.qualityScores.length === 0"
+                  class="p-12 text-center"
+                >
+                  <Target class="w-10 h-10 text-slate-200 mx-auto mb-3" />
+                  <p class="text-slate-600 font-medium">No Quality Score data found.</p>
+                  <p class="text-xs text-slate-400 mt-1">Check back later for automated quality insights.</p>
                 </div>
                 <div class="divide-y divide-slate-100">
                   <div
@@ -2067,6 +2060,14 @@ watch(dateRange, () => {
                     Asset Performance
                   </h3>
                 </div>
+                <div
+                  v-if="report.clusterD.adAssets.length === 0"
+                  class="p-12 text-center"
+                >
+                  <Sparkles class="w-10 h-10 text-slate-200 mx-auto mb-3" />
+                  <p class="text-slate-600 font-medium">No asset performance data detected.</p>
+                  <p class="text-xs text-slate-400 mt-1">We'll display creative insights once enough data is gathered.</p>
+                </div>
                 <div class="divide-y divide-slate-100">
                   <div
                     v-for="ad in report.clusterD.adAssets"
@@ -2122,17 +2123,29 @@ watch(dateRange, () => {
         <template v-else-if="activeTab === GoogleAdsSubView.PMAX_POWER">
           <div class="max-w-7xl mx-auto space-y-8">
             <div
-              v-if="pmaxSpendBreakdownSignalsLoading"
+              v-if="pmaxSpendBreakdownAggregateReportsLoading"
               class="flex flex-col items-center justify-center p-12 bg-white rounded-xl border border-slate-200"
             >
               <RefreshCw class="w-8 h-8 text-indigo-500 animate-spin mb-4" />
-              <p class="text-slate-500 text-sm font-medium">Crunching black box heuristics...</p>
+              <p class="text-slate-500 text-sm font-medium">
+                Crunching black box heuristics...
+              </p>
             </div>
             <div
-              v-else-if="pmaxSpendBreakdownSignalsError"
+              v-else-if="pmaxSpendBreakdownAggregateReportsError"
               class="p-12 bg-white rounded-xl border border-red-100 text-center"
             >
-              <p class="text-red-600 font-medium">{{ pmaxSpendBreakdownSignalsError }}</p>
+              <p class="text-red-600 font-medium">
+                {{ pmaxSpendBreakdownAggregateReportsError }}
+              </p>
+            </div>
+            <div
+              v-else-if="pmaxPowerBreakdown.length === 0"
+              class="p-12 bg-white rounded-xl border border-slate-200 text-center"
+            >
+              <Layers class="w-12 h-12 text-slate-200 mx-auto mb-4" />
+              <p class="text-slate-500 font-medium">No Performance Max data found for this account.</p>
+              <p class="text-xs text-slate-400 mt-1">We couldn't detect any active PMax campaigns with spend in the selected period.</p>
             </div>
             <div
               v-else
@@ -2148,7 +2161,9 @@ watch(dateRange, () => {
                   </p>
                 </div>
                 <div class="text-right">
-                  <p class="text-3xl font-bold text-indigo-600">{{ formatCurrency(pmaxTotalSpend) }}</p>
+                  <p class="text-3xl font-bold text-indigo-600">
+                    {{ formatCurrency(pmaxTotalSpend) }}
+                  </p>
                   <p class="text-xs text-slate-400 font-medium uppercase">
                     Total Spend
                   </p>
@@ -2215,6 +2230,16 @@ watch(dateRange, () => {
             </div>
 
             <div
+              v-if="report.clusterE.alternatives.length === 0"
+              class="bg-slate-900 text-slate-300 rounded-xl p-8 text-center shadow-xl"
+            >
+              <ShieldAlert class="w-10 h-10 text-indigo-400 mx-auto mb-3" />
+              <h3 class="text-white font-bold text-lg">No Efficiency Splits Recommended</h3>
+              <p class="text-sm max-w-lg mx-auto mt-2 text-slate-400">Your current Performance Max structure is optimal according to our heuristics. No campaign splits are recommended at this time.</p>
+            </div>
+
+            <div
+              v-else
               v-for="(alt, idx) in report.clusterE.alternatives"
               :key="idx"
               class="bg-slate-900 text-slate-300 rounded-xl p-8 flex flex-col md:flex-row items-center justify-between shadow-xl relative overflow-hidden"

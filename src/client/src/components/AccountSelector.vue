@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, inject, type Ref } from 'vue';
 import { Wallet, ChevronDown, CheckCircle, Settings } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 
@@ -12,8 +12,10 @@ interface MaxAccount {
   facebookAdsId: string | null;
 }
 
+const selectedAccount = inject<Ref<MaxAccount | null>>('selectedAccount');
+const selectAccountGlobal = inject<(account: MaxAccount) => void>('selectAccount');
+
 const maxAccounts = ref<MaxAccount[]>([]);
-const selectedAccount = ref<MaxAccount | null>(null);
 const isOpen = ref(false);
 let closeTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -21,21 +23,13 @@ const loadMaxAccounts = () => {
   const saved = localStorage.getItem('maxMarketingAccounts');
   if (saved) {
     maxAccounts.value = JSON.parse(saved);
-    if (maxAccounts.value.length > 0 && !selectedAccount.value) {
-      const lastId = localStorage.getItem('selectedMaxAccountId');
-      selectedAccount.value = maxAccounts.value.find(a => a.id === lastId) || maxAccounts.value[0];
-      // Ensure initial state is broadcast if needed
-      if (!lastId) {
-        selectAccount(selectedAccount.value);
-      }
-    }
   }
 };
 
 const selectAccount = (account: MaxAccount) => {
-  selectedAccount.value = account;
-  localStorage.setItem('selectedMaxAccountId', account.id);
-  window.dispatchEvent(new Event('accounts-updated'));
+  if (selectAccountGlobal) {
+    selectAccountGlobal(account);
+  }
   isOpen.value = false;
 };
 

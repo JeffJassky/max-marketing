@@ -276,7 +276,7 @@ export class Entity<S extends BronzeImport<any, any>> extends BaseData {
 }
 
 // ~~~~~~~~~~~~~~~~~
-// Gold Signal
+// Gold AggregateReport
 // ~~~~~~~~~~~~~~~~~
 
 // Helpers to refer to the entity definition keys in a type-safe way
@@ -294,7 +294,9 @@ type EntityMetricKey<T extends Entity<BronzeImport<any, any>>> =
 // Window configuration
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-export type SignalWindowConfig<T extends Entity<BronzeImport<any, any>>> = {
+export type AggregateReportWindowConfig<
+  T extends Entity<BronzeImport<any, any>>
+> = {
   /** Identifier for the window preset, e.g. "last_90d". */
   id: string;
 
@@ -312,7 +314,9 @@ export type SignalWindowConfig<T extends Entity<BronzeImport<any, any>>> = {
 // Metric & derived field config
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-export type SignalMetricConfig<T extends Entity<BronzeImport<any, any>>> = {
+export type AggregateReportMetricConfig<
+  T extends Entity<BronzeImport<any, any>>
+> = {
   /**
    * Name of the metric on the source Entity to aggregate from.
    * If provided, the executor uses that metric's default aggregation
@@ -328,7 +332,7 @@ export type SignalMetricConfig<T extends Entity<BronzeImport<any, any>>> = {
   aggregation?: "sum" | "avg" | "count" | "min" | "max";
 
   /**
-   * Optional expression for derived metrics at the signal layer.
+   * Optional expression for derived metrics at the aggregateReport layer.
    * If present, the executor treats this as a SQL expression built
    * from other grouped/aggregated fields
    * (e.g. "spend / NULLIF(clicks, 0)").
@@ -342,7 +346,7 @@ export type SignalMetricConfig<T extends Entity<BronzeImport<any, any>>> = {
   type?: z.ZodType;
 };
 
-export type SignalDerivedFieldConfig = {
+export type AggregateReportDerivedFieldConfig = {
   /** SQL expression computed from grouped/aggregated fields. */
   expression: string;
 
@@ -354,9 +358,11 @@ export type SignalDerivedFieldConfig = {
 // Snapshot / output configuration
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-export type SignalOutputConfig<T extends Entity<BronzeImport<any, any>>> = {
+export type AggregateReportOutputConfig<
+  T extends Entity<BronzeImport<any, any>>
+> = {
   /**
-   * Fields that uniquely identify a signal record and are used for
+   * Fields that uniquely identify a aggregateReport record and are used for
    * deduping/attribution. Typically the same as `groupBy`.
    */
   grain: EntityDimensionKey<T>[];
@@ -369,14 +375,14 @@ export type SignalOutputConfig<T extends Entity<BronzeImport<any, any>>> = {
   includeDimensions?: EntityDimensionKey<T>[];
 
   /**
-   * Metrics to materialize into the signal table.
+   * Metrics to materialize into the aggregateReport table.
    * Keys are the *output* field names; values describe how to build them.
    *
    * Examples for wastedSpendKeyword:
    * - impressions, clicks, spend, conversions, conversions_value
    * - last_seen as MAX(date)
    */
-  metrics: Record<string, SignalMetricConfig<T>>;
+  metrics: Record<string, AggregateReportMetricConfig<T>>;
 
   /**
    * Additional derived fields that are not directly aggregated metrics,
@@ -385,23 +391,23 @@ export type SignalOutputConfig<T extends Entity<BronzeImport<any, any>>> = {
    * - goal (target or threshold)
    * - strategy_family ("conversion" vs "click")
    */
-  derivedFields?: Record<string, SignalDerivedFieldConfig>;
+  derivedFields?: Record<string, AggregateReportDerivedFieldConfig>;
 };
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Full SignalDef
+// Full AggregateReportDef
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 /**
- * Defines the structure for a Gold Signal, representing actionable insights derived from Silver Entities.
- * Signals monitor data for specific conditions (predicates) and surface important events or anomalies.
+ * Defines the structure for a Gold AggregateReport, representing actionable insights derived from Silver Entities.
+ * AggregateReports monitor data for specific conditions (predicates) and surface important events or anomalies.
  * @template T - The Entity source class.
  */
-export type SignalDef<T extends Entity<BronzeImport<any, any>>> = {
-  /** Stable identifier for the signal (e.g. "wastedSpendKeyword"). */
+export type AggregateReportDef<T extends Entity<BronzeImport<any, any>>> = {
+  /** Stable identifier for the aggregateReport (e.g. "wastedSpendKeyword"). */
   id: string;
 
-  /** Human-readable description of what this signal detects. */
+  /** Human-readable description of what this aggregateReport detects. */
   description: string;
 
   /** Source entity that provides the base grain and metrics. */
@@ -421,13 +427,13 @@ export type SignalDef<T extends Entity<BronzeImport<any, any>>> = {
   /**
    * Optional window configuration (e.g. last_90d).
    * If omitted, the executor can fall back to a default window
-   * (like last_90d) or treat the signal as non-windowed.
+   * (like last_90d) or treat the aggregateReport as non-windowed.
    */
-  window?: SignalWindowConfig<T>;
+  window?: AggregateReportWindowConfig<T>;
 
   /**
    * Dimensions on the source entity that define the attribution/grouping grain
-   * for this signal's snapshot (e.g. account_id, campaign_id, keyword_info_text,
+   * for this aggregateReport's snapshot (e.g. account_id, campaign_id, keyword_info_text,
    * bidding_strategy_type for wastedSpendKeyword).
    *
    * The executor groups by these before computing metrics and applying `predicate`.
@@ -435,13 +441,13 @@ export type SignalDef<T extends Entity<BronzeImport<any, any>>> = {
   // groupBy: EntityDimensionKey<T>[]; // Removed in favor of output.grain
 
   /**
-   * Describes how to build the materialized signal rows: key fields,
+   * Describes how to build the materialized aggregateReport rows: key fields,
    * aggregated metrics, derived fields, and impact/goal/confidence.
    */
-  output: SignalOutputConfig<T>;
+  output: AggregateReportOutputConfig<T>;
 
   /**
-   * Optional default sorting for the signal results.
+   * Optional default sorting for the aggregateReport results.
    */
   orderBy?: { field: string; direction: "asc" | "desc" };
 
@@ -449,51 +455,56 @@ export type SignalDef<T extends Entity<BronzeImport<any, any>>> = {
    * Optional: feature flags / tags for orchestration, ownership, etc.
    */
   tags?: string[];
-  /** Optional: Whether this signal is currently enabled. */
+  /** Optional: Whether this aggregateReport is currently enabled. */
   enabled?: boolean;
 };
 
 // ~~~~~~~~~~~~~~~~~
-// Signal Inference Helper
+// AggregateReport Inference Helper
 // ~~~~~~~~~~~~~~~~~
 
-type InferSignalRow<T extends Entity<BronzeImport<any, any>>, Def extends SignalDef<T>> = 
-    // Grain (any)
-    { [K in Def['output']['grain'][number]]: any } &
-    // Included Dimensions (any)
-    (Def['output']['includeDimensions'] extends ReadonlyArray<infer K> ? { [P in K & string]: any } : {}) &
-    // Metrics
-    { [K in keyof Def['output']['metrics']]: 
-        Def['output']['metrics'][K]['type'] extends z.ZodType 
-            ? z.infer<Def['output']['metrics'][K]['type']> 
-            : number 
-    } &
-    // Derived Fields
-    (Def['output']['derivedFields'] extends Record<string, any>
-        ? { [K in keyof Def['output']['derivedFields']]: z.infer<Def['output']['derivedFields'][K]['type']> }
-        : {}) &
-    // Metadata
-    {
-        signal_id: string;
-        detected_at: string | { value: string };
+type InferAggregateReportRow<
+  T extends Entity<BronzeImport<any, any>>,
+  Def extends AggregateReportDef<T>
+> =
+  // Grain (any)
+  {
+    [K in Def["output"]["grain"][number]]: any;
+  } & (Def["output"]["includeDimensions"] extends ReadonlyArray<infer K> // Included Dimensions (any)
+    ? { [P in K & string]: any }
+    : {}) & {
+      // Metrics
+      [K in keyof Def["output"]["metrics"]]: Def["output"]["metrics"][K]["type"] extends z.ZodType
+        ? z.infer<Def["output"]["metrics"][K]["type"]>
+        : number;
+    } & (Def["output"]["derivedFields"] extends Record<string, any> // Derived Fields
+      ? {
+          [K in keyof Def["output"]["derivedFields"]]: z.infer<
+            Def["output"]["derivedFields"][K]["type"]
+          >;
+        }
+      : {}) & {
+      // Metadata
+      report_id: string;
+      detected_at: string | { value: string };
     };
 
 /**
- * Represents a Gold-grade data signal, detecting specific business-relevant events or patterns.
+ * Represents a Gold-grade data aggregateReport, detecting specific business-relevant events or patterns.
  * It queries an underlying Entity, applies aggregations and predicates, and outputs actionable alerts.
  * @template T - The Entity source class.
  */
-export class Signal<
+export class AggregateReport<
   T extends Entity<BronzeImport<any, any>>,
-  const Def extends SignalDef<T> = SignalDef<T>
+  const Def extends AggregateReportDef<T> = AggregateReportDef<T>
 > extends BaseData {
   readonly grade = "gold";
-  readonly dataset = "signals";
+  readonly dataset = "reports";
   readonly definition: Def;
 
   /**
-   * Creates an instance of Signal.
-   * @param definition - The definition object for the Signal.
+   * Creates an instance of AggregateReport.
+   * @param definition - The definition object for the AggregateReport.
    */
   constructor(definition: Def) {
     super(definition.id, definition.description);
@@ -501,7 +512,7 @@ export class Signal<
   }
 
   /**
-   * Constructs the Zod schema for the signal's output.
+   * Constructs the Zod schema for the aggregateReport's output.
    * This includes grain, included dimensions, metrics, derived fields, and metadata.
    */
   get outputSchema() {
@@ -535,13 +546,14 @@ export class Signal<
       if (config.type) {
         shape[alias] = config.type;
       } else if (config.sourceMetric) {
-         // Try to find type from source entity definition
-         const sourceMetricDef = def.source.definition.metrics[config.sourceMetric as string];
-         if (sourceMetricDef) {
-           shape[alias] = sourceMetricDef.type;
-         } else {
-            shape[alias] = z.number(); // Default to number for metrics
-         }
+        // Try to find type from source entity definition
+        const sourceMetricDef =
+          def.source.definition.metrics[config.sourceMetric as string];
+        if (sourceMetricDef) {
+          shape[alias] = sourceMetricDef.type;
+        } else {
+          shape[alias] = z.number(); // Default to number for metrics
+        }
       } else {
         shape[alias] = z.number();
       }
@@ -555,8 +567,11 @@ export class Signal<
     }
 
     // 5. Metadata
-    shape["signal_id"] = z.string();
-    shape["detected_at"] = z.string().datetime().or(z.object({ value: z.string() })); // Handle BQ timestamp format
+    shape["report_id"] = z.string();
+    shape["detected_at"] = z
+      .string()
+      .datetime()
+      .or(z.object({ value: z.string() })); // Handle BQ timestamp format
 
     return z.object(shape);
   }
@@ -565,7 +580,7 @@ export class Signal<
     return this.outputSchema;
   }
 
-  getSignalQuery(options: {
+  getAggregateReportQuery(options: {
     startDate?: string;
     endDate?: string;
     accountId?: string;
@@ -576,8 +591,8 @@ export class Signal<
     const groupByFields = def.output.grain.map(String);
     const dateField = String(def.window?.dateDimension ?? "date");
 
-    // Use a fresh knex instance tuned for SQL generation (aligns with SignalExecutor)
-    const signalQB = knex({ client: "pg" });
+    // Use a fresh knex instance tuned for SQL generation (aligns with AggregateReportExecutor)
+    const aggregateReportQB = knex({ client: "pg" });
 
     // Resolve window start
     let windowStartSQL: string | undefined;
@@ -599,7 +614,9 @@ export class Signal<
     });
 
     const metricAliasMap: Record<string, string> = {};
-    console.log(`[DEBUG] metrics keys: ${Object.keys(def.output.metrics).join(", ")}`);
+    console.log(
+      `[DEBUG] metrics keys: ${Object.keys(def.output.metrics).join(", ")}`
+    );
     Object.entries(def.output.metrics).forEach(([alias, metric]) => {
       if (metric.expression) {
         baseSelects.push(`${metric.expression} AS ${alias}`);
@@ -630,9 +647,9 @@ export class Signal<
 
     console.log(`[DEBUG] baseSelects: ${baseSelects.join(" | ")}`);
 
-    const baseQueryBuilder = signalQB
-      .from(signalQB.raw(`\`${table}\``))
-      .select(signalQB.raw(baseSelects.join(", ")));
+    const baseQueryBuilder = aggregateReportQB
+      .from(aggregateReportQB.raw(`\`${table}\``))
+      .select(aggregateReportQB.raw(baseSelects.join(", ")));
 
     if (windowStartSQL) {
       baseQueryBuilder.whereRaw(`${dateField} >= ${windowStartSQL}`);
@@ -645,7 +662,9 @@ export class Signal<
       baseQueryBuilder.whereRaw("account_id = ?", [options.accountId]);
     }
 
-    baseQueryBuilder.groupBy(groupByFields.map((dim) => signalQB.raw(dim)));
+    baseQueryBuilder.groupBy(
+      groupByFields.map((dim) => aggregateReportQB.raw(dim))
+    );
 
     const having = predicateToSql(def.predicate, metricAliasMap);
     if (having && having.trim().length > 0) {
@@ -661,12 +680,12 @@ export class Signal<
         outerSelects.push(`${cfg.expression} AS ${alias}`);
       }
     }
-    outerSelects.push(`'${def.id}' AS signal_id`);
+    outerSelects.push(`'${def.id}' AS report_id`);
     outerSelects.push(`CURRENT_TIMESTAMP() AS detected_at`);
 
-    const finalQuery = signalQB
-      .from(signalQB.raw(`(${baseQuery}) as t`))
-      .select(signalQB.raw(outerSelects.join(", ")));
+    const finalQuery = aggregateReportQB
+      .from(aggregateReportQB.raw(`(${baseQuery}) as t`))
+      .select(aggregateReportQB.raw(outerSelects.join(", ")));
 
     if (def.orderBy) {
       finalQuery.orderByRaw(`${def.orderBy.field} ${def.orderBy.direction}`);
@@ -676,20 +695,58 @@ export class Signal<
   }
 
   /**
-   * Executes the signal query and returns strongly-typed results.
+   * Fetches the latest materialized snapshot for this report.
+   */
+  async getData(accountId: string, limit: number = 100) {
+    const bqClient = createBigQueryClient();
+    const query = `
+      SELECT *
+      FROM \`${this.dataset}.${this.tableName}\`
+      WHERE account_id = @accountId
+      ORDER BY detected_at DESC
+      LIMIT @limit
+    `;
+
+    console.log(`[AggregateReport] Fetching materialized data from ${this.dataset}.${this.tableName} for account: ${accountId}`);
+
+    const [rows] = await bqClient.query({
+      query,
+      params: { accountId, limit }
+    });
+
+    return rows.map(row => ({
+        ...row,
+        detected_at: typeof row.detected_at === 'object' && row.detected_at?.value 
+            ? row.detected_at.value 
+            : row.detected_at
+    }));
+  }
+
+  /**
+   * Executes the aggregateReport query (live aggregation) and returns results.
    * @param options - Query options (accountId, date range).
    */
-  async getRows(
-    options: { startDate?: string; endDate?: string; accountId?: string }
-  ): Promise<InferSignalRow<T, Def>[]> {
+  async getRows(options: {
+    startDate?: string;
+    endDate?: string;
+    accountId?: string;
+  }): Promise<InferAggregateReportRow<T, Def>[]> {
     const bqClient = createBigQueryClient(); // Create client internally
-    const query = this.getSignalQuery(options);
+    const query = this.getAggregateReportQuery(options);
     const [rows] = await bqClient.query(query);
 
     console.log(
-      `[${this.id}] Returned ${rows.length} row(s) for accountId=${options.accountId || "N/A"}`
+      `[${this.id}] Returned ${rows.length} row(s) for accountId=${
+        options.accountId || "N/A"
+      }`
     );
 
-    return rows;
+    return rows.map((row: any) => ({
+      ...row,
+      detected_at:
+        typeof row.detected_at === "object" && row.detected_at?.value
+          ? row.detected_at.value
+          : row.detected_at,
+    })) as InferAggregateReportRow<T, Def>[];
   }
 }
