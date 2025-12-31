@@ -10,12 +10,13 @@ import { BronzeImport, Entity, AggregateReport } from "../jobs/base";
 import { EntityExecutor } from "../shared/data/entityExecutor";
 import { AggregateReportExecutor } from "../shared/data/aggregateReportExecutor";
 import { MonitorExecutor } from "../shared/data/monitorExecutor";
+import { SuperlativeExecutor } from "../shared/data/superlativeExecutor";
 import { Monitor } from "../shared/data/monitor";
 import { WindsorImportExecutor } from "../shared/vendors/windsor/windsorPresetExecutor";
 
 loadEnv();
 
-type JobType = "import" | "entity" | "aggregateReport" | "monitor";
+type JobType = "import" | "entity" | "aggregateReport" | "monitor" | "superlative";
 type JobInstance =
   | BronzeImport<any, any>
   | Entity<any>
@@ -67,19 +68,35 @@ export const loadJobsFromFilePath = async (
   const jobInstances = Object.values(moduleExports).filter(isJobInstance);
 
   if (jobInstances.length === 0) {
-    // Warn but don't fail, or just return empty?
-    // Existing logic threw error. Let's return empty to be safe, or throw if strict.
-    // Given usage, let's return empty if it's just a helper file, but likely we want to know.
-    // For now, let's return empty.
     return [];
   }
 
-  return jobInstances.map((jobInstance) => ({
-    id: jobInstance.id,
-    type: getJobTypeFromInstance(jobInstance),
-    filePath: absolutePath,
-    instance: jobInstance,
-  }));
+  const jobs: LoadedJob[] = [];
+
+  for (const jobInstance of jobInstances) {
+    const primaryType = getJobTypeFromInstance(jobInstance);
+    
+    // Add the primary job
+    jobs.push({
+      id: jobInstance.id,
+      type: primaryType,
+      filePath: absolutePath,
+      instance: jobInstance,
+    });
+
+    // CHECK FOR SUPERLATIVES
+    // If it's an entity and has a superlative config, add a separate "superlative" job
+    if (primaryType === "entity" && (jobInstance as Entity<any>).definition.superlatives?.length) {
+      jobs.push({
+        id: `${jobInstance.id}_superlatives`, // Distinct ID
+        type: "superlative",
+        filePath: absolutePath,
+        instance: jobInstance, // We reuse the entity instance
+      });
+    }
+  }
+
+  return jobs;
 };
 
 export const discoverJobs = async (): Promise<LoadedJob[]> => {
@@ -100,6 +117,7 @@ export const discoverJobs = async (): Promise<LoadedJob[]> => {
     entity: 1,
     aggregateReport: 2,
     monitor: 3,
+    superlative: 4,
   };
 
   return jobs.sort((a, b) => {
@@ -120,10 +138,11 @@ const promptForJobs = async (jobs: LoadedJob[]): Promise<LoadedJob[]> => {
     entity: "Entities",
     aggregateReport: "AggregateReports",
     monitor: "Monitors",
+    superlative: "Superlatives",
   };
 
   const groupedChoices = (
-    ["import", "entity", "aggregateReport", "monitor"] as JobType[]
+    ["import", "entity", "aggregateReport", "monitor", "superlative"] as JobType[]
   ).flatMap((type) => {
     const groupJobs = jobs.filter((job) => job.type === type);
     if (!groupJobs.length) return [];
@@ -185,6 +204,7 @@ const promptForJobs = async (jobs: LoadedJob[]): Promise<LoadedJob[]> => {
     entity: 1,
     aggregateReport: 2,
     monitor: 3,
+    superlative: 4,
   };
 
   return finalJobs.sort((a, b) => {
@@ -263,6 +283,18 @@ export const executeJob = async (
           instance.measure,
           instance.entity as Entity<any>
         );
+        break;
+      }
+      case "superlative": {
+        if (!projectId) {
+          throw new VError("BIGQUERY_PROJECT is required to run superlative jobs.");
+        }
+        const executor = new SuperlativeExecutor(projectId);
+        // Default to last 365 days for now
+        await executor.run([job.instance as Entity<any>], { 
+          startDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          endDate: new Date().toISOString().split('T')[0]
+        });
         break;
       }
       default:

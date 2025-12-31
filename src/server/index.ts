@@ -260,6 +260,46 @@ app.get("/api/aggregateReports/facebook-spend-breakdown", async (req: Request, r
   }
 });
 
+app.get("/api/reports/superlatives", async (req: Request, res: Response) => {
+  const { accountId, googleAdsId, facebookAdsId } = req.query;
+
+  const accountIds: string[] = [];
+  if (accountId) accountIds.push(String(accountId));
+  if (googleAdsId) accountIds.push(String(googleAdsId));
+  if (facebookAdsId) accountIds.push(String(facebookAdsId));
+
+  const uniqueIds = Array.from(new Set(accountIds));
+
+  if (uniqueIds.length === 0) {
+    return res.status(400).json({ error: "At least one account ID is required" });
+  }
+
+  try {
+    const bq = createBigQueryClient();
+    // Fetch latest superlatives for the accounts
+    // We want the most recent run (detected_at) for each unique superlative key
+    // Partitioning by item_id/metric/dimension to get the latest entry is good practice
+    const query = `
+      SELECT *
+      FROM \`reports.superlatives\`
+      WHERE account_id IN UNNEST(@accountIds)
+      AND detected_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+      ORDER BY metric_value DESC
+      LIMIT 1000
+    `;
+
+    const [rows] = await bq.query({
+      query,
+      params: { accountIds: uniqueIds },
+    });
+
+    res.json(rows);
+  } catch (error) {
+    console.error("Error fetching superlatives:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);

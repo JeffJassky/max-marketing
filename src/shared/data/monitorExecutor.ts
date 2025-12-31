@@ -1,6 +1,6 @@
 import { MeasureExecutor } from "./measureExecutor";
 import { getStrategy, TimeSeriesPoint, Anomaly } from "./strategies";
-import type { Monitor, Measure } from "./types";
+import type { MonitorDef, Measure } from "./types";
 import { Entity } from "../../jobs/base";
 import { upsertPartitionedClusteredTable } from "../vendors/google/bigquery/bigquery";
 import snakeCase from "lodash/snakeCase";
@@ -23,7 +23,7 @@ export class MonitorExecutor {
   }
 
   async run(
-    monitor: Monitor,
+    monitor: MonitorDef,
     measure: Measure,
     entity: Entity<any>
   ): Promise<AnomalyCandidate[]> {
@@ -56,7 +56,7 @@ export class MonitorExecutor {
 
     // 4. Group by Dimensions (create Time Series)
     const groupDimensions = monitor.scanConfig.dimensions.filter(
-      (d) => d !== dateField
+      (d: string) => d !== dateField
     );
 
     const seriesMap = new Map<
@@ -65,18 +65,18 @@ export class MonitorExecutor {
     >();
 
     for (const row of rows) {
-      const dimKey = groupDimensions.map((d) => `${d}:${row[d]}`).join("|");
+      const dimKey = groupDimensions.map((d: string) => `${d}:${row[d]}`).join("|");
 
       if (!seriesMap.has(dimKey)) {
         const dimValues: Record<string, any> = {};
-        groupDimensions.forEach((d) => (dimValues[d] = row[d]));
+        groupDimensions.forEach((d: string) => (dimValues[d] = row[d]));
         seriesMap.set(dimKey, { dimensions: dimValues, points: [] });
       }
 
       const val = Number(row.value);
       if (!isNaN(val)) {
         const metrics: Record<string, number> = {};
-        contextMetrics.forEach((m) => {
+        contextMetrics.forEach((m: string) => {
           const mVal = Number(row[m]);
           if (!isNaN(mVal)) metrics[m] = mVal;
         });

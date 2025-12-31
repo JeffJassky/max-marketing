@@ -65,4 +65,35 @@ export const campaignDaily = new Entity({
       expression: "SUM(SAFE_CAST(conversions_value AS FLOAT64))",
     },
   },
+  superlatives: [
+    {
+      dimensionId: "campaign_id",
+      dimensionLabel: "campaign",
+      targetMetrics: ["conversions", "conversions_value", "clicks", "impressions"],
+    },
+    {
+      dimensionId: "advertising_channel_type",
+      dimensionLabel: "advertising_channel_type",
+      targetMetrics: ["conversions", "conversions_value"],
+    },
+    {
+      dimensionId: "campaign_id",
+      dimensionLabel: "campaign",
+      targetMetrics: ["roas"],
+      expression: "CASE WHEN SUM(spend) > 50 THEN SAFE_DIVIDE(SUM(conversions_value), SUM(spend)) ELSE 0 END",
+    },
+    {
+      dimensionId: "campaign_id",
+      dimensionLabel: "campaign",
+      targetMetrics: ["conversion_rate"],
+      expression: "CASE WHEN SUM(clicks) > 100 THEN SAFE_DIVIDE(SUM(conversions), SUM(clicks)) ELSE 0 END",
+    },
+    {
+      dimensionId: "campaign_id",
+      dimensionLabel: "campaign",
+      targetMetrics: ["cpa"],
+      rank_type: "lowest",
+      expression: "CASE WHEN SUM(conversions) > 5 THEN SAFE_DIVIDE(SUM(spend), SUM(conversions)) ELSE 999999 END",
+    },
+  ],
 });

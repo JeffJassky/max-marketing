@@ -187,6 +187,15 @@ export type EntityDef<S extends BronzeImport<any, any>> = {
 
   /** Optional list of fields to cluster the table by for performance optimization. */
   clusterBy?: string[];
+
+  /** Optional configuration for generating superlative insights (e.g., Top Campaign by Spend). */
+  superlatives?: {
+    dimensionId: string;
+    dimensionLabel: string;
+    targetMetrics: string[];
+    expression?: string;
+    rank_type?: "highest" | "lowest";
+  }[];
 };
 
 /**

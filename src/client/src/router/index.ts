@@ -5,10 +5,12 @@ import GoogleAdsView from '../views/GoogleAdsView.vue';
 import SocialSparkView from '../views/SocialSparkView.vue';
 import SettingsView from '../views/SettingsView.vue';
 import MonitorsView from '../views/MonitorsView.vue';
+import SuperlativesView from '../views/SuperlativesView.vue';
 
 export const routes: RouteRecordRaw[] = [
   { path: '/', name: 'dashboard', component: DashboardView },
   { path: '/monitors', name: 'monitors', component: MonitorsView },
+  { path: '/superlatives', name: 'superlatives', component: SuperlativesView },
   { path: '/brand-voice', name: 'brand-voice', component: BrandVoiceView },
   { path: '/brand-voice/:channel', name: 'brand-voice-channel', component: BrandVoiceView },
   { path: '/google-ads', name: 'google-ads', component: GoogleAdsView },

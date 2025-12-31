@@ -27,7 +27,7 @@ export const keywordDaily = new Entity({
     "keyword_info_match_type",
     "bidding_strategy_type",
     "campaign",
-    "ad_group_name",
+    "ad_group",
   ],
   dimensions: {
     date: { type: z.string(), sourceField: "date" },
@@ -76,4 +76,51 @@ export const keywordDaily = new Entity({
       sourceField: "conversions_value",
     },
   },
+  superlatives: [
+    {
+      dimensionId: "keyword_info_text",
+      dimensionLabel: "keyword_info_text",
+      targetMetrics: [
+        "clicks",
+        "conversions",
+        "conversions_value",
+        "impressions",
+      ],
+    },
+    {
+      dimensionId: "ad_group_id",
+      dimensionLabel: "ad_group_name",
+      targetMetrics: ["conversions", "conversions_value", "clicks"],
+    },
+    {
+      dimensionId: "campaign_id",
+      dimensionLabel: "campaign",
+      targetMetrics: ["conversions", "conversions_value", "clicks"],
+    },
+    {
+      dimensionId: "keyword_info_text",
+      dimensionLabel: "keyword_info_text",
+      targetMetrics: ["roas"],
+      expression: "CASE WHEN SUM(spend) > 10 THEN SAFE_DIVIDE(SUM(conversions_value), SUM(spend)) ELSE 0 END",
+    },
+    {
+      dimensionId: "ad_group_id",
+      dimensionLabel: "ad_group_name",
+      targetMetrics: ["roas"],
+      expression: "CASE WHEN SUM(spend) > 25 THEN SAFE_DIVIDE(SUM(conversions_value), SUM(spend)) ELSE 0 END",
+    },
+    {
+      dimensionId: "keyword_info_text",
+      dimensionLabel: "keyword_info_text",
+      targetMetrics: ["ctr"],
+      expression: "CASE WHEN SUM(impressions) > 1000 THEN SAFE_DIVIDE(SUM(clicks), SUM(impressions)) ELSE 0 END",
+    },
+    {
+      dimensionId: "ad_group_id",
+      dimensionLabel: "ad_group_name",
+      targetMetrics: ["cpa"],
+      rank_type: "lowest",
+      expression: "CASE WHEN SUM(conversions) > 2 THEN SAFE_DIVIDE(SUM(spend), SUM(conversions)) ELSE 999999 END",
+    },
+  ],
 });

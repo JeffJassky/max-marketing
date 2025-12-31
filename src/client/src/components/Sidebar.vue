@@ -16,7 +16,8 @@ import {
   Hash,
   Star,
   Globe,
-  Activity
+  Activity,
+  Trophy
 } from 'lucide-vue-next';
 import AccountSelector from './AccountSelector.vue';
 const router = useRouter();
@@ -25,6 +26,7 @@ const route = useRoute();
 const navItems = [
   { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', path: '/' },
   { id: 'monitors', icon: Activity, label: 'Monitors', path: '/monitors' },
+  { id: 'superlatives', icon: Trophy, label: 'Hall of Fame', path: '/superlatives' },
   {
     id: 'brand-voice',
     icon: MessageSquare,

@@ -59,4 +59,33 @@ export const facebookSpendDaily = new Entity({
       expression: "SUM((SELECT SUM(SAFE_CAST(value AS FLOAT64)) FROM UNNEST(actions)))",
     },
   },
+  superlatives: [
+    {
+      dimensionId: "campaign_id",
+      dimensionLabel: "campaign_name",
+      targetMetrics: ["conversions", "clicks", "impressions"],
+    },
+    {
+      dimensionId: "publisher_platform",
+      dimensionLabel: "publisher_platform",
+      targetMetrics: ["conversions"],
+    },
+    {
+      dimensionId: "platform_position",
+      dimensionLabel: "platform_position",
+      targetMetrics: ["conversions"],
+    },
+    {
+      dimensionId: "campaign_id",
+      dimensionLabel: "campaign_name",
+      targetMetrics: ["conversion_rate"],
+      expression: "CASE WHEN SUM(clicks) > 100 THEN SAFE_DIVIDE(SUM(conversions), SUM(clicks)) ELSE 0 END",
+    },
+    {
+      dimensionId: "platform_position",
+      dimensionLabel: "platform_position",
+      targetMetrics: ["engagement"],
+      expression: "SAFE_DIVIDE(SUM(clicks), SUM(impressions))",
+    },
+  ],
 });

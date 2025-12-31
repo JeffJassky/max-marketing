@@ -74,6 +74,29 @@ export const EntitySchema = z.object({
       minWindowDays: z.number(),
     })
     .optional(),
+  // ✅ NEW: The "Story Engine" Config
+  superlatives: z
+    .array(
+      z
+        .object({
+          // The database column to GROUP BY (e.g., 'campaign_id')
+          dimensionId: z.string(),
+
+          // The database column to DISPLAY in the story (e.g., 'campaign_name')
+          dimensionLabel: z.string(),
+
+          // List of metric keys (must exist in the 'metrics' object above) to run superlatives on
+          targetMetrics: z.array(z.string()),
+
+          // Optional: custom SQL expression for the metric (e.g. for ratios like ROAS)
+          expression: z.string().optional(),
+
+          // Optional: ranking direction (defaults to highest)
+          rank_type: z.enum(["highest", "lowest"]).optional().default("highest"),
+        })
+        .optional()
+    )
+    .optional(),
 });
 
 export type Entity = z.infer<typeof EntitySchema>;

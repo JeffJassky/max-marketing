@@ -74,7 +74,34 @@ export const pmaxDaily = new (class PMaxDailyEntity extends Entity<
           aggregation: "sum",
           sourceField: "conversions", // Placeholder
         },
+        total_sales_volume: {
+          type: z.number(),
+          aggregation: "sum",
+          sourceField: "conversions_value",
+        },
       },
+      superlatives: [
+        {
+          dimensionId: "campaign_id",
+          dimensionLabel: "campaign",
+          targetMetrics: [
+            "total_conversions",
+            "total_sales_volume",
+          ],
+        },
+        {
+          dimensionId: "ad_network_type",
+          dimensionLabel: "ad_network_type",
+          targetMetrics: ["total_conversions", "total_sales_volume", "roas"],
+          expression: "CASE WHEN SUM(total_spend) > 100 THEN SAFE_DIVIDE(SUM(total_sales_volume), SUM(total_spend)) ELSE 0 END",
+        },
+        {
+          dimensionId: "campaign_id",
+          dimensionLabel: "campaign",
+          targetMetrics: ["roas"],
+          expression: "CASE WHEN SUM(total_spend) > 50 THEN SAFE_DIVIDE(SUM(total_sales_volume), SUM(total_spend)) ELSE 0 END",
+        },
+      ],
     });
   }
 
@@ -132,6 +159,7 @@ export const pmaxDaily = new (class PMaxDailyEntity extends Entity<
           END as search_spend
         `),
         qb.raw("SUM(c.conversions) as total_conversions"),
+        qb.raw("SUM(c.conversions_value) as total_sales_volume"),
         qb.raw(
           "COALESCE(SUM(l.shopping_conversions), 0) as shopping_conversions"
         )
