@@ -11,6 +11,7 @@ interface MaxAccount {
   name: string;
   googleAdsId: string | null;
   facebookAdsId: string | null;
+  ga4Id: string | null;
 }
 
 const selectedAccount = ref<MaxAccount | null>(null);

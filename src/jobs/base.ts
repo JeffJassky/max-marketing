@@ -125,7 +125,7 @@ export class BronzeImport<
 type MetricAggregation = "sum" | "avg" | "count" | "min" | "max";
 
 /**
- * Defines the structure for a Silver Entity, representing clean, enriched data derived from a Bronze Import.
+ * Defines the structure for a Silver Entity, representing clean, enriched data derived from one or more Bronze Imports.
  * Entities normalize data, apply business logic, and define the grain for analysis.
  * @template S - The BronzeImport source class.
  */
@@ -133,17 +133,20 @@ export type EntityDef<S extends BronzeImport<any, any>> = {
   /** A unique identifier for the entity (e.g., "keywordDaily"). */
   id: string;
 
+  /** A human-readable label for the entity (e.g., "Keyword Performance"). */
+  label?: string;
+
   /** A human-readable description of what this entity represents. */
   description: string;
 
-  /** The Bronze Import source that feeds this entity. */
-  source: S;
+  /** The Bronze Import source(s) that feed this entity. */
+  sources: BronzeImport<any, any>[];
 
   /**
    * The fields that define the uniqueness/grain of this entity (e.g., ["date", "keyword_id"]).
    * Equivalent to a primary key or composite key.
    */
-  grain: (keyof z.infer<S["schema"]>)[];
+  grain: string[];
 
   /**
    * Definitions for the dimensions (attributes) of the entity.
@@ -155,10 +158,13 @@ export type EntityDef<S extends BronzeImport<any, any>> = {
       type: z.ZodType;
 
       /** The field name in the source schema to map from. */
-      sourceField?: keyof z.infer<S["schema"]>;
+      sourceField?: string;
 
       /** Optional SQL expression to derive this dimension (e.g., CASE statements). */
       expression?: string;
+
+      /** Optional overrides for specific sources. */
+      sources?: Record<string, { sourceField?: string; expression?: string }>;
     };
   };
 
@@ -175,10 +181,13 @@ export type EntityDef<S extends BronzeImport<any, any>> = {
       aggregation: MetricAggregation;
 
       /** The field name in the source schema to aggregate. */
-      sourceField?: keyof z.infer<S["schema"]>;
+      sourceField?: string;
 
       /** Optional SQL expression for the metric (overrides sourceField). */
       expression?: string;
+
+      /** Optional overrides for specific sources. */
+      sources?: Record<string, { sourceField?: string; expression?: string }>;
     };
   };
 
@@ -190,11 +199,19 @@ export type EntityDef<S extends BronzeImport<any, any>> = {
 
   /** Optional configuration for generating superlative insights (e.g., Top Campaign by Spend). */
   superlatives?: {
+    /** The SQL column that serves as the unique key (e.g., 'campaign_id' or 'age'). Used for history tracking. */
     dimensionId: string;
+    /** The SQL column that provides the display name (e.g., 'campaign_name'). If omitted, dimensionId is used. */
+    dimensionNameField?: string;
+    /** The human-readable label for the UI (e.g., 'Campaign' or 'Age'). Used in chart titles. */
     dimensionLabel: string;
-    targetMetrics: string[];
-    expression?: string;
-    rank_type?: "highest" | "lowest";
+    limit?: number; // Optional limit (default 3)
+    metrics: {
+      metric: string;
+      expression?: string;
+      rank_type?: "highest" | "lowest";
+      awards?: any[]; // Optional array of AwardDefinition
+    }[];
   }[];
 };
 
@@ -228,59 +245,86 @@ export class Entity<S extends BronzeImport<any, any>> extends BaseData {
   }
 
   getTransformQuery(): string {
-    const sourceTable = this.definition.source.fqn;
+    const buildSourceQuery = (source: BronzeImport<any, any>) => {
+      const sourceTable = source.fqn;
+      const sourceId = source.id;
 
-    const grainAndDimensionSelects: (string | import("knex").Knex.Raw)[] = [];
+      const grainAndDimensionSelects: (string | import("knex").Knex.Raw)[] = [];
 
-    // Add grain to selects
-    this.definition.grain.forEach((field) => {
-      const isDim =
-        this.definition.dimensions[field as string] ||
-        Object.values(this.definition.dimensions).find(
-          (d) => d.sourceField === field
+      // Add grain to selects
+      this.definition.grain.forEach((field) => {
+        const isDim =
+          this.definition.dimensions[field] ||
+          Object.values(this.definition.dimensions).find(
+            (d) => (d.sources?.[sourceId]?.sourceField || d.sourceField) === field
+          );
+        const isMet = Object.values(this.definition.metrics).find(
+          (m) => (m.sources?.[sourceId]?.sourceField || m.sourceField) === field
         );
-      const isMet = Object.values(this.definition.metrics).find(
-        (m) => m.sourceField === field
-      );
-      if (!isDim && !isMet) {
-        grainAndDimensionSelects.push(field as string);
-      }
-    });
+        if (!isDim && !isMet) {
+          grainAndDimensionSelects.push(field);
+        }
+      });
 
-    Object.entries(this.definition.dimensions).forEach(([alias, conf]) => {
-      if (conf.expression) {
-        grainAndDimensionSelects.push(qb.raw(`${conf.expression} AS ${alias}`));
-      } else if (conf.sourceField) {
-        if (alias === conf.sourceField) {
-          grainAndDimensionSelects.push(alias);
+      Object.entries(this.definition.dimensions).forEach(([alias, conf]) => {
+        const override = conf.sources?.[sourceId];
+        const expression = override?.expression || conf.expression;
+        const sourceField = override?.sourceField || conf.sourceField || alias;
+        const isPartOfGrain = this.definition.grain.includes(alias);
+
+        let selectExpression = "";
+        if (expression) {
+          selectExpression = `${expression} AS ${alias}`;
         } else {
+          selectExpression =
+            alias === sourceField
+              ? alias
+              : `${String(sourceField)} AS ${alias}`;
+        }
+
+        if (!isPartOfGrain) {
           grainAndDimensionSelects.push(
-            `${String(conf.sourceField)} AS ${alias}`
+            qb.raw(`ANY_VALUE(${selectExpression.replace(` AS ${alias}`, "")}) AS ${alias}`)
+          );
+        } else {
+          grainAndDimensionSelects.push(qb.raw(selectExpression));
+        }
+      });
+
+      const metricSelects = Object.entries(this.definition.metrics).map(
+        ([alias, conf]) => {
+          const override = conf.sources?.[sourceId];
+          const expression = override?.expression || conf.expression;
+          const sourceField = override?.sourceField || conf.sourceField || alias;
+
+          if (expression) {
+            return qb.raw(`COALESCE(${expression}, 0) AS ${alias}`);
+          }
+
+          // Automatically cast to FLOAT64 for numeric aggregations to handle string-typed raw data
+          // and wrap in COALESCE to ensure a default of 0 instead of NULL
+          return qb.raw(
+            `COALESCE(${conf.aggregation.toUpperCase()}(SAFE_CAST(${String(
+              sourceField
+            )} AS FLOAT64)), 0) AS ${alias}`
           );
         }
-      }
-    });
+      );
 
-    const metricSelects = Object.entries(this.definition.metrics).map(
-      ([alias, conf]) => {
-        if (conf.expression) {
-          return qb.raw(`${conf.expression} AS ${alias}`);
-        }
-        return qb.raw(
-          `${conf.aggregation.toUpperCase()}(${String(
-            conf.sourceField
-          )}) AS ${alias}`
-        );
-      }
-    );
+      return qb
+        .select(...grainAndDimensionSelects, ...metricSelects)
+        .from(qb.raw(`\`${sourceTable}\``))
+        .groupBy(...this.definition.grain.map(String))
+        .toQuery();
+    };
 
-    const query = qb
-      .select(...grainAndDimensionSelects, ...metricSelects)
-      .from(sourceTable)
-      .groupBy(...this.definition.grain.map(String))
-      .toQuery();
+    if (this.definition.sources.length === 1) {
+      return buildSourceQuery(this.definition.sources[0]);
+    }
 
-    return query;
+    return this.definition.sources
+      .map((s) => `(${buildSourceQuery(s)})`)
+      .join("\nUNION ALL\n");
   }
 }
 

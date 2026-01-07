@@ -10,11 +10,13 @@ export class EntityExecutor {
 		const { partitionBy, clusterBy } = entity.definition;
 
 		const targetDataset = await getDatasetInfo(bq, entity.dataset);
-		const sourceDataset = await getDatasetInfo(
-			bq,
-			entity.definition.source.dataset
+		
+		// Check all sources
+		const sourceDatasets = await Promise.all(
+			entity.definition.sources.map(s => getDatasetInfo(bq, s.dataset))
 		);
-		const location = resolveDatasetLocation(targetDataset, sourceDataset);
+
+		const location = resolveDatasetLocation(targetDataset, ...sourceDatasets);
 
 		if (!targetDataset.exists) {
 			await targetDataset.ref.create({ location });

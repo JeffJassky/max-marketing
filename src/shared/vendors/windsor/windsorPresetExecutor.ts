@@ -6,6 +6,7 @@ import {
 	type BigQueryRow,
 	upsertPartitionedClusteredTable
 } from '../google/bigquery/bigquery';
+import { zodToBigQuerySchema } from '../../data/zodToBigQuery';
 
 export interface WindsorImportRunOptions {
 	requestOverrides?: WindsorRequestParams;
@@ -37,12 +38,22 @@ export class WindsorImportExecutor {
 			return { importObj, rowCount: 0, meta: { requestedAt } };
 		}
 
+		const effectiveSchema = options.schemaOverride ?? zodToBigQuerySchema(importObj.schema);
+
+    console.log("DEBUG: Effective BigQuery Schema:");
+    console.log(JSON.stringify(effectiveSchema, null, 2));
+
+    if (rows.length > 0) {
+      console.log("DEBUG: Sample Row (First Item):");
+      console.log(JSON.stringify(rows[0], null, 2));
+    }
+
 		await upsertPartitionedClusteredTable(rows as BigQueryRow[], {
 			datasetId: importObj.dataset,
 			tableId: importObj.tableName,
 			partitionField: importObj.definition.partitionBy,
 			clusteringFields: importObj.definition.clusterBy,
-			schema: options.schemaOverride
+			schema: effectiveSchema
 		});
 
 		return {

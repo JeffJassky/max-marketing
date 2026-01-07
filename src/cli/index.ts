@@ -290,10 +290,9 @@ export const executeJob = async (
           throw new VError("BIGQUERY_PROJECT is required to run superlative jobs.");
         }
         const executor = new SuperlativeExecutor(projectId);
-        // Default to last 365 days for now
+        // Run for the last 3 months
         await executor.run([job.instance as Entity<any>], { 
-          startDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          endDate: new Date().toISOString().split('T')[0]
+          lookbackMonths: 3
         });
         break;
       }

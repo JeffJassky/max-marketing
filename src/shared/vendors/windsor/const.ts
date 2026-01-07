@@ -737,6 +737,7 @@ const WINDSOR_FACEBOOK_FIELDS = [
 const WINDSOR_GA4_FIELDS = [
   "sessions",
   "total_users",
+  "totalusers",
   "active_users",
   "engaged_sessions",
   "conversions",
@@ -751,6 +752,14 @@ const WINDSOR_GA4_FIELDS = [
   "source",
   "medium",
   "date",
+  "screen_page_views",
+  "event_count",
+  "totalrevenue",
+  "engagement_rate",
+  "hostname",
+  "page_path",
+  "pagetitle",
+  "landing_page",
 ] as const;
 
 const WINDSOR_GOOGLE_ADS_FIELDS = [

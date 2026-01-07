@@ -13,6 +13,7 @@ interface MaxAccount {
   name: string;
   googleAdsId: string | null;
   facebookAdsId: string | null;
+  ga4Id: string | null;
 }
 
 interface SpendSegment {
@@ -109,8 +110,8 @@ const loadSpendData = async () => {
     return;
   }
 
-  const { googleAdsId, facebookAdsId } = selectedAccount.value;
-  if (!googleAdsId && !facebookAdsId) {
+  const { id, googleAdsId, facebookAdsId, ga4Id } = selectedAccount.value;
+  if (!id && !googleAdsId && !facebookAdsId && !ga4Id) {
     resetData();
     return;
   }
@@ -119,23 +120,17 @@ const loadSpendData = async () => {
   spendDataError.value = null;
 
   try {
-    const fetchers = [];
-    if (googleAdsId) {
-      fetchers.push(fetch(`/api/aggregateReports/google-spend-breakdown?accountId=${encodeURIComponent(googleAdsId)}`).then(r => r.json()));
-    } else {
-      fetchers.push(Promise.resolve([]));
-    }
+    const params = new URLSearchParams();
+    if (id) params.append('accountId', id);
+    if (googleAdsId) params.append('googleAdsId', googleAdsId);
+    if (facebookAdsId) params.append('facebookAdsId', facebookAdsId);
+    if (ga4Id) params.append('ga4Id', ga4Id);
 
-    if (facebookAdsId) {
-      fetchers.push(fetch(`/api/aggregateReports/facebook-spend-breakdown?accountId=${encodeURIComponent(facebookAdsId)}`).then(r => r.json()));
-    } else {
-      fetchers.push(Promise.resolve([]));
-    }
-
-    const [googleData, fbData] = await Promise.all(fetchers);
-
-    const googleCategories: any[] = Array.isArray(googleData) ? googleData : [];
-    const metaCategories: any[] = Array.isArray(fbData) ? fbData : [];
+    const response = await fetch(`/api/aggregateReports/ads-spend-breakdown?${params.toString()}`);
+    if (!response.ok) throw new Error('Failed to fetch spend data');
+    
+    const allData = await response.json();
+    const rows: any[] = Array.isArray(allData) ? allData : [];
 
     let totalG = 0;
     let totalM = 0;
@@ -145,37 +140,35 @@ const loadSpendData = async () => {
     const googleCatColors: string[] = ['#4285F4', '#34A853', '#FBBC05', '#EA4335', '#1a73e8'];
     const metaCatColors: string[] = ['#0668E1', '#833AB4', '#E1306C', '#C13584', '#FD1D1D'];
 
-    googleCategories.forEach((item, idx) => {
+    // Group rows by platform
+    rows.forEach((item, idx) => {
       const val = Number(item.spend) || 0;
       if (val > 0) {
-        totalG += val;
-        gSegs.push({
-          id: `g-${idx}`,
-          label: item.category,
-          value: val,
-          percent: 0,
-          relativePercent: 0,
-          color: googleCatColors[idx % googleCatColors.length],
-          platform: 'Google',
-          roas: Number(item.roas) || 0
-        });
-      }
-    });
-
-    metaCategories.forEach((item, idx) => {
-      const val = Number(item.spend) || 0;
-      if (val > 0) {
-        totalM += val;
-        mSegs.push({
-          id: `m-${idx}`,
-          label: item.category,
-          value: val,
-          percent: 0,
-          relativePercent: 0,
-          color: metaCatColors[idx % metaCatColors.length],
-          platform: 'Meta',
-          roas: Number(item.roas) || 0
-        });
+        if (item.platform === 'google') {
+          totalG += val;
+          gSegs.push({
+            id: `g-${idx}`,
+            label: item.channel_group,
+            value: val,
+            percent: 0,
+            relativePercent: 0,
+            color: googleCatColors[gSegs.length % googleCatColors.length],
+            platform: 'Google',
+            roas: Number(item.roas) || 0
+          });
+        } else {
+          totalM += val;
+          mSegs.push({
+            id: `m-${idx}`,
+            label: item.channel_group,
+            value: val,
+            percent: 0,
+            relativePercent: 0,
+            color: metaCatColors[mSegs.length % metaCatColors.length],
+            platform: 'Meta',
+            roas: Number(item.roas) || 0
+          });
+        }
       }
     });
 

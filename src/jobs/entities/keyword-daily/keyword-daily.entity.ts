@@ -1,6 +1,15 @@
 import { Entity } from "../../base";
 import { googleAdsCoreKeywordPerformance } from "../../imports/google_ads/core-keyword-performance.import";
 import { z } from "zod";
+import {
+  VolumeTitanAward,
+  NewEntryAward,
+  SteadyClimberAward,
+  EfficiencyKingAward,
+  RocketShipAward,
+  HighROASAward,
+} from "../../../shared/data/awards/library";
+import { AwardDefinition } from "../../../shared/data/types";
 
 const CONVERSION_FOCUSED_STRATEGIES = [
   "TARGET_CPA",
@@ -13,8 +22,9 @@ const CLICK_FOCUSED_STRATEGIES = ["TARGET_SPEND", "MANUAL_CPC"];
 
 export const keywordDaily = new Entity({
   id: "keywordDaily",
+  label: "Keyword Performance",
   description: "Daily keyword performance across ad platforms.",
-  source: googleAdsCoreKeywordPerformance,
+  sources: [googleAdsCoreKeywordPerformance],
   partitionBy: "date",
   clusterBy: ["account_id", "campaign_id", "ad_group_id", "keyword_info_text"],
   grain: [
@@ -79,48 +89,53 @@ export const keywordDaily = new Entity({
   superlatives: [
     {
       dimensionId: "keyword_info_text",
-      dimensionLabel: "keyword_info_text",
-      targetMetrics: [
-        "clicks",
-        "conversions",
-        "conversions_value",
-        "impressions",
+      dimensionLabel: "Keyword",
+      limit: 20,
+      metrics: [
+        { metric: "clicks" },
+        { 
+          metric: "conversions",
+          awards: [VolumeTitanAward, NewEntryAward, SteadyClimberAward] 
+        },
+        { metric: "conversions_value" },
+        { metric: "impressions" },
+        {
+          metric: "roas",
+          expression:
+            "CASE WHEN SUM(spend) > 10 THEN SAFE_DIVIDE(SUM(conversions_value), SUM(spend)) ELSE 0 END",
+          awards: [EfficiencyKingAward, HighROASAward, RocketShipAward]
+        },
+        {
+          metric: "ctr",
+          expression:
+            "CASE WHEN SUM(impressions) > 1000 THEN SAFE_DIVIDE(SUM(clicks), SUM(impressions)) ELSE 0 END",
+        },
       ],
     },
     {
       dimensionId: "ad_group_id",
-      dimensionLabel: "ad_group_name",
-      targetMetrics: ["conversions", "conversions_value", "clicks"],
+      dimensionNameField: "ad_group_name",
+      dimensionLabel: "Ad Group",
+      limit: 10,
+      metrics: [
+        {
+          metric: "cpa",
+          rank_type: "lowest",
+          expression:
+            "CASE WHEN SUM(conversions) > 2 THEN SAFE_DIVIDE(SUM(spend), SUM(conversions)) ELSE 999999 END",
+          awards: [EfficiencyKingAward, SteadyClimberAward]
+        },
+      ],
     },
     {
       dimensionId: "campaign_id",
-      dimensionLabel: "campaign",
-      targetMetrics: ["conversions", "conversions_value", "clicks"],
-    },
-    {
-      dimensionId: "keyword_info_text",
-      dimensionLabel: "keyword_info_text",
-      targetMetrics: ["roas"],
-      expression: "CASE WHEN SUM(spend) > 10 THEN SAFE_DIVIDE(SUM(conversions_value), SUM(spend)) ELSE 0 END",
-    },
-    {
-      dimensionId: "ad_group_id",
-      dimensionLabel: "ad_group_name",
-      targetMetrics: ["roas"],
-      expression: "CASE WHEN SUM(spend) > 25 THEN SAFE_DIVIDE(SUM(conversions_value), SUM(spend)) ELSE 0 END",
-    },
-    {
-      dimensionId: "keyword_info_text",
-      dimensionLabel: "keyword_info_text",
-      targetMetrics: ["ctr"],
-      expression: "CASE WHEN SUM(impressions) > 1000 THEN SAFE_DIVIDE(SUM(clicks), SUM(impressions)) ELSE 0 END",
-    },
-    {
-      dimensionId: "ad_group_id",
-      dimensionLabel: "ad_group_name",
-      targetMetrics: ["cpa"],
-      rank_type: "lowest",
-      expression: "CASE WHEN SUM(conversions) > 2 THEN SAFE_DIVIDE(SUM(spend), SUM(conversions)) ELSE 999999 END",
+      dimensionNameField: "campaign",
+      dimensionLabel: "Campaign",
+      metrics: [
+        { metric: "conversions" },
+        { metric: "conversions_value" },
+        { metric: "clicks" },
+      ],
     },
   ],
 });

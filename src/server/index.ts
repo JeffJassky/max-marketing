@@ -3,20 +3,21 @@ import express, { type Request, type Response } from "express";
 import { createBigQueryClient } from "../shared/vendors/google/bigquery/bigquery";
 import { googleAdsCoreKeywordPerformance } from "../jobs/imports/google_ads/core-keyword-performance.import";
 import { facebookAdsInsights } from "../jobs/imports/facebook_ads/insights.import";
+import { ga4PagePerformance } from "../jobs/imports/google_ga4/page-performance.import";
 
 import { Monitor } from "../shared/data/monitor";
-import { accountSpendAnomalyMonitor } from "../jobs/entities/campaign-daily/monitors/account-spend-anomaly.monitor";
-import { accountConversionDropMonitor } from "../jobs/entities/campaign-daily/monitors/account-conversion-drop.monitor";
+import { accountSpendAnomalyMonitor } from "../jobs/entities/ads-daily/monitors/account-spend-anomaly.monitor";
+import { accountConversionDropMonitor } from "../jobs/entities/ads-daily/monitors/account-conversion-drop.monitor";
 import { activePmaxCampaignMonitor } from "../jobs/entities/pmax-daily/monitors/active-pmax-campaign.monitor";
-import { activeFacebookCampaignMonitor } from "../jobs/entities/facebook-spend-daily/monitors/active-facebook-campaign.monitor";
+import { activeAdsCampaignMonitor } from "../jobs/entities/ads-daily/monitors/active-ads-campaign.monitor";
 import { wastedSpendConversionMonitor } from "../jobs/entities/keyword-daily/monitors/wasted-spend-conversion.monitor";
 import { wastedSpendClickMonitor } from "../jobs/entities/keyword-daily/monitors/wasted-spend-click.monitor";
 import { highCPAMonitor } from "../jobs/entities/keyword-daily/monitors/high-cpa.monitor";
 import { lowROASMonitor } from "../jobs/entities/keyword-daily/monitors/low-roas.monitor";
 import { broadMatchDriftMonitor } from "../jobs/entities/keyword-daily/monitors/broad-match-drift.monitor";
 import { pmaxSpendBreakdown } from "../jobs/entities/pmax-daily/aggregateReports/pmax-spend-breakdown.aggregateReport";
-import { googleSpendBreakdown } from "../jobs/entities/campaign-daily/aggregateReports/google-spend-breakdown.aggregateReport";
-import { facebookSpendBreakdown } from "../jobs/entities/facebook-spend-daily/aggregateReports/facebook-spend-breakdown.aggregateReport";
+import { adsSpendBreakdown } from "../jobs/entities/ads-daily/aggregateReports/ads-spend-breakdown.aggregateReport";
+import { clientAccountModel } from "./models/ClientAccount";
 
 const app = express();
 app.use(express.json());
@@ -26,7 +27,7 @@ const coreMonitors = [
   accountSpendAnomalyMonitor,
   accountConversionDropMonitor,
   activePmaxCampaignMonitor,
-  activeFacebookCampaignMonitor,
+  activeAdsCampaignMonitor,
   wastedSpendConversionMonitor,
   wastedSpendClickMonitor,
   highCPAMonitor,
@@ -58,19 +59,32 @@ app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
       GROUP BY account_id
     `;
 
-    const [googleRowsPromise, facebookRowsPromise] = [
+    const ga4Query = `
+      SELECT
+        account_id AS id,
+        ANY_VALUE(account_name) AS name
+      FROM
+        ${ga4PagePerformance.fqn}
+      WHERE account_id IS NOT NULL
+      GROUP BY account_id
+    `;
+
+    const [googleRowsPromise, facebookRowsPromise, ga4RowsPromise] = [
       bq.query(googleQuery),
       bq.query(facebookQuery),
+      bq.query(ga4Query),
     ];
 
-    const [[googleRows], [facebookRows]] = await Promise.all([
+    const [[googleRows], [facebookRows], [ga4Rows]] = await Promise.all([
       googleRowsPromise,
       facebookRowsPromise,
+      ga4RowsPromise,
     ]);
 
     res.json({
       google: googleRows,
       facebook: facebookRows,
+      ga4: ga4Rows,
     });
   } catch (error) {
     console.error("Error fetching platform accounts:", error);
@@ -80,18 +94,7 @@ app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
 
 app.get("/api/accounts", async (_req: Request, res: Response) => {
   try {
-    const bq = createBigQueryClient();
-    const sourceTable = googleAdsCoreKeywordPerformance;
-    const query = `
-			SELECT
-				account_id AS id,
-				ANY_VALUE(account_name) AS name
-			FROM
-				${sourceTable.fqn}
-			WHERE account_id IS NOT NULL
-			GROUP BY account_id
-		`;
-    const [rows] = await bq.query(query);
+    const rows = await clientAccountModel.findAll();
     res.json(rows);
   } catch (error) {
     console.error("Error fetching accounts:", error);
@@ -99,13 +102,44 @@ app.get("/api/accounts", async (_req: Request, res: Response) => {
   }
 });
 
+app.post("/api/accounts", async (req: Request, res: Response) => {
+  try {
+    await clientAccountModel.create(req.body);
+    res.status(201).json({ message: "Account created" });
+  } catch (error) {
+    console.error("Error creating account:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.put("/api/accounts/:id", async (req: Request, res: Response) => {
+  try {
+    await clientAccountModel.update(req.params.id, req.body);
+    res.json({ message: "Account updated" });
+  } catch (error) {
+    console.error("Error updating account:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.delete("/api/accounts/:id", async (req: Request, res: Response) => {
+  try {
+    await clientAccountModel.delete(req.params.id);
+    res.json({ message: "Account deleted" });
+  } catch (error) {
+    console.error("Error deleting account:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 app.get("/api/monitors/anomalies", async (req: Request, res: Response) => {
-  const { accountId, googleAdsId, facebookAdsId, monitorId } = req.query;
+  const { accountId, googleAdsId, facebookAdsId, ga4Id, monitorId } = req.query;
 
   const accountIds: string[] = [];
   if (accountId) accountIds.push(String(accountId));
   if (googleAdsId) accountIds.push(String(googleAdsId));
   if (facebookAdsId) accountIds.push(String(facebookAdsId));
+  if (ga4Id) accountIds.push(String(ga4Id));
 
   const uniqueIds = Array.from(new Set(accountIds));
 
@@ -236,37 +270,14 @@ app.get("/api/aggregateReports/pmax-spend-breakdown", async (req: Request, res: 
   }
 });
 
-app.get("/api/aggregateReports/google-spend-breakdown", async (req: Request, res: Response) => {
-  const { accountId } = req.query;
-  if (!accountId) return res.status(400).json({ error: "accountId required" });
-  try {
-    const rows = await googleSpendBreakdown.getData(String(accountId), 200);
-    res.json(rows);
-  } catch (error) {
-    console.error("Error fetching google spend breakdown report:", error);
-    res.json([]);
-  }
-});
-
-app.get("/api/aggregateReports/facebook-spend-breakdown", async (req: Request, res: Response) => {
-  const { accountId } = req.query;
-  if (!accountId) return res.status(400).json({ error: "accountId required" });
-  try {
-    const rows = await facebookSpendBreakdown.getData(String(accountId), 200);
-    res.json(rows);
-  } catch (error) {
-    console.error("Error fetching facebook spend breakdown report:", error);
-    res.json([]);
-  }
-});
-
-app.get("/api/reports/superlatives", async (req: Request, res: Response) => {
-  const { accountId, googleAdsId, facebookAdsId } = req.query;
+app.get("/api/aggregateReports/ads-spend-breakdown", async (req: Request, res: Response) => {
+  const { accountId, googleAdsId, facebookAdsId, ga4Id } = req.query;
 
   const accountIds: string[] = [];
   if (accountId) accountIds.push(String(accountId));
   if (googleAdsId) accountIds.push(String(googleAdsId));
   if (facebookAdsId) accountIds.push(String(facebookAdsId));
+  if (ga4Id) accountIds.push(String(ga4Id));
 
   const uniqueIds = Array.from(new Set(accountIds));
 
@@ -276,21 +287,80 @@ app.get("/api/reports/superlatives", async (req: Request, res: Response) => {
 
   try {
     const bq = createBigQueryClient();
-    // Fetch latest superlatives for the accounts
-    // We want the most recent run (detected_at) for each unique superlative key
-    // Partitioning by item_id/metric/dimension to get the latest entry is good practice
     const query = `
       SELECT *
-      FROM \`reports.superlatives\`
+      FROM \`reports.ads_spend_breakdown\`
       WHERE account_id IN UNNEST(@accountIds)
       AND detected_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
-      ORDER BY metric_value DESC
-      LIMIT 1000
+      ORDER BY spend DESC
     `;
 
     const [rows] = await bq.query({
       query,
       params: { accountIds: uniqueIds },
+    });
+
+    res.json(rows);
+  } catch (error) {
+    console.error("Error fetching unified ads spend breakdown report:", error);
+    res.json([]);
+  }
+});
+
+app.get("/api/reports/superlatives/months", async (_req: Request, res: Response) => {
+  try {
+    const bq = createBigQueryClient();
+    const query = `
+      SELECT DISTINCT period_label, period_start
+      FROM \`reports.superlatives_monthly\`
+      ORDER BY period_start DESC
+    `;
+    const [rows] = await bq.query(query);
+    res.json(rows);
+  } catch (error) {
+    console.error("Error fetching superlative months:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.get("/api/reports/superlatives", async (req: Request, res: Response) => {
+  const { accountId, googleAdsId, facebookAdsId, ga4Id, month } = req.query;
+
+  const accountIds: string[] = [];
+  if (accountId) accountIds.push(String(accountId));
+  if (googleAdsId) accountIds.push(String(googleAdsId));
+  if (facebookAdsId) accountIds.push(String(facebookAdsId));
+  if (ga4Id) accountIds.push(String(ga4Id));
+
+  const uniqueIds = Array.from(new Set(accountIds));
+
+  if (uniqueIds.length === 0) {
+    return res.status(400).json({ error: "At least one account ID is required" });
+  }
+
+  try {
+    const bq = createBigQueryClient();
+    
+    let monthFilter = "";
+    if (month) {
+      monthFilter = "AND period_label = @month";
+    } else {
+      // Default to most recent month
+      monthFilter = "AND period_label = (SELECT MAX(period_label) FROM `reports.superlatives_monthly`)";
+    }
+
+    const query = `
+      SELECT *
+      FROM \`reports.superlatives_monthly\`
+      WHERE (group_id IN UNNEST(@accountIds) OR account_id IN UNNEST(@accountIds))
+      ${monthFilter}
+      ORDER BY metric_name, position ASC
+      LIMIT 2000
+    `;
+
+    const [rows] = await bq.query({
+      query,
+      params: { accountIds: uniqueIds, month: month || null },
     });
 
     res.json(rows);
@@ -301,6 +371,11 @@ app.get("/api/reports/superlatives", async (req: Request, res: Response) => {
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
+app.listen(port, async () => {
   console.log(`Server listening on port ${port}`);
+  try {
+    await clientAccountModel.initialize();
+  } catch (err) {
+    console.error("Failed to initialize clientAccountModel:", err);
+  }
 });

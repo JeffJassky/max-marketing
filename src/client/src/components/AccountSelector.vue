@@ -10,6 +10,7 @@ interface MaxAccount {
   name: string;
   googleAdsId: string | null;
   facebookAdsId: string | null;
+  ga4Id: string | null;
 }
 
 const selectedAccount = inject<Ref<MaxAccount | null>>('selectedAccount');
@@ -19,10 +20,13 @@ const maxAccounts = ref<MaxAccount[]>([]);
 const isOpen = ref(false);
 let closeTimeout: ReturnType<typeof setTimeout> | null = null;
 
-const loadMaxAccounts = () => {
-  const saved = localStorage.getItem('maxMarketingAccounts');
-  if (saved) {
-    maxAccounts.value = JSON.parse(saved);
+const loadMaxAccounts = async () => {
+  try {
+    const res = await fetch('/api/accounts');
+    const data = await res.json();
+    maxAccounts.value = data;
+  } catch (e) {
+    console.error('Failed to load accounts', e);
   }
 };
 
@@ -97,6 +101,7 @@ onMounted(() => {
             <div class="flex items-center gap-2 mt-0.5">
               <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono" :class="{'text-green-400 bg-green-400/10': account.googleAdsId}">G</span>
               <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono" :class="{'text-blue-400 bg-blue-400/10': account.facebookAdsId}">F</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono" :class="{'text-orange-400 bg-orange-400/10': account.ga4Id}">GA</span>
             </div>
           </div>
           <CheckCircle v-if="selectedAccount?.id === account.id" :size="16" class="text-amplify-green shrink-0" />

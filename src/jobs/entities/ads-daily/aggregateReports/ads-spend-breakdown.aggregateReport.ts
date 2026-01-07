@@ -1,11 +1,11 @@
 import { AggregateReport } from "../../../base";
-import { campaignDaily } from "../campaign-daily.entity";
+import { adsDaily } from "../ads-daily.entity";
 import { z } from "zod";
 
-export const googleSpendBreakdown = new AggregateReport({
-  id: "googleSpendBreakdown",
-  description: "Aggregated Google Ads spend by channel category.",
-  source: campaignDaily,
+export const adsSpendBreakdown = new AggregateReport({
+  id: "adsSpendBreakdown",
+  description: "Unified ad spend breakdown by platform and channel group.",
+  source: adsDaily,
   predicate: "spend > 0",
   window: {
     id: "last_90d",
@@ -13,7 +13,7 @@ export const googleSpendBreakdown = new AggregateReport({
     dateDimension: "date",
   },
   output: {
-    grain: ["account_id", "category"],
+    grain: ["account_id", "platform", "channel_group"],
     metrics: {
       spend: { aggregation: "sum" },
       conversions: { aggregation: "sum" },

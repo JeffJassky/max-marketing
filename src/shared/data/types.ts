@@ -46,6 +46,36 @@ export const EntityDimensionSchema = z.object({
   optional: z.boolean().optional(),
 });
 
+// ✅ NEW: Award Types
+
+export interface SuperlativeItem {
+  account_id: string;
+  item_id: string;
+  item_name: string;
+  metric_value: number;
+  position: number;
+  period_start: string;
+  // Enriched fields
+  previous_position?: number;
+  rank_delta?: number;
+  peak_position?: number;
+  periods_on_chart?: number;
+}
+
+export interface AwardContext {
+  currentItem: SuperlativeItem;
+  previousItem?: SuperlativeItem;
+  history: SuperlativeItem[];
+}
+
+export interface AwardDefinition {
+  id: string;
+  label: string;
+  description?: string;
+  icon?: string;
+  evaluate: (ctx: AwardContext) => boolean | { tier: 'gold' | 'silver' | 'bronze' };
+}
+
 export const EntitySchema = z.object({
   id: z.string(),
   description: z.string(),
@@ -77,24 +107,29 @@ export const EntitySchema = z.object({
   // ✅ NEW: The "Story Engine" Config
   superlatives: z
     .array(
-      z
-        .object({
-          // The database column to GROUP BY (e.g., 'campaign_id')
-          dimensionId: z.string(),
+      z.object({
+        // The database column to GROUP BY (e.g., 'campaign_id')
+        dimensionId: z.string(),
 
-          // The database column to DISPLAY in the story (e.g., 'campaign_name')
-          dimensionLabel: z.string(),
+        // The database column to DISPLAY in the story (e.g., 'campaign_name')
+        dimensionLabel: z.string(),
+        
+        // Max number of items to track (default 3)
+        limit: z.number().optional().default(3),
 
-          // List of metric keys (must exist in the 'metrics' object above) to run superlatives on
-          targetMetrics: z.array(z.string()),
-
-          // Optional: custom SQL expression for the metric (e.g. for ratios like ROAS)
-          expression: z.string().optional(),
-
-          // Optional: ranking direction (defaults to highest)
-          rank_type: z.enum(["highest", "lowest"]).optional().default("highest"),
-        })
-        .optional()
+        // List of metrics to run superlatives on for this dimension
+        metrics: z.array(
+          z.object({
+            metric: z.string(),
+            expression: z.string().optional(),
+            rank_type: z
+              .enum(["highest", "lowest"])
+              .optional()
+              .default("highest"),
+            awards: z.array(z.any()).optional(), // Holds AwardDefinition objects
+          })
+        ),
+      })
     )
     .optional(),
 });

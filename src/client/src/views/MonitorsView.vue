@@ -29,6 +29,7 @@ interface MaxAccount {
   name: string;
   googleAdsId: string | null;
   facebookAdsId: string | null;
+  ga4Id: string | null;
 }
 
 interface Anomaly {
@@ -62,6 +63,7 @@ const fetchAnomalies = async () => {
     const params = new URLSearchParams();
     if (selectedAccount.value.googleAdsId) params.append('googleAdsId', selectedAccount.value.googleAdsId);
     if (selectedAccount.value.facebookAdsId) params.append('facebookAdsId', selectedAccount.value.facebookAdsId);
+    if (selectedAccount.value.ga4Id) params.append('ga4Id', selectedAccount.value.ga4Id);
 
     if (params.toString() === '') {
         loading.value = false;

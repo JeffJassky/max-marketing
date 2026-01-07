@@ -12,16 +12,19 @@ interface MaxAccount {
   name: string;
   googleAdsId: string | null;
   facebookAdsId: string | null;
+  ga4Id: string | null;
 }
 
-const platformAccounts = ref<{ google: PlatformAccount[], facebook: PlatformAccount[] }>({
+const platformAccounts = ref<{ google: PlatformAccount[], facebook: PlatformAccount[], ga4: PlatformAccount[] }>({
   google: [],
-  facebook: []
+  facebook: [],
+  ga4: []
 });
 
 const accounts = ref<MaxAccount[]>([]);
+const newAccountIds = ref(new Set<string>());
 const isEditing = ref<string | null>(null); // ID of account being edited
-const editForm = ref<MaxAccount>({ id: '', name: '', googleAdsId: null, facebookAdsId: null });
+const editForm = ref<MaxAccount>({ id: '', name: '', googleAdsId: null, facebookAdsId: null, ga4Id: null });
 
 // Load platform accounts
 const loadPlatformAccounts = async () => {
@@ -34,27 +37,32 @@ const loadPlatformAccounts = async () => {
 };
 
 // Load saved accounts
-const loadAccounts = () => {
-  const saved = localStorage.getItem('maxMarketingAccounts');
-  if (saved) {
-    accounts.value = JSON.parse(saved);
-  } else {
-    // Default seed if empty
-    const defaultId = crypto.randomUUID();
-    accounts.value = [{ 
-      id: defaultId, 
-      name: 'My First Account', 
-      googleAdsId: null, 
-      facebookAdsId: null 
-    }];
-    saveAccounts();
+const loadAccounts = async () => {
+  try {
+    const res = await fetch('/api/accounts');
+    const data = await res.json();
+    if (data.length > 0) {
+      accounts.value = data;
+    } else {
+      // Create initial account if none exist
+      const id = crypto.randomUUID();
+      const newAccount: MaxAccount = { 
+        id, 
+        name: 'My First Account', 
+        googleAdsId: null, 
+        facebookAdsId: null,
+        ga4Id: null
+      };
+      await fetch('/api/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newAccount)
+      });
+      accounts.value = [newAccount];
+    }
+  } catch (e) {
+    console.error("Failed to load accounts", e);
   }
-};
-
-const saveAccounts = () => {
-  localStorage.setItem('maxMarketingAccounts', JSON.stringify(accounts.value));
-  // Dispatch event so other components can react if needed (simple state management)
-  window.dispatchEvent(new Event('accounts-updated'));
 };
 
 const startEdit = (account: MaxAccount) => {
@@ -63,34 +71,68 @@ const startEdit = (account: MaxAccount) => {
 };
 
 const cancelEdit = () => {
-  isEditing.value = null;
-};
-
-const saveEdit = () => {
-  const idx = accounts.value.findIndex(a => a.id === editForm.value.id);
-  if (idx !== -1) {
-    accounts.value[idx] = { ...editForm.value };
-    saveAccounts();
+  const idx = accounts.value.findIndex(a => a.id === isEditing.value);
+  if (idx !== -1 && newAccountIds.value.has(isEditing.value as string)) {
+     accounts.value.splice(idx, 1);
+     newAccountIds.value.delete(isEditing.value as string);
   }
   isEditing.value = null;
 };
 
+const saveEdit = async () => {
+  try {
+    const isNew = newAccountIds.value.has(editForm.value.id);
+    
+    if (!isNew) {
+      // Update existing
+      await fetch(`/api/accounts/${editForm.value.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm.value)
+      });
+      const idx = accounts.value.findIndex(a => a.id === editForm.value.id);
+      if (idx !== -1) accounts.value[idx] = { ...editForm.value };
+    } else {
+      // Create new
+      await fetch('/api/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm.value)
+      });
+      const idx = accounts.value.findIndex(a => a.id === editForm.value.id);
+      if (idx !== -1) accounts.value[idx] = { ...editForm.value };
+      newAccountIds.value.delete(editForm.value.id);
+    }
+    window.dispatchEvent(new Event('accounts-updated'));
+    isEditing.value = null;
+  } catch (e) {
+    console.error("Failed to save account", e);
+  }
+};
+
 const createAccount = () => {
+  const id = crypto.randomUUID();
   const newAccount: MaxAccount = {
-    id: crypto.randomUUID(),
+    id,
     name: 'New Account',
     googleAdsId: null,
-    facebookAdsId: null
+    facebookAdsId: null,
+    ga4Id: null
   };
+  newAccountIds.value.add(id);
   accounts.value.push(newAccount);
-  saveAccounts();
   startEdit(newAccount);
 };
 
-const deleteAccount = (id: string) => {
+const deleteAccount = async (id: string) => {
   if (confirm("Are you sure you want to delete this account?")) {
-    accounts.value = accounts.value.filter(a => a.id !== id);
-    saveAccounts();
+    try {
+      await fetch(`/api/accounts/${id}`, { method: 'DELETE' });
+      accounts.value = accounts.value.filter(a => a.id !== id);
+      window.dispatchEvent(new Event('accounts-updated'));
+    } catch (e) {
+      console.error("Failed to delete account", e);
+    }
   }
 };
 
@@ -126,7 +168,7 @@ onMounted(() => {
                 <input v-model="editForm.name" type="text" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
               </div>
               
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label class="block text-xs font-bold text-slate-500 mb-1 flex items-center">
                     <img src="https://www.gstatic.com/images/branding/product/1x/ads_2022_48dp.png" class="w-4 h-4 mr-1"/> Google Ads ID
@@ -146,6 +188,17 @@ onMounted(() => {
                     <option :value="null">Select Account...</option>
                     <option v-for="fb in platformAccounts.facebook" :key="fb.id" :value="fb.id">
                       {{ fb.name }} ({{ fb.id }})
+                    </option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-500 mb-1 flex items-center">
+                    <img src="https://www.gstatic.com/analytics/20140414/common/images/logos/logo_analytics_192px.png" class="w-4 h-4 mr-1"/> GA4 Property ID
+                  </label>
+                  <select v-model="editForm.ga4Id" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                    <option :value="null">Select Property...</option>
+                    <option v-for="ga4 in platformAccounts.ga4" :key="ga4.id" :value="ga4.id">
+                      {{ ga4.name }} ({{ ga4.id }})
                     </option>
                   </select>
                 </div>
@@ -171,6 +224,10 @@ onMounted(() => {
                   <div class="flex items-center">
                     <span class="w-2 h-2 rounded-full mr-2" :class="account.facebookAdsId ? 'bg-blue-500' : 'bg-slate-300'"></span>
                     Facebook: {{ account.facebookAdsId ? platformAccounts.facebook.find(f => f.id === account.facebookAdsId)?.name || account.facebookAdsId : 'Not Linked' }}
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-2 h-2 rounded-full mr-2" :class="account.ga4Id ? 'bg-orange-500' : 'bg-slate-300'"></span>
+                    GA4: {{ account.ga4Id ? platformAccounts.ga4.find(g => g.id === account.ga4Id)?.name || account.ga4Id : 'Not Linked' }}
                   </div>
                 </div>
               </div>

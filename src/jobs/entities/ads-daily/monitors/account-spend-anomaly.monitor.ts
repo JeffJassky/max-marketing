@@ -1,12 +1,12 @@
 import { Monitor } from "../../../../shared/data/monitor";
-import { campaignSpendMeasure } from "../campaign-daily.measures";
-import { campaignDaily } from "../campaign-daily.entity";
+import { adsSpendMeasure } from "../ads-daily.measures";
+import { adsDaily } from "../ads-daily.entity";
 
 // Detects statistical outliers in spend at the Account level.
 // Good for: Runaway budgets, broken credit cards (zero spend), or seasonal spikes.
 export const accountSpendAnomalyMonitor = new Monitor({
   id: "account_spend_anomaly_monitor",
-  measureId: campaignSpendMeasure.id,
+  measureId: adsSpendMeasure.id,
   enabled: true,
   schedule: "0 10 * * *", // Run daily at 10am
   lookbackDays: 30, // 30 days history for statistical baseline
@@ -27,4 +27,4 @@ export const accountSpendAnomalyMonitor = new Monitor({
     unit: "$",
     multiplier: 1
   }
-}, campaignSpendMeasure, campaignDaily);
+}, adsSpendMeasure, adsDaily);
