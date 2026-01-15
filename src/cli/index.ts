@@ -215,10 +215,15 @@ const promptForJobs = async (jobs: LoadedJob[]): Promise<LoadedJob[]> => {
 };
 
 const resolveProjectId = async (
-  needsProjectId: boolean
+  needsProjectId: boolean,
+  passedProjectId?: string
 ): Promise<string | undefined> => {
   if (!needsProjectId) {
     return undefined;
+  }
+
+  if (passedProjectId) {
+    return passedProjectId;
   }
 
   if (process.env.BIGQUERY_PROJECT) {
@@ -311,9 +316,149 @@ export const executeJob = async (
   }
 };
 
+const parseArgs = () => {
+  const args = process.argv.slice(2);
+  const selected = {
+    import: new Set<string>(),
+    entity: new Set<string>(),
+    aggregateReport: new Set<string>(),
+    monitor: new Set<string>(),
+    superlative: new Set<string>(),
+    allImports: false,
+    allEntities: false,
+    allAggregateReports: false,
+    allMonitors: false,
+    allSuperlatives: false,
+    all: false,
+    projectId: undefined as string | undefined,
+    help: false,
+  };
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    
+    switch (arg) {
+      case "--help":
+      case "-h":
+        selected.help = true;
+        break;
+      case "--project":
+        if (args[i + 1]) selected.projectId = args[++i];
+        break;
+      case "--import":
+        if (args[i + 1]) selected.import.add(args[++i]);
+        break;
+      case "--entity":
+        if (args[i + 1]) selected.entity.add(args[++i]);
+        break;
+      case "--report":
+        if (args[i + 1]) selected.aggregateReport.add(args[++i]);
+        break;
+      case "--monitor":
+        if (args[i + 1]) selected.monitor.add(args[++i]);
+        break;
+      case "--superlative":
+        if (args[i + 1]) selected.superlative.add(args[++i]);
+        break;
+      case "--all-imports":
+        selected.allImports = true;
+        break;
+      case "--all-entities":
+        selected.allEntities = true;
+        break;
+      case "--all-reports":
+        selected.allAggregateReports = true;
+        break;
+      case "--all-monitors":
+        selected.allMonitors = true;
+        break;
+      case "--all-superlatives":
+        selected.allSuperlatives = true;
+        break;
+      case "--all":
+        selected.all = true;
+        break;
+    }
+  }
+
+  const hasSelection = 
+    selected.import.size > 0 ||
+    selected.entity.size > 0 ||
+    selected.aggregateReport.size > 0 ||
+    selected.monitor.size > 0 ||
+    selected.superlative.size > 0 ||
+    selected.allImports ||
+    selected.allEntities ||
+    selected.allAggregateReports ||
+    selected.allMonitors ||
+    selected.allSuperlatives ||
+    selected.all;
+
+  return { selected, hasSelection };
+};
+
 export const runCli = async (): Promise<void> => {
+  const { selected, hasSelection } = parseArgs();
+
+  if (selected.help) {
+    console.log(`
+Usage: cli [options]
+
+Options:
+  --project <id>       BigQuery Project ID
+  --import <id>        Run specific import
+  --entity <id>        Run specific entity
+  --report <id>        Run specific aggregate report
+  --monitor <id>       Run specific monitor
+  --superlative <id>   Run specific superlative
+  --all-imports        Run all imports
+  --all-entities       Run all entities
+  --all-reports        Run all aggregate reports
+  --all-monitors       Run all monitors
+  --all-superlatives   Run all superlatives
+  --all                Run everything
+    `);
+    return;
+  }
+
   const jobs = await discoverJobs();
-  const selectedJobs = await promptForJobs(jobs);
+  let selectedJobs: LoadedJob[] = [];
+
+  if (hasSelection) {
+    // Filter jobs based on flags
+    selectedJobs = jobs.filter((job) => {
+      if (selected.all) return true;
+      
+      if (job.type === "import") {
+        return selected.allImports || selected.import.has(job.id);
+      }
+      if (job.type === "entity") {
+        return selected.allEntities || selected.entity.has(job.id);
+      }
+      if (job.type === "aggregateReport") {
+        return selected.allAggregateReports || selected.aggregateReport.has(job.id);
+      }
+      if (job.type === "monitor") {
+        return selected.allMonitors || selected.monitor.has(job.id);
+      }
+      if (job.type === "superlative") {
+        // Superlative IDs in discovery are often "entityId_superlatives" or similar logic?
+        // In discoverJobs: id: `${jobInstance.id}_superlatives`
+        // So --superlative <id> should match the full ID.
+        return selected.allSuperlatives || selected.superlative.has(job.id);
+      }
+      return false;
+    });
+
+    if (selectedJobs.length === 0) {
+      console.log(chalk.yellow("No jobs matched the provided arguments."));
+      return;
+    }
+
+  } else {
+    // Interactive mode
+    selectedJobs = await promptForJobs(jobs);
+  }
 
   if (!selectedJobs.length) {
     console.log(chalk.yellow("No jobs selected. Exiting."));
@@ -321,7 +466,7 @@ export const runCli = async (): Promise<void> => {
   }
 
   const needsProjectId = selectedJobs.some((job) => job.type !== "import");
-  const projectId = await resolveProjectId(needsProjectId);
+  const projectId = await resolveProjectId(needsProjectId, selected.projectId);
 
   for (const job of selectedJobs) {
     await executeJob(job, projectId);

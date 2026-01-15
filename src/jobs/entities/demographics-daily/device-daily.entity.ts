@@ -1,6 +1,7 @@
 import { Entity } from "../../base";
 import { googleAdsDevice } from "../../imports/google_ads/device.import";
 import { facebookAdsDevice } from "../../imports/facebook_ads/demographics.import";
+import { ga4Device } from "../../imports/google_ga4/device.import";
 import { z } from "zod";
 import {
   RocketShipAward,
@@ -13,7 +14,7 @@ export const deviceDaily = new Entity({
   id: "deviceDaily",
   label: "Device Performance",
   description: "Performance data broken down by device type.",
-  sources: [googleAdsDevice, facebookAdsDevice],
+  sources: [googleAdsDevice, facebookAdsDevice, ga4Device],
   partitionBy: "date",
   clusterBy: ["platform", "account_id", "device_category"],
   grain: [
@@ -31,6 +32,7 @@ export const deviceDaily = new Entity({
       sources: {
         googleAdsDevice: { expression: "'google'" },
         facebookAdsDevice: { expression: "'facebook'" },
+        ga4Device: { expression: "'ga4'" },
       },
     },
     device_category: {
@@ -43,6 +45,7 @@ export const deviceDaily = new Entity({
           expression:
             "CASE WHEN LOWER(device_platform) IN ('mobile_app', 'mobile_web') THEN 'mobile' WHEN LOWER(device_platform) = 'unknown' THEN 'other' ELSE LOWER(device_platform) END",
         },
+        ga4Device: { expression: "LOWER(device)" },
       },
     },
     specific_device: {
@@ -50,17 +53,35 @@ export const deviceDaily = new Entity({
       sources: {
         googleAdsDevice: { expression: "LOWER(device)" },
         facebookAdsDevice: { expression: "LOWER(impression_device)" },
+        ga4Device: { expression: "LOWER(device)" },
       },
     },
   },
   metrics: {
-    spend: { type: z.number(), aggregation: "sum", sourceField: "spend" },
+    spend: {
+      type: z.number(),
+      aggregation: "sum",
+      sourceField: "spend",
+      sources: {
+        ga4Device: { expression: "0" },
+      },
+    },
     impressions: {
       type: z.number(),
       aggregation: "sum",
       sourceField: "impressions",
+      sources: {
+        ga4Device: { expression: "0" },
+      },
     },
-    clicks: { type: z.number(), aggregation: "sum", sourceField: "clicks" },
+    clicks: {
+      type: z.number(),
+      aggregation: "sum",
+      sourceField: "clicks",
+      sources: {
+        ga4Device: { sourceField: "sessions" },
+      },
+    },
     conversions: {
       type: z.number(),
       aggregation: "sum",
@@ -70,6 +91,7 @@ export const deviceDaily = new Entity({
           expression:
             "SUM((SELECT SUM(SAFE_CAST(value AS FLOAT64)) FROM UNNEST(actions) WHERE action_type = 'purchase'))",
         },
+        ga4Device: { sourceField: "conversions" },
       },
     },
     conversions_value: {
@@ -81,6 +103,16 @@ export const deviceDaily = new Entity({
           expression:
             "SUM((SELECT SUM(SAFE_CAST(value AS FLOAT64)) FROM UNNEST(action_values) WHERE action_type = 'purchase'))",
         },
+        ga4Device: { sourceField: "purchase_revenue" },
+      },
+    },
+    views: {
+      type: z.number(),
+      aggregation: "sum",
+      sourceField: "screen_page_views",
+      sources: {
+        googleAdsDevice: { expression: "0" },
+        facebookAdsDevice: { expression: "0" },
       },
     },
   },
@@ -91,6 +123,8 @@ export const deviceDaily = new Entity({
       limit: 5,
       metrics: [
         { metric: "spend", awards: [VolumeTitanAward] },
+        { metric: "clicks", awards: [VolumeTitanAward] },
+        { metric: "views" },
         {
           metric: "roas",
           expression:
@@ -105,6 +139,8 @@ export const deviceDaily = new Entity({
       limit: 5,
       metrics: [
         { metric: "conversions", awards: [VolumeTitanAward, FirstPlaceAward] },
+        { metric: "clicks" },
+        { metric: "views" },
       ],
     },
   ],

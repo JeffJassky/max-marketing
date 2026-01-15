@@ -11,6 +11,9 @@ interface MaxAccount {
   googleAdsId: string | null;
   facebookAdsId: string | null;
   ga4Id: string | null;
+  shopifyId: string | null;
+  instagramId: string | null;
+  facebookPageId: string | null;
 }
 
 const selectedAccount = inject<Ref<MaxAccount | null>>('selectedAccount');
@@ -66,16 +69,30 @@ onMounted(() => {
       class="w-full flex items-center justify-between px-3 py-2.5 bg-slate-800/50 border border-slate-700/50 rounded-xl text-left hover:bg-slate-800 hover:border-slate-600 transition-all group"
     >
       <div class="flex items-center min-w-0">
-        <div class="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400 group-hover:text-indigo-300 group-hover:bg-indigo-500/20 transition-colors mr-3 shrink-0">
+        <div
+          class="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400 group-hover:text-indigo-300 group-hover:bg-indigo-500/20 transition-colors mr-3 shrink-0"
+        >
           <Wallet :size="16" />
         </div>
         <div class="truncate">
-          <p class="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-0.5">Account</p>
-          <p v-if="selectedAccount" class="text-sm font-bold text-slate-200 truncate">{{ selectedAccount.name }}</p>
+          <p
+            class="text-[10px] uppercase text-slate-500 font-bold tracking-wider mb-0.5"
+          >
+            Account
+          </p>
+          <p
+            v-if="selectedAccount"
+            class="text-sm font-bold text-slate-200 truncate"
+          >
+            {{ selectedAccount.name }}
+          </p>
           <p v-else class="text-sm text-slate-500 italic">Select Account</p>
         </div>
       </div>
-      <ChevronDown :size="16" class="text-slate-500 group-hover:text-slate-300 ml-2 shrink-0" />
+      <ChevronDown
+        :size="16"
+        class="text-slate-500 group-hover:text-slate-300 ml-2 shrink-0"
+      />
     </button>
 
     <!-- Dropdown -->
@@ -86,7 +103,10 @@ onMounted(() => {
       class="absolute top-full left-3 right-3 mt-2 bg-slate-800 rounded-xl shadow-xl border border-slate-700 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top"
     >
       <div class="max-h-64 overflow-y-auto custom-scrollbar">
-        <div v-if="!maxAccounts.length" class="px-4 py-3 text-sm text-slate-400 italic text-center">
+        <div
+          v-if="!maxAccounts.length"
+          class="px-4 py-3 text-sm text-slate-400 italic text-center"
+        >
           No accounts found.
         </div>
         <button
@@ -97,19 +117,60 @@ onMounted(() => {
           class="w-full text-left px-4 py-3 hover:bg-slate-700/50 flex items-center justify-between transition-colors border-b border-slate-700/50 last:border-0 group"
         >
           <div class="min-w-0 pr-2">
-            <p class="text-sm font-bold text-slate-200 group-hover:text-white truncate">{{ account.name }}</p>
+            <p
+              class="text-sm font-bold text-slate-200 group-hover:text-white truncate"
+            >
+              {{ account.name }}
+            </p>
             <div class="flex items-center gap-2 mt-0.5">
-              <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono" :class="{'text-green-400 bg-green-400/10': account.googleAdsId}">G</span>
-              <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono" :class="{'text-blue-400 bg-blue-400/10': account.facebookAdsId}">F</span>
-              <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono" :class="{'text-orange-400 bg-orange-400/10': account.ga4Id}">GA</span>
+              <span
+                class="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono"
+                :class="'text-green-400 bg-green-400/10'"
+                v-if="account.googleAdsId"
+                >G</span
+              >
+              <span
+                class="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono"
+                :class="'text-green-400 bg-green-400/10'"
+                v-if="account.facebookAdsId"
+                >F</span
+              >
+              <span
+                class="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono"
+                :class="'text-green-400 bg-green-400/10'"
+                v-if="account.ga4Id"
+                >GA</span
+              >
+              <span
+                class="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono"
+                :class="'text-green-400 bg-green-400/10'"
+                v-if="account.shopifyId"
+                >S</span
+              >
+              <span
+                class="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono"
+                :class="'text-green-400 bg-green-400/10'"
+                v-if="account.instagramId"
+                >IG</span
+              >
+              <span
+                class="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono"
+                :class="'text-green-400 bg-green-400/10'"
+                v-if="account.facebookPageId"
+                >FB</span
+              >
             </div>
           </div>
-          <CheckCircle v-if="selectedAccount?.id === account.id" :size="16" class="text-amplify-green shrink-0" />
+          <CheckCircle
+            v-if="selectedAccount?.id === account.id"
+            :size="16"
+            class="text-amplify-green shrink-0"
+          />
         </button>
       </div>
-      
+
       <div class="p-2 bg-slate-900/50 border-t border-slate-700">
-        <button 
+        <button
           @click="router.push('/settings'); isOpen = false;"
           class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
         >

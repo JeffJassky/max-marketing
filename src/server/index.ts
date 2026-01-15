@@ -4,6 +4,9 @@ import { createBigQueryClient } from "../shared/vendors/google/bigquery/bigquery
 import { googleAdsCoreKeywordPerformance } from "../jobs/imports/google_ads/core-keyword-performance.import";
 import { facebookAdsInsights } from "../jobs/imports/facebook_ads/insights.import";
 import { ga4PagePerformance } from "../jobs/imports/google_ga4/page-performance.import";
+import { shopifyOrders } from "../jobs/imports/shopify/orders.import";
+import { instagramMedia } from "../jobs/imports/instagram/media.import";
+import { facebookOrganicPosts } from "../jobs/imports/facebook_organic/posts.import";
 
 import { Monitor } from "../shared/data/monitor";
 import { accountSpendAnomalyMonitor } from "../jobs/entities/ads-daily/monitors/account-spend-anomaly.monitor";
@@ -18,6 +21,7 @@ import { broadMatchDriftMonitor } from "../jobs/entities/keyword-daily/monitors/
 import { pmaxSpendBreakdown } from "../jobs/entities/pmax-daily/aggregateReports/pmax-spend-breakdown.aggregateReport";
 import { adsSpendBreakdown } from "../jobs/entities/ads-daily/aggregateReports/ads-spend-breakdown.aggregateReport";
 import { clientAccountModel } from "./models/ClientAccount";
+import { AllAwards } from "../shared/data/awards/library";
 
 const app = express();
 app.use(express.json());
@@ -69,22 +73,61 @@ app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
       GROUP BY account_id
     `;
 
-    const [googleRowsPromise, facebookRowsPromise, ga4RowsPromise] = [
+    const shopifyQuery = `
+      SELECT
+        account_id AS id,
+        ANY_VALUE(account_name) AS name
+      FROM
+        ${shopifyOrders.fqn}
+      WHERE account_id IS NOT NULL
+      GROUP BY account_id
+    `;
+
+    const instagramQuery = `
+      SELECT
+        account_id AS id,
+        ANY_VALUE(account_name) AS name
+      FROM
+        ${instagramMedia.fqn}
+      WHERE account_id IS NOT NULL
+      GROUP BY account_id
+    `;
+
+    const facebookOrganicQuery = `
+      SELECT
+        account_id AS id,
+        ANY_VALUE(account_name) AS name
+      FROM
+        ${facebookOrganicPosts.fqn}
+      WHERE account_id IS NOT NULL
+      GROUP BY account_id
+    `;
+
+    const [googleRowsPromise, facebookRowsPromise, ga4RowsPromise, shopifyRowsPromise, instagramRowsPromise, facebookOrganicRowsPromise] = [
       bq.query(googleQuery),
       bq.query(facebookQuery),
       bq.query(ga4Query),
+      bq.query(shopifyQuery),
+      bq.query(instagramQuery),
+      bq.query(facebookOrganicQuery),
     ];
 
-    const [[googleRows], [facebookRows], [ga4Rows]] = await Promise.all([
+    const [[googleRows], [facebookRows], [ga4Rows], [shopifyRows], [instagramRows], [facebookOrganicRows]] = await Promise.all([
       googleRowsPromise,
       facebookRowsPromise,
       ga4RowsPromise,
+      shopifyRowsPromise,
+      instagramRowsPromise,
+      facebookOrganicRowsPromise,
     ]);
 
     res.json({
       google: googleRows,
       facebook: facebookRows,
       ga4: ga4Rows,
+      shopify: shopifyRows,
+      instagram: instagramRows,
+      facebook_organic: facebookOrganicRows,
     });
   } catch (error) {
     console.error("Error fetching platform accounts:", error);
@@ -324,13 +367,16 @@ app.get("/api/reports/superlatives/months", async (_req: Request, res: Response)
 });
 
 app.get("/api/reports/superlatives", async (req: Request, res: Response) => {
-  const { accountId, googleAdsId, facebookAdsId, ga4Id, month } = req.query;
+  const { accountId, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId, month } = req.query;
 
   const accountIds: string[] = [];
   if (accountId) accountIds.push(String(accountId));
   if (googleAdsId) accountIds.push(String(googleAdsId));
   if (facebookAdsId) accountIds.push(String(facebookAdsId));
   if (ga4Id) accountIds.push(String(ga4Id));
+  if (shopifyId) accountIds.push(String(shopifyId));
+  if (instagramId) accountIds.push(String(instagramId));
+  if (facebookPageId) accountIds.push(String(facebookPageId));
 
   const uniqueIds = Array.from(new Set(accountIds));
 
@@ -363,7 +409,26 @@ app.get("/api/reports/superlatives", async (req: Request, res: Response) => {
       params: { accountIds: uniqueIds, month: month || null },
     });
 
-    res.json(rows);
+    const enrichedRows = rows.map((row: any) => {
+      const rowAwards = Array.isArray(row.awards) ? row.awards : [];
+      return {
+        ...row,
+        awards: rowAwards
+          .map((awardId: string) => {
+            const info = AllAwards.find((a) => a.id === awardId);
+            if (!info) return null;
+            return {
+              id: info.id,
+              label: info.label,
+              description: info.description,
+              emoji: info.icon,
+            };
+          })
+          .filter(Boolean),
+      };
+    });
+
+    res.json(enrichedRows);
   } catch (error) {
     console.error("Error fetching superlatives:", error);
     res.status(500).json({ error: "Internal server error" });

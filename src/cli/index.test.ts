@@ -46,7 +46,7 @@ const entityPath = path.resolve(
   "src/jobs/entities/keyword-daily/keyword-daily.entity.ts"
 );
 const aggregateReportPath = path.resolve(
-  "src/jobs/entities/keyword-daily/aggregateReports/wasted-spend-keyword.aggregateReport.ts"
+  "src/jobs/entities/ads-daily/aggregateReports/ads-spend-breakdown.aggregateReport.ts"
 );
 
 afterEach(() => {
@@ -67,7 +67,7 @@ describe("CLI job loader", () => {
 
     expect(importJob.id).toBe("coreKeywordPerformance");
     expect(entityJob.id).toBe("keywordDaily");
-    expect(aggregateReportJob.id).toBe("wastedSpendKeyword");
+    expect(aggregateReportJob.id).toBe("adsSpendBreakdown");
   });
 
   it("discovers and sorts jobs via glob patterns", async () => {
@@ -88,7 +88,8 @@ describe("CLI job loader", () => {
     expect(ids).toEqual([
       "coreKeywordPerformance",
       "keywordDaily",
-      "wastedSpendKeyword",
+      "adsSpendBreakdown",
+      "keywordDaily_superlatives",
     ]);
   });
 });

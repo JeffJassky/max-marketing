@@ -71,6 +71,7 @@ export class SuperlativeExecutor {
             const limit = config.limit || 3;
             // Use dimensionNameField for the SQL selection, fallback to dimensionId
             const nameField = config.dimensionNameField || config.dimensionId;
+            const extraDims = config.includeDimensions || [];
         
                     for (const metricConfig of config.metrics) {
                       const {
@@ -97,12 +98,19 @@ export class SuperlativeExecutor {
         
                       // Build Query
                       const idList = group.accountIds.map((id) => `'${id}'`).join(",");
+                      
+                      const selects = [
+                        qb.raw(`${aggregationSql} as metric_value`),
+                        qb.raw(`${config.dimensionId} as item_id`),
+                        qb.raw(`${nameField} as item_name`)
+                      ];
+
+                      extraDims.forEach(dim => {
+                        selects.push(qb.raw(`ANY_VALUE(${dim}) as ${dim}`));
+                      });
+
                       let query = qb
-                        .select(
-                          qb.raw(`${aggregationSql} as metric_value`),
-                          qb.raw(`${config.dimensionId} as item_id`),
-                          qb.raw(`${nameField} as item_name`)
-                        )
+                        .select(...selects)
                         .from(qb.raw(`\`${tableFqn}\``))
                         .whereRaw(`account_id IN (${idList})`)
                         .whereRaw(`${nameField} IS NOT NULL`)
@@ -174,9 +182,16 @@ export class SuperlativeExecutor {
                     // 4. Update Cache (Add current to front of history)
                     historyCache.set(cacheKey, [currentItem, ...itemHistory]);
 
+                    // Extract any extra dimensions
+                    const extraData: Record<string, any> = {};
+                    extraDims.forEach(dim => {
+                      extraData[dim] = winner[dim];
+                    });
+
                     // 5. Push Result
                     allResults.push({
                       ...currentItem,
+                      ...extraData,
                       report_date: new Date().toISOString().split("T")[0],
                       period_end: range.end,
                       period_label: range.label,
@@ -269,6 +284,9 @@ export class SuperlativeExecutor {
         if (account.googleAdsId) ids.push(account.googleAdsId);
         if (account.facebookAdsId) ids.push(account.facebookAdsId);
         if (account.ga4Id) ids.push(account.ga4Id);
+        if (account.shopifyId) ids.push(account.shopifyId);
+        if (account.instagramId) ids.push(account.instagramId);
+        if (account.facebookPageId) ids.push(account.facebookPageId);
 
         // Only include IDs that actually have data in this entity for the selected period
         const activeInGroup = ids.filter((id) => activeAccountIds.has(id));

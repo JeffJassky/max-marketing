@@ -8,6 +8,7 @@ import {
   EfficiencyKingAward,
   RocketShipAward,
   HighROASAward,
+  GoldMineAward,
 } from "../../../shared/data/awards/library";
 import { AwardDefinition } from "../../../shared/data/types";
 
@@ -87,6 +88,18 @@ export const keywordDaily = new Entity({
     },
   },
   superlatives: [
+    {
+      dimensionId: "search_term",
+      dimensionLabel: "Search Term",
+      limit: 5,
+      metrics: [
+        {
+          metric: "gold_mine_score",
+          expression: "CASE WHEN SUM(spend) < 50 AND SUM(conversions) > 0 THEN SUM(conversions) ELSE 0 END",
+          awards: [GoldMineAward],
+        },
+      ],
+    },
     {
       dimensionId: "keyword_info_text",
       dimensionLabel: "Keyword",

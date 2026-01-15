@@ -12,7 +12,6 @@ import {
   Calendar,
   ChevronDown
 } from 'lucide-vue-next';
-import { AllAwards } from '../../../shared/data/awards/library';
 
 interface MaxAccount {
   id: string;
@@ -20,6 +19,9 @@ interface MaxAccount {
   googleAdsId: string | null;
   facebookAdsId: string | null;
   ga4Id: string | null;
+  shopifyId: string | null;
+  instagramId: string | null;
+  facebookPageId: string | null;
 }
 
 interface Superlative {
@@ -41,7 +43,8 @@ interface Superlative {
   rank_delta?: number;
   peak_position?: number;
   periods_on_chart?: number;
-  awards?: string[];
+  thumbnail_url?: string;
+  awards?: { id: string; emoji: string; label: string; description: string; }[];
 }
 
 const selectedAccount = inject<Ref<MaxAccount | null>>('selectedAccount');
@@ -50,10 +53,6 @@ const superlatives = ref<Superlative[]>([]);
 const availableMonths = ref<{ period_label: string; period_start: string }[]>([]);
 const selectedMonth = ref<string>('');
 const error = ref<string | null>(null);
-
-const getAwardInfo = (awardId: string) => {
-  return AllAwards.find(a => a.id === awardId);
-};
 
 const loadMonths = async () => {
   try {
@@ -75,7 +74,7 @@ const loadSuperlatives = async () => {
     return;
   }
 
-  const { id, googleAdsId, facebookAdsId, ga4Id } = selectedAccount.value;
+  const { id, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId } = selectedAccount.value;
   loading.value = true;
   error.value = null;
 
@@ -85,6 +84,9 @@ const loadSuperlatives = async () => {
     if (googleAdsId) params.append('googleAdsId', googleAdsId);
     if (facebookAdsId) params.append('facebookAdsId', facebookAdsId);
     if (ga4Id) params.append('ga4Id', ga4Id);
+    if (shopifyId) params.append('shopifyId', shopifyId);
+    if (instagramId) params.append('instagramId', instagramId);
+    if (facebookPageId) params.append('facebookPageId', facebookPageId);
     if (selectedMonth.value) params.append('month', selectedMonth.value);
 
     const res = await fetch(`/api/reports/superlatives?${params.toString()}`);
@@ -188,10 +190,6 @@ const formatMonth = (label: string) => {
   if (!label) return '';
   const [year, month] = label.split('-');
   return new Date(parseInt(year), parseInt(month) - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
-};
-
-const getAwardIcon = (awardId: string) => {
-  return getAwardInfo(awardId)?.icon || '⭐️';
 };
 
 onMounted(async () => {
@@ -389,6 +387,10 @@ watch([() => selectedAccount?.value, selectedMonth], () => {
                   </div>
 
                   <!-- Info & Awards -->
+                  <div v-if="winner.thumbnail_url" class="shrink-0 w-12 h-12 rounded-lg overflow-hidden border border-stone-100 shadow-sm mt-1">
+                    <img :src="winner.thumbnail_url" class="w-full h-full object-cover" />
+                  </div>
+
                   <div class="flex-1 min-w-0">
                     <div
                       class="font-bold text-slate-800 text-lg leading-snug group-hover:text-amplify-purple transition-colors truncate mb-1"
@@ -418,61 +420,34 @@ watch([() => selectedAccount?.value, selectedMonth], () => {
                         >
                       </div>
 
-                                            <!-- Award Tags -->
-
-                                            <div v-if="winner.awards?.length" class="flex items-center gap-1 mt-0.5">
-
-                                              <div 
-
-                                                v-for="awardId in winner.awards" 
-
-                                                :key="awardId"
-
-                                                class="group/award relative"
-
-                                              >
-
-                                                <span 
-
-                                                  class="w-6 h-6 rounded-full bg-slate-50 border border-stone-100 flex items-center justify-center text-xs shadow-sm hover:scale-125 transition-transform cursor-help"
-
-                                                >
-
-                                                  {{ getAwardIcon(awardId) }}
-
-                                                </span>
-
-                                                
-
-                                                <!-- Popover Content -->
-
-                                                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-900 text-white p-3 rounded-xl shadow-xl opacity-0 invisible group-hover/award:opacity-100 group-hover/award:visible transition-all z-50 pointer-events-none">
-
-                                                  <div class="flex items-center gap-2 mb-1">
-
-                                                    <span class="text-sm">{{ getAwardIcon(awardId) }}</span>
-
-                                                    <span class="font-bold text-xs text-indigo-300 uppercase tracking-wider">{{ getAwardInfo(awardId)?.label || awardId }}</span>
-
-                                                  </div>
-
-                                                  <p class="text-[10px] leading-relaxed text-slate-300">
-
-                                                    {{ getAwardInfo(awardId)?.description || 'No description available for this award.' }}
-
-                                                  </p>
-
-                                                  <!-- Triangle -->
-
-                                                  <div class="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-900"></div>
-
-                                                </div>
-
-                                              </div>
-
-                                            </div>
-
-                                          </div>
+                      <!-- Award Tags -->
+                      <div v-if="winner.awards?.length" class="flex items-center gap-1 mt-0.5">
+                        <div 
+                          v-for="award in winner.awards" 
+                          :key="award.id"
+                          class="group/award relative"
+                        >
+                          <span 
+                            class="w-6 h-6 rounded-full bg-slate-50 border border-stone-100 flex items-center justify-center text-xs shadow-sm hover:scale-125 transition-transform cursor-help"
+                          >
+                            {{ award.emoji }}
+                          </span>
+                          
+                          <!-- Popover Content -->
+                          <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-900 text-white p-3 rounded-xl shadow-xl opacity-0 invisible group-hover/award:opacity-100 group-hover/award:visible transition-all z-50 pointer-events-none">
+                            <div class="flex items-center gap-2 mb-1">
+                              <span class="text-sm">{{ award.emoji }}</span>
+                              <span class="font-bold text-xs text-indigo-300 uppercase tracking-wider">{{ award.label }}</span>
+                            </div>
+                            <p class="text-[10px] leading-relaxed text-slate-300">
+                              {{ award.description }}
+                            </p>
+                            <!-- Triangle -->
+                            <div class="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-900"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <!-- Value Display -->

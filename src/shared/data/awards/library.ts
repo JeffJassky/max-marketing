@@ -36,6 +36,18 @@ export const SteadyClimberAward: AwardDefinition = {
   }
 };
 
+export const GrowthAward: AwardDefinition = {
+  id: 'growth-star',
+  label: 'Viral Growth',
+  description: 'Explosive growth! This item increased its volume by more than 50% since last period.',
+  icon: '📈',
+  evaluate: ({ currentItem, previousItem }) => {
+    if (!previousItem || !previousItem.metric_value) return false;
+    const growth = (currentItem.metric_value - previousItem.metric_value) / previousItem.metric_value;
+    return growth >= 0.5;
+  }
+};
+
 // ─── UNIVERSAL: POSITION BASED ───────────────────────────────────────────────
 
 export const FirstPlaceAward: AwardDefinition = {
@@ -106,6 +118,27 @@ export const VolumeTitanAward: AwardDefinition = {
   label: 'Volume Titan',
   description: 'The heaviest hitter by volume (Conversions, Clicks, or Impressions).',
   icon: '📢',
+  evaluate: ({ currentItem }) => {
+    return currentItem.position === 1;
+  }
+};
+
+export const GoldMineAward: AwardDefinition = {
+  id: 'gold-mine',
+  label: 'The Gold Mine',
+  description: 'Incredible efficiency! High conversions with very low spend.',
+  icon: '⛏️',
+  evaluate: ({ currentItem }) => {
+    // This award is intended to be used with a specific "Gold Mine" metric
+    return currentItem.position === 1 && currentItem.metric_value > 0;
+  }
+};
+
+export const ConversationStarterAward: AwardDefinition = {
+  id: 'conversation-starter',
+  label: 'Conversation Starter',
+  description: 'This post is getting people talking! Highest number of comments this period.',
+  icon: '💬',
   evaluate: ({ currentItem }) => {
     return currentItem.position === 1;
   }

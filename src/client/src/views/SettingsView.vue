@@ -13,18 +13,40 @@ interface MaxAccount {
   googleAdsId: string | null;
   facebookAdsId: string | null;
   ga4Id: string | null;
+  shopifyId: string | null;
+  instagramId: string | null;
+  facebookPageId: string | null;
 }
 
-const platformAccounts = ref<{ google: PlatformAccount[], facebook: PlatformAccount[], ga4: PlatformAccount[] }>({
+const platformAccounts = ref<{ 
+  google: PlatformAccount[], 
+  facebook: PlatformAccount[], 
+  ga4: PlatformAccount[], 
+  shopify: PlatformAccount[],
+  instagram: PlatformAccount[],
+  facebook_organic: PlatformAccount[]
+}>({
   google: [],
   facebook: [],
-  ga4: []
+  ga4: [],
+  shopify: [],
+  instagram: [],
+  facebook_organic: []
 });
 
 const accounts = ref<MaxAccount[]>([]);
 const newAccountIds = ref(new Set<string>());
 const isEditing = ref<string | null>(null); // ID of account being edited
-const editForm = ref<MaxAccount>({ id: '', name: '', googleAdsId: null, facebookAdsId: null, ga4Id: null });
+const editForm = ref<MaxAccount>({ 
+  id: '', 
+  name: '', 
+  googleAdsId: null, 
+  facebookAdsId: null, 
+  ga4Id: null, 
+  shopifyId: null,
+  instagramId: null,
+  facebookPageId: null
+});
 
 // Load platform accounts
 const loadPlatformAccounts = async () => {
@@ -51,7 +73,10 @@ const loadAccounts = async () => {
         name: 'My First Account', 
         googleAdsId: null, 
         facebookAdsId: null,
-        ga4Id: null
+        ga4Id: null,
+        shopifyId: null,
+        instagramId: null,
+        facebookPageId: null
       };
       await fetch('/api/accounts', {
         method: 'POST',
@@ -117,7 +142,10 @@ const createAccount = () => {
     name: 'New Account',
     googleAdsId: null,
     facebookAdsId: null,
-    ga4Id: null
+    ga4Id: null,
+    shopifyId: null,
+    instagramId: null,
+    facebookPageId: null
   };
   newAccountIds.value.add(id);
   accounts.value.push(newAccount);
@@ -168,7 +196,7 @@ onMounted(() => {
                 <input v-model="editForm.name" type="text" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
               </div>
               
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                 <div>
                   <label class="block text-xs font-bold text-slate-500 mb-1 flex items-center">
                     <img src="https://www.gstatic.com/images/branding/product/1x/ads_2022_48dp.png" class="w-4 h-4 mr-1"/> Google Ads ID
@@ -202,6 +230,39 @@ onMounted(() => {
                     </option>
                   </select>
                 </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-500 mb-1 flex items-center">
+                    <img src="https://cdn.shopify.com/s/files/1/0268/5675/files/shopify_favicon.png" class="w-4 h-4 mr-1"/> Shopify Shop ID
+                  </label>
+                  <select v-model="editForm.shopifyId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                    <option :value="null">Select Shop...</option>
+                    <option v-for="shop in platformAccounts.shopify" :key="shop.id" :value="shop.id">
+                      {{ shop.name }} ({{ shop.id }})
+                    </option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-500 mb-1 flex items-center">
+                    <img src="https://www.instagram.com/static/images/ico/favicon.ico/36b304827462.ico" class="w-4 h-4 mr-1"/> Instagram ID
+                  </label>
+                  <select v-model="editForm.instagramId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                    <option :value="null">Select Instagram...</option>
+                    <option v-for="inst in platformAccounts.instagram" :key="inst.id" :value="inst.id">
+                      {{ inst.name }} ({{ inst.id }})
+                    </option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-500 mb-1 flex items-center">
+                    <div class="w-4 h-4 bg-blue-800 rounded mr-1 flex items-center justify-center text-[10px] text-white font-bold">f</div> FB Page ID
+                  </label>
+                  <select v-model="editForm.facebookPageId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                    <option :value="null">Select Page...</option>
+                    <option v-for="fbo in platformAccounts.facebook_organic" :key="fbo.id" :value="fbo.id">
+                      {{ fbo.name }} ({{ fbo.id }})
+                    </option>
+                  </select>
+                </div>
               </div>
 
               <div class="flex justify-end gap-2 mt-4">
@@ -216,7 +277,7 @@ onMounted(() => {
             <div v-else class="flex items-center justify-between">
               <div>
                 <h3 class="text-lg font-bold text-slate-800">{{ account.name }}</h3>
-                <div class="flex gap-4 mt-2 text-xs text-slate-500">
+                <div class="flex flex-wrap gap-4 mt-2 text-xs text-slate-500">
                   <div class="flex items-center">
                     <span class="w-2 h-2 rounded-full mr-2" :class="account.googleAdsId ? 'bg-green-500' : 'bg-slate-300'"></span>
                     Google: {{ account.googleAdsId ? platformAccounts.google.find(g => g.id === account.googleAdsId)?.name || account.googleAdsId : 'Not Linked' }}
@@ -228,6 +289,18 @@ onMounted(() => {
                   <div class="flex items-center">
                     <span class="w-2 h-2 rounded-full mr-2" :class="account.ga4Id ? 'bg-orange-500' : 'bg-slate-300'"></span>
                     GA4: {{ account.ga4Id ? platformAccounts.ga4.find(g => g.id === account.ga4Id)?.name || account.ga4Id : 'Not Linked' }}
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-2 h-2 rounded-full mr-2" :class="account.shopifyId ? 'bg-emerald-500' : 'bg-slate-300'"></span>
+                    Shopify: {{ account.shopifyId ? platformAccounts.shopify.find(s => s.id === account.shopifyId)?.name || account.shopifyId : 'Not Linked' }}
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-2 h-2 rounded-full mr-2" :class="account.instagramId ? 'bg-pink-500' : 'bg-slate-300'"></span>
+                    Instagram: {{ account.instagramId ? platformAccounts.instagram.find(i => i.id === account.instagramId)?.name || account.instagramId : 'Not Linked' }}
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-2 h-2 rounded-full mr-2" :class="account.facebookPageId ? 'bg-blue-800' : 'bg-slate-300'"></span>
+                    FB Page: {{ account.facebookPageId ? platformAccounts.facebook_organic.find(f => f.id === account.facebookPageId)?.name || account.facebookPageId : 'Not Linked' }}
                   </div>
                 </div>
               </div>

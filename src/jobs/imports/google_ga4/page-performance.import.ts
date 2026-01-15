@@ -17,6 +17,7 @@ export const ga4PagePerformance = new BronzeImport({
     account_id: z.string(),
     account_name: z.string(),
     page_path: z.string(),
+    session_default_channel_group: z.string(),
   },
   metrics: {
     bounce_rate: z.number(),

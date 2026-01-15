@@ -4,6 +4,7 @@ import {
   googleAdsGender,
 } from "../../imports/google_ads/demographics.import";
 import { facebookAdsAgeGender } from "../../imports/facebook_ads/demographics.import";
+import { ga4Age, ga4Gender } from "../../imports/google_ga4/demographics.import";
 import { z } from "zod";
 import {
   RocketShipAward,
@@ -18,7 +19,7 @@ export const ageGenderDaily = new Entity({
   id: "ageGenderDaily",
   label: "Age & Gender Performance",
   description: "Performance data broken down by age and gender.",
-  sources: [googleAdsAge, googleAdsGender, facebookAdsAgeGender],
+  sources: [googleAdsAge, googleAdsGender, facebookAdsAgeGender, ga4Age, ga4Gender],
   partitionBy: "date",
   clusterBy: ["platform", "account_id", "age", "gender"],
   grain: ["date", "account_id", "age", "gender", "platform"],
@@ -31,6 +32,8 @@ export const ageGenderDaily = new Entity({
         googleAdsAge: { expression: "'google'" },
         googleAdsGender: { expression: "'google'" },
         facebookAdsAgeGender: { expression: "'facebook'" },
+        ga4Age: { expression: "'ga4'" },
+        ga4Gender: { expression: "'ga4'" },
       },
     },
     age: {
@@ -42,6 +45,8 @@ export const ageGenderDaily = new Entity({
         },
         googleAdsGender: { expression: "CAST(NULL AS STRING)" },
         facebookAdsAgeGender: { sourceField: "age" },
+        ga4Age: { sourceField: "age" },
+        ga4Gender: { expression: "CAST(NULL AS STRING)" },
       },
     },
     gender: {
@@ -56,17 +61,39 @@ export const ageGenderDaily = new Entity({
           expression:
             "CASE WHEN LOWER(gender) = 'undetermined' THEN 'unknown' ELSE LOWER(gender) END",
         },
+        ga4Age: { expression: "CAST(NULL AS STRING)" },
+        ga4Gender: { expression: "LOWER(gender)" },
       },
     },
   },
   metrics: {
-    spend: { type: z.number(), aggregation: "sum", sourceField: "spend" },
+    spend: {
+      type: z.number(),
+      aggregation: "sum",
+      sourceField: "spend",
+      sources: {
+        ga4Age: { expression: "0" },
+        ga4Gender: { expression: "0" },
+      },
+    },
     impressions: {
       type: z.number(),
       aggregation: "sum",
       sourceField: "impressions",
+      sources: {
+        ga4Age: { expression: "0" },
+        ga4Gender: { expression: "0" },
+      },
     },
-    clicks: { type: z.number(), aggregation: "sum", sourceField: "clicks" },
+    clicks: {
+      type: z.number(),
+      aggregation: "sum",
+      sourceField: "clicks",
+      sources: {
+        ga4Age: { sourceField: "sessions" },
+        ga4Gender: { sourceField: "sessions" },
+      },
+    },
     conversions: {
       type: z.number(),
       aggregation: "sum",
@@ -76,6 +103,8 @@ export const ageGenderDaily = new Entity({
           expression:
             "SUM((SELECT SUM(SAFE_CAST(value AS FLOAT64)) FROM UNNEST(actions) WHERE action_type = 'purchase'))",
         },
+        ga4Age: { sourceField: "conversions" },
+        ga4Gender: { sourceField: "conversions" },
       },
     },
     conversions_value: {
@@ -87,6 +116,18 @@ export const ageGenderDaily = new Entity({
           expression:
             "SUM((SELECT SUM(SAFE_CAST(value AS FLOAT64)) FROM UNNEST(action_values) WHERE action_type = 'purchase'))",
         },
+        ga4Age: { sourceField: "purchase_revenue" },
+        ga4Gender: { sourceField: "purchase_revenue" },
+      },
+    },
+    views: {
+      type: z.number(),
+      aggregation: "sum",
+      sourceField: "screen_page_views",
+      sources: {
+        googleAdsAge: { expression: "0" },
+        googleAdsGender: { expression: "0" },
+        facebookAdsAgeGender: { expression: "0" },
       },
     },
   },
@@ -97,6 +138,8 @@ export const ageGenderDaily = new Entity({
       limit: 10,
       metrics: [
         { metric: "spend", awards: [VolumeTitanAward] },
+        { metric: "clicks", awards: [VolumeTitanAward] },
+        { metric: "views" },
         {
           metric: "roas",
           expression:
@@ -111,6 +154,8 @@ export const ageGenderDaily = new Entity({
       limit: 3,
       metrics: [
         { metric: "conversions", awards: [VolumeTitanAward, FirstPlaceAward] },
+        { metric: "clicks" },
+        { metric: "views" },
         {
           metric: "roas",
           expression:

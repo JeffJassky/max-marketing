@@ -16,13 +16,14 @@ export const ga4Daily = new Entity({
     "Unified daily performance for GA4 focusing on page performance and core engagement metrics.",
   sources: [ga4PagePerformance],
   partitionBy: "date",
-  clusterBy: ["account_id", "page_path"],
-  grain: ["date", "account_id", "page_path"],
+  clusterBy: ["account_id", "channel_group", "page_path"],
+  grain: ["date", "account_id", "channel_group", "page_path"],
   dimensions: {
     date: { type: z.string() },
     account_id: { type: z.string() },
     account_name: { type: z.string() },
     page_path: { type: z.string() },
+    channel_group: { type: z.string(), sourceField: "session_default_channel_group" },
   },
   metrics: {
     views: {
@@ -50,13 +51,11 @@ export const ga4Daily = new Entity({
       metrics: [
         { metric: "views", awards: [VolumeTitanAward, FirstPlaceAward] },
         { metric: "sessions" },
-        // These are just /checkout pages mostly.. so probably not helpful.
-        // { metric: "revenue", awards: [RocketShipAward, PodiumAward] },
-        // {
-        //   metric: "engagement_rate",
-        //   expression: "SAFE_DIVIDE(SUM(engaged_sessions), SUM(sessions))",
-        //   awards: [EfficiencyKingAward],
-        // },
+        {
+          metric: "organic_revenue",
+          expression: "SUM(CASE WHEN channel_group = 'Organic Search' THEN revenue ELSE 0 END)",
+          awards: [VolumeTitanAward, FirstPlaceAward],
+        },
       ],
     },
   ],

@@ -205,6 +205,8 @@ export type EntityDef<S extends BronzeImport<any, any>> = {
     dimensionNameField?: string;
     /** The human-readable label for the UI (e.g., 'Campaign' or 'Age'). Used in chart titles. */
     dimensionLabel: string;
+    /** Optional: Additional dimensions to include in the query result (selected via ANY_VALUE). */
+    includeDimensions?: string[];
     limit?: number; // Optional limit (default 3)
     metrics: {
       metric: string;
