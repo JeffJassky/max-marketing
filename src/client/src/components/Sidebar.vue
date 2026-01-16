@@ -28,6 +28,7 @@ const navItems = [
   { id: 'overviews', icon: BarChart3, label: 'Overviews', path: '/overviews' },
   { id: 'monitors', icon: Activity, label: 'Monitors', path: '/monitors' },
   { id: 'superlatives', icon: Trophy, label: 'Hall of Fame', path: '/superlatives' },
+  { id: 'report-builder', icon: Sparkles, label: 'Report Builder', path: '/report-builder' },
   {
     id: 'brand-voice',
     icon: MessageSquare,

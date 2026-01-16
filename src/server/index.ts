@@ -701,9 +701,9 @@ app.get("/api/reports/superlatives", async (req: Request, res: Response) => {
 });
 
 app.post("/api/reports/generate-talking-points", async (req: Request, res: Response) => {
-  const { superlatives } = req.body;
-  if (!superlatives || !Array.isArray(superlatives)) {
-    return res.status(400).json({ error: "Superlatives array is required" });
+  const { superlatives, overviews } = req.body;
+  if ((!superlatives || !Array.isArray(superlatives)) && (!overviews || Object.keys(overviews).length === 0)) {
+    return res.status(400).json({ error: "Superlatives array or Overviews data is required" });
   }
 
   try {
@@ -721,7 +721,15 @@ app.post("/api/reports/generate-talking-points", async (req: Request, res: Respo
       ]
     }`;
 
-    const prompt = `Here is the data for this month: ${JSON.stringify(superlatives)}`;
+    let prompt = `Here is the data for this month:`;
+    
+    if (superlatives && Array.isArray(superlatives) && superlatives.length > 0) {
+      prompt += `\n\n=== SUPERLATIVES (HALL OF FAME) ===\n${JSON.stringify(superlatives)}`;
+    }
+
+    if (overviews && Object.keys(overviews).length > 0) {
+      prompt += `\n\n=== PLATFORM OVERVIEWS (AGGREGATE PERFORMANCE) ===\n${JSON.stringify(overviews)}`;
+    }
     
     const result = await generateStructuredContent<{
       talking_points: Array<{
