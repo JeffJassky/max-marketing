@@ -26,6 +26,7 @@ import { ga4AcquisitionPerformance } from "../jobs/entities/ga4-daily/aggregateR
 import { shopifySourcePerformance } from "../jobs/entities/shopify-daily/aggregateReports/shopify-source.aggregateReport";
 import { socialPlatformPerformance } from "../jobs/entities/social-media-daily/aggregateReports/social-platform.aggregateReport";
 import { clientAccountModel } from "./models/ClientAccount";
+import { buildReportQuery } from "../shared/data/queryBuilder";
 import { AllAwards } from "../shared/data/awards/library";
 import { prompt as analystPrompt } from "../shared/data/llm/analyst-reporter.prompt";
 import { prompt as editorPrompt } from "../shared/data/llm/editor.prompt";
@@ -397,6 +398,69 @@ app.get("/api/aggregateReports/:reportId", async (req: Request, res: Response) =
     res.json(cleanRows);
   } catch (error) {
     console.error(`Error fetching report ${reportId}:`, error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
+  const { reportId } = req.params;
+  const { 
+    start, 
+    end, 
+    grain,
+    accountId, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId 
+  } = req.query;
+
+  const report = allAggregateReports.find((r) => r.id === reportId);
+  if (!report) {
+    return res.status(404).json({ error: "Report not found" });
+  }
+
+  // Account Resolution
+  const accountIds: string[] = [];
+  if (accountId) accountIds.push(String(accountId));
+  if (googleAdsId) accountIds.push(String(googleAdsId));
+  if (facebookAdsId) accountIds.push(String(facebookAdsId));
+  if (ga4Id) accountIds.push(String(ga4Id));
+  if (shopifyId) accountIds.push(String(shopifyId));
+  if (instagramId) accountIds.push(String(instagramId));
+  if (facebookPageId) accountIds.push(String(facebookPageId));
+
+  const uniqueIds = Array.from(new Set(accountIds));
+  if (uniqueIds.length === 0) {
+    return res.status(400).json({ error: "At least one account ID is required" });
+  }
+
+  // Date Range Defaults (This Month)
+  const now = new Date();
+  const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const defaultEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+  const startDate = (start as string) || defaultStart;
+  const endDate = (end as string) || defaultEnd;
+  const timeGrain = (grain as string) === 'daily' ? 'daily' : 'total';
+
+  try {
+    const bq = createBigQueryClient();
+    
+    // Build SQL using shared builder
+    const sql = buildReportQuery(report, {
+      startDate,
+      endDate,
+      accountIds: uniqueIds,
+      timeGrain
+    });
+
+    console.log(`Executing live report query for ${reportId} (${timeGrain})`);
+    
+    const [rows] = await bq.query({
+      query: sql,
+      params: { accountIds: uniqueIds },
+    });
+
+    res.json(rows);
+  } catch (error) {
+    console.error(`Error executing live report ${reportId}:`, error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
