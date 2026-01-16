@@ -32,6 +32,7 @@
     "jsep": "^1.4.0",
     "knex": "^3.1.0",
     "lodash": "^4.17.21",
+    "node-sql-parser": "^5.4.0",
     "verror": "^1.10.1",
     "vite": "^7.2.6",
     "vue-chartjs": "^5.3.3",
