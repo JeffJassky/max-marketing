@@ -20,11 +20,20 @@ import { lowROASMonitor } from "../jobs/entities/keyword-daily/monitors/low-roas
 import { broadMatchDriftMonitor } from "../jobs/entities/keyword-daily/monitors/broad-match-drift.monitor";
 import { pmaxSpendBreakdown } from "../jobs/entities/pmax-daily/aggregateReports/pmax-spend-breakdown.aggregateReport";
 import { adsSpendBreakdown } from "../jobs/entities/ads-daily/aggregateReports/ads-spend-breakdown.aggregateReport";
+import { googleAdsCampaignPerformance } from "../jobs/entities/ads-daily/aggregateReports/google-ads-campaign.aggregateReport";
+import { metaAdsCampaignPerformance } from "../jobs/entities/ads-daily/aggregateReports/meta-ads-campaign.aggregateReport";
+import { ga4AcquisitionPerformance } from "../jobs/entities/ga4-daily/aggregateReports/ga4-acquisition.aggregateReport";
+import { shopifySourcePerformance } from "../jobs/entities/shopify-daily/aggregateReports/shopify-source.aggregateReport";
+import { socialPlatformPerformance } from "../jobs/entities/social-media-daily/aggregateReports/social-platform.aggregateReport";
 import { clientAccountModel } from "./models/ClientAccount";
 import { AllAwards } from "../shared/data/awards/library";
+import { prompt as analystPrompt } from "../shared/data/llm/analyst-reporter.prompt";
+import { prompt as editorPrompt } from "../shared/data/llm/editor.prompt";
+import { generateStructuredContent, generateContent } from "../shared/vendors/google/gemini";
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 // Helper to list core monitors
 const coreMonitors = [
@@ -37,6 +46,16 @@ const coreMonitors = [
   highCPAMonitor,
   lowROASMonitor,
   broadMatchDriftMonitor,
+];
+
+const allAggregateReports = [
+  pmaxSpendBreakdown,
+  adsSpendBreakdown,
+  googleAdsCampaignPerformance,
+  metaAdsCampaignPerformance,
+  ga4AcquisitionPerformance,
+  shopifySourcePerformance,
+  socialPlatformPerformance,
 ];
 
 app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
@@ -301,6 +320,87 @@ app.get(
 
 // --- Aggregate Report Endpoints ---
 
+app.get("/api/aggregateReports/:reportId", async (req: Request, res: Response) => {
+  const { reportId } = req.params;
+  const { accountId, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId } = req.query;
+
+  const report = allAggregateReports.find((r) => r.id === reportId);
+  if (!report) {
+    // If not found in the list, it might be a specific endpoint handled below, 
+    // so we call next() to let other routes handle it? 
+    // But Express routing doesn't work like that if params capture it.
+    // However, explicit routes like /api/aggregateReports/pmax-spend-breakdown defined BEFORE or AFTER?
+    // If defined BEFORE, they take precedence. If defined AFTER, this one takes precedence.
+    // I should check if pmax-spend-breakdown is in allAggregateReports. Yes it is.
+    // So this generic handler can handle it too.
+    return res.status(404).json({ error: "Report not found" });
+  }
+
+  const accountIds: string[] = [];
+  if (accountId) accountIds.push(String(accountId));
+  if (googleAdsId) accountIds.push(String(googleAdsId));
+  if (facebookAdsId) accountIds.push(String(facebookAdsId));
+  if (ga4Id) accountIds.push(String(ga4Id));
+  if (shopifyId) accountIds.push(String(shopifyId));
+  if (instagramId) accountIds.push(String(instagramId));
+  if (facebookPageId) accountIds.push(String(facebookPageId));
+
+  const uniqueIds = Array.from(new Set(accountIds));
+
+  if (uniqueIds.length === 0) {
+    return res.status(400).json({ error: "At least one account ID is required" });
+  }
+
+  try {
+    const bq = createBigQueryClient();
+    const tableFqn = `reports.${report.tableName}`; // Assuming 'reports' dataset
+
+    // Basic query - can be enhanced with sorting/filtering from query params if needed
+    const query = `
+      SELECT *
+      FROM \`${tableFqn}\`
+      WHERE account_id IN UNNEST(@accountIds)
+      AND detected_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+      ORDER BY detected_at DESC
+      LIMIT 1000
+    `;
+
+    const [rows] = await bq.query({
+      query,
+      params: { accountIds: uniqueIds },
+    });
+    
+    // De-duplicate if multiple snapshots exist (take latest per grain)
+    // Actually, simply taking the latest detected_at per grain would be better SQL,
+    // but for now, returning recent rows is okay. 
+    // To be precise, let's filter to the latest detected_at in SQL.
+    
+    const latestQuery = `
+      SELECT * EXCEPT (rn)
+      FROM (
+        SELECT *, ROW_NUMBER() OVER (PARTITION BY ${report.definition.output.grain.join(', ')} ORDER BY detected_at DESC) as rn
+        FROM \`${tableFqn}\`
+        WHERE account_id IN UNNEST(@accountIds)
+        AND detected_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+      )
+      WHERE rn = 1
+    `;
+
+    // Note: If grain columns are not unique enough, this might dedupe too aggressively?
+    // The grain defined in AggregateReport IS the uniqueness key.
+    
+    const [cleanRows] = await bq.query({
+      query: latestQuery,
+      params: { accountIds: uniqueIds },
+    });
+
+    res.json(cleanRows);
+  } catch (error) {
+    console.error(`Error fetching report ${reportId}:`, error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 app.get("/api/aggregateReports/pmax-spend-breakdown", async (req: Request, res: Response) => {
   const { accountId } = req.query;
   if (!accountId) return res.status(400).json({ error: "accountId required" });
@@ -432,6 +532,64 @@ app.get("/api/reports/superlatives", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error fetching superlatives:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.post("/api/reports/generate-talking-points", async (req: Request, res: Response) => {
+  const { superlatives } = req.body;
+  if (!superlatives || !Array.isArray(superlatives)) {
+    return res.status(400).json({ error: "Superlatives array is required" });
+  }
+
+  try {
+    const systemInstruction = `${analystPrompt}\n\nIMPORTANT: You MUST return exactly 15 talking points in the following JSON format:
+    {
+      "talking_points": [
+        {
+          "title": "...",
+          "victory": "...",
+          "proof": "...",
+          "impact": "...",
+          "insights": "...",
+          "referenced_superlative_index": number
+        }
+      ]
+    }`;
+
+    const prompt = `Here is the data for this month: ${JSON.stringify(superlatives)}`;
+    
+    const result = await generateStructuredContent<{
+      talking_points: Array<{
+        title: string;
+        victory: string;
+        proof: string;
+        impact: string;
+        insights: string;
+        referenced_superlative_index: number;
+      }>;
+    }>(`${systemInstruction}\n\n${prompt}`);
+
+    res.json(result.talking_points);
+  } catch (error) {
+    console.error("Error generating talking points:", error);
+    res.status(500).json({ error: "Failed to generate talking points" });
+  }
+});
+
+app.post("/api/reports/generate-draft", async (req: Request, res: Response) => {
+  const { talkingPoints } = req.body;
+  if (!talkingPoints || !Array.isArray(talkingPoints)) {
+    return res.status(400).json({ error: "Talking points array is required" });
+  }
+
+  try {
+    const prompt = `Here are the curated talking points to include in the report:\n${JSON.stringify(talkingPoints)}`;
+    
+    const result = await generateStructuredContent<any>(`${editorPrompt}\n\n${prompt}`);
+    res.json(result);
+  } catch (error) {
+    console.error("Error generating draft:", error);
+    res.status(500).json({ error: "Failed to generate draft" });
   }
 });
 

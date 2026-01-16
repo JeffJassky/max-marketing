@@ -42,6 +42,11 @@ export const ga4Daily = new Entity({
       aggregation: "sum",
       sourceField: "purchase_revenue",
     },
+    conversions: {
+      type: z.number(),
+      aggregation: "sum",
+      sourceField: "conversions",
+    },
   },
   superlatives: [
     {

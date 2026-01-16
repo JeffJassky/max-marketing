@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, inject, computed, type Ref } from 'vue';
+import { ref, onMounted, onBeforeUnmount, watch, inject, computed, type Ref } from 'vue';
 import {
   Award,
   Trophy,
@@ -10,8 +10,36 @@ import {
   Minus,
   Flame,
   Calendar,
-  ChevronDown
+  ChevronDown,
+  Sparkles,
+  FileText,
+  GripVertical,
+  Trash2,
+  CheckCircle2,
+  Send,
+  Bold,
+  Italic,
+  Link as LinkIcon,
+  Heading1,
+  Heading2,
+  List,
+  Quote
 } from 'lucide-vue-next';
+import draggable from 'vuedraggable';
+import { marked } from 'marked';
+import { useEditor, EditorContent } from '@tiptap/vue-3';
+import { BubbleMenu } from '@tiptap/vue-3/menus';
+import StarterKit from '@tiptap/starter-kit';
+import Link from '@tiptap/extension-link';
+import BubbleMenuExtension from '@tiptap/extension-bubble-menu';
+import Placeholder from '@tiptap/extension-placeholder';
+
+// Report Block Components
+import HeroBlock from '../components/report-blocks/HeroBlock.vue';
+import MetricBlock from '../components/report-blocks/MetricBlock.vue';
+import ChartBlock from '../components/report-blocks/ChartBlock.vue';
+import InsightBlock from '../components/report-blocks/InsightBlock.vue';
+import NarrativeBlock from '../components/report-blocks/NarrativeBlock.vue';
 
 interface MaxAccount {
   id: string;
@@ -53,6 +81,83 @@ const superlatives = ref<Superlative[]>([]);
 const availableMonths = ref<{ period_label: string; period_start: string }[]>([]);
 const selectedMonth = ref<string>('');
 const error = ref<string | null>(null);
+
+// Report Generation State
+interface TalkingPoint {
+  title: string;
+  victory: string;
+  proof: string;
+  impact: string;
+  insights: string;
+  referenced_superlative_index?: number;
+}
+
+const talkingPoints = ref<TalkingPoint[]>([]);
+const selectedTalkingPoints = ref<TalkingPoint[]>([]);
+const isGeneratingTalkingPoints = ref(false);
+const isGeneratingDraft = ref(false);
+const reportData = ref<{ report_title: string; blocks: any[] } | null>(null);
+const showReportGenerator = ref(false);
+
+const generateTalkingPoints = async () => {
+  if (superlatives.value.length === 0) return;
+  
+  isGeneratingTalkingPoints.value = true;
+  talkingPoints.value = [];
+  selectedTalkingPoints.value = [];
+  reportData.value = null;
+  
+  try {
+    const res = await fetch('/api/reports/generate-talking-points', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ superlatives: superlatives.value })
+    });
+    
+    if (!res.ok) throw new Error('Failed to generate concepts');
+    talkingPoints.value = await res.json();
+  } catch (err: any) {
+    console.error(err);
+    error.value = err.message || 'Failed to generate report concepts';
+  } finally {
+    isGeneratingTalkingPoints.value = false;
+  }
+};
+
+const toggleTalkingPoint = (tp: TalkingPoint) => {
+  const index = selectedTalkingPoints.value.indexOf(tp);
+  if (index > -1) {
+    selectedTalkingPoints.value.splice(index, 1);
+  } else {
+    selectedTalkingPoints.value.push(tp);
+  }
+};
+
+const removeSelectedTalkingPoint = (index: number) => {
+  selectedTalkingPoints.value.splice(index, 1);
+};
+
+const generateDraft = async () => {
+  if (selectedTalkingPoints.value.length === 0) return;
+  
+  isGeneratingDraft.value = true;
+  
+  try {
+    const res = await fetch('/api/reports/generate-draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ talkingPoints: selectedTalkingPoints.value })
+    });
+    
+    if (!res.ok) throw new Error('Failed to generate draft');
+    reportData.value = await res.json();
+  } catch (err: any) {
+    console.error(err);
+    error.value = err.message || 'Failed to generate report draft';
+  } finally {
+    isGeneratingDraft.value = false;
+  }
+};
 
 const loadMonths = async () => {
   try {
@@ -222,32 +327,241 @@ watch([() => selectedAccount?.value, selectedMonth], () => {
           </p>
         </div>
 
-        <!-- Month Selector -->
-        <div class="relative group">
-          <label
-            class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5 ml-1"
-            >Chart Period</label
+        <div class="flex items-center gap-4">
+          <!-- Report Generator Toggle -->
+          <button
+            @click="showReportGenerator = !showReportGenerator"
+            class="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all shadow-sm"
+            :class="showReportGenerator ? 'bg-amplify-purple text-white shadow-indigo-200' : 'bg-white text-slate-700 border border-stone-200 hover:border-amplify-purple hover:text-amplify-purple'"
           >
-          <div class="relative">
-            <select
-              v-model="selectedMonth"
-              class="appearance-none bg-white border border-stone-200 text-slate-700 font-bold py-2.5 pl-4 pr-10 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-amplify-purple/20 focus:border-amplify-purple transition-all cursor-pointer min-w-[180px]"
-            >
-              <option
-                v-for="m in availableMonths"
-                :key="m.period_label"
-                :value="m.period_label"
+            <Sparkles :size="18" :class="showReportGenerator ? 'animate-pulse' : ''" />
+            {{ showReportGenerator ? 'Hide Report Builder' : 'Build Report' }}
+          </button>
+
+          <!-- Month Selector -->
+          <div class="relative group">
+            <label
+              class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5 ml-1"
+            >Chart Period</label>
+            <div class="relative">
+              <select
+                v-model="selectedMonth"
+                class="appearance-none bg-white border border-stone-200 text-slate-700 font-bold py-2.5 pl-4 pr-10 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-amplify-purple/20 focus:border-amplify-purple transition-all cursor-pointer min-w-[180px]"
               >
-                {{ formatMonth(m.period_label) }}
-              </option>
-            </select>
-            <ChevronDown
-              class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-              :size="18"
-            />
+                <option
+                  v-for="m in availableMonths"
+                  :key="m.period_label"
+                  :value="m.period_label"
+                >
+                  {{ formatMonth(m.period_label) }}
+                </option>
+              </select>
+              <ChevronDown
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+                :size="18"
+              />
+            </div>
           </div>
         </div>
       </div>
+
+      <!-- Report Generator Panel -->
+      <transition
+        enter-active-class="transition duration-300 ease-out"
+        enter-from-class="transform -translate-y-4 opacity-0"
+        enter-to-class="transform translate-y-0 opacity-100"
+        leave-active-class="transition duration-200 ease-in"
+        leave-from-class="transform translate-y-0 opacity-100"
+        leave-to-class="transform -translate-y-4 opacity-0"
+      >
+        <div v-if="showReportGenerator" class="mb-12 space-y-6">
+          <div class="bg-white rounded-[2rem] border border-indigo-100 shadow-xl shadow-indigo-50/50 overflow-hidden">
+            <div class="p-8 bg-gradient-to-br from-indigo-50/50 to-white border-b border-indigo-50">
+              <div class="flex items-start justify-between">
+                <div class="flex items-center gap-4">
+                  <div class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
+                    <Sparkles class="text-white" :size="24" />
+                  </div>
+                  <div>
+                    <h2 class="text-xl font-bold text-slate-800">AI Report Builder</h2>
+                    <p class="text-sm text-slate-500 font-medium">Transform chart data into executive success stories</p>
+                  </div>
+                </div>
+                <button 
+                  v-if="talkingPoints.length === 0 && !isGeneratingTalkingPoints"
+                  @click="generateTalkingPoints"
+                  class="bg-indigo-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center gap-2"
+                >
+                  <Sparkles :size="18" />
+                  Analyze Performance
+                </button>
+              </div>
+            </div>
+
+            <!-- Analysis State -->
+            <div v-if="isGeneratingTalkingPoints" class="p-20 flex flex-col items-center justify-center gap-4">
+              <div class="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+              <p class="font-bold text-slate-400 animate-pulse">Gemini is analyzing {{ superlatives.length }} data points...</p>
+            </div>
+
+            <!-- Talking Points Selection -->
+            <div v-else-if="talkingPoints.length > 0 && !reportData" class="grid grid-cols-1 lg:grid-cols-2 gap-0">
+              <!-- Concepts Pool -->
+              <div class="p-8 border-r border-stone-100 bg-stone-50/30">
+                <div class="flex items-center justify-between mb-6">
+                  <h3 class="font-bold text-slate-700 flex items-center gap-2 uppercase tracking-wider text-xs">
+                    Analysis Results
+                    <span class="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full text-[10px]">{{ talkingPoints.length }}</span>
+                  </h3>
+                  <p class="text-[10px] font-bold text-slate-400">SELECT POINTS TO INCLUDE</p>
+                </div>
+                
+                <div class="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+                  <div 
+                    v-for="(tp, idx) in talkingPoints" 
+                    :key="idx"
+                    @click="toggleTalkingPoint(tp)"
+                    class="p-4 rounded-2xl border-2 cursor-pointer transition-all group relative"
+                    :class="selectedTalkingPoints.includes(tp) ? 'bg-indigo-50 border-indigo-200 shadow-sm' : 'bg-white border-transparent hover:border-stone-200'"
+                  >
+                    <div class="flex items-start gap-3">
+                      <div class="mt-1">
+                        <div v-if="selectedTalkingPoints.includes(tp)" class="text-indigo-600">
+                          <CheckCircle2 :size="20" fill="currentColor" class="text-indigo-50" />
+                        </div>
+                        <div v-else class="w-5 h-5 rounded-full border-2 border-stone-200 group-hover:border-stone-300"></div>
+                      </div>
+                      <div class="flex-1 min-w-0">
+                        <h4 class="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{{ tp.title }}</h4>
+                        <p class="text-xs text-slate-500 line-clamp-2 mt-1">{{ tp.victory }}</p>
+                        <div class="mt-2 flex items-center gap-2">
+                          <span class="text-[9px] font-black bg-white border border-stone-100 px-1.5 py-0.5 rounded text-slate-400 uppercase">
+                            {{ tp.proof.length > 30 ? 'High Impact' : 'Data Insight' }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Selected / Reorder -->
+              <div class="p-8 flex flex-col h-full bg-white">
+                <div class="flex items-center justify-between mb-6">
+                  <h3 class="font-bold text-slate-700 flex items-center gap-2 uppercase tracking-wider text-xs">
+                    Report Structure
+                    <span v-if="selectedTalkingPoints.length" class="bg-indigo-600 text-white px-2 py-0.5 rounded-full text-[10px] animate-in zoom-in">{{ selectedTalkingPoints.length }}</span>
+                  </h3>
+                  <p class="text-[10px] font-bold text-slate-400">DRAG TO REORDER</p>
+                </div>
+
+                <div v-if="selectedTalkingPoints.length === 0" class="flex-1 flex flex-col items-center justify-center text-center p-10 border-2 border-dashed border-stone-100 rounded-[2rem]">
+                  <div class="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mb-4">
+                    <FileText class="text-stone-300" :size="32" />
+                  </div>
+                  <h4 class="font-bold text-slate-400">No items selected</h4>
+                  <p class="text-xs text-slate-400 mt-1 max-w-[180px]">Select talking points from the left to build your story</p>
+                </div>
+
+                <div v-else class="flex-1 flex flex-col">
+                  <draggable 
+                    v-model="selectedTalkingPoints" 
+                    item-key="title"
+                    class="space-y-3 flex-1 overflow-y-auto pr-2 max-h-[500px]"
+                    handle=".drag-handle"
+                  >
+                    <template #item="{element, index}">
+                      <div class="p-4 bg-white border border-indigo-100 rounded-2xl shadow-sm flex items-start gap-3 group">
+                        <div class="drag-handle cursor-grab mt-1 text-stone-300 hover:text-indigo-400 transition-colors shrink-0">
+                          <GripVertical :size="18" />
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <h4 class="font-bold text-sm text-slate-800">{{ element.title }}</h4>
+                        </div>
+                        <button @click="removeSelectedTalkingPoint(index)" class="text-stone-300 hover:text-red-500 transition-colors shrink-0">
+                          <Trash2 :size="16" />
+                        </button>
+                      </div>
+                    </template>
+                  </draggable>
+
+                  <div class="mt-8 pt-8 border-t border-stone-100">
+                    <button 
+                      @click="generateDraft"
+                      :disabled="isGeneratingDraft"
+                      class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 flex items-center justify-center gap-3 disabled:opacity-50"
+                    >
+                      <template v-if="isGeneratingDraft">
+                        <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Writing Draft...
+                      </template>
+                      <template v-else>
+                        <Send :size="20" />
+                        Write Executive Report
+                      </template>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Draft Result -->
+            <div v-else-if="reportData" class="p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div class="flex items-center justify-between mb-12 pb-6 border-b border-stone-100">
+                <h3 class="text-2xl font-black text-slate-800 italic uppercase">{{ reportData.report_title }}</h3>
+                <div class="flex items-center gap-3">
+                  <button 
+                    @click="reportData = null"
+                    class="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors"
+                  >
+                    Edit Selections
+                  </button>
+                  <button 
+                    @click="generateTalkingPoints"
+                    class="px-4 py-2 text-sm font-bold text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                  >
+                    Start Over
+                  </button>
+                </div>
+              </div>
+
+              <!-- Blocks Grid/Layout -->
+              <div class="space-y-10 max-w-5xl mx-auto">
+                <div v-for="(block, bIdx) in reportData.blocks" :key="bIdx">
+                  <!-- Hero Block -->
+                  <HeroBlock 
+                    v-if="block.type === 'hero'" 
+                    v-bind="block.data" 
+                  />
+
+                  <!-- Metric Grid -->
+                  <div v-else-if="block.type === 'metric'" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <MetricBlock v-bind="block.data" />
+                  </div>
+
+                  <!-- Chart Block -->
+                  <ChartBlock 
+                    v-else-if="block.type === 'chart'" 
+                    v-bind="block.data" 
+                  />
+
+                  <!-- Narrative Block (Editable) -->
+                  <NarrativeBlock
+                    v-else-if="block.type === 'narrative'"
+                    v-bind="block.data"
+                  />
+
+                  <!-- Insight Block -->
+                  <InsightBlock 
+                    v-else-if="block.type === 'insight'" 
+                    v-bind="block.data" 
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </transition>
 
       <!-- Loading State -->
       <div
@@ -484,3 +798,23 @@ watch([() => selectedAccount?.value, selectedMonth], () => {
     </section>
   </div>
 </template>
+
+<style>
+/* TipTap Editor Styles */
+.ProseMirror:focus {
+  outline: none;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  pointer-events: none;
+  height: 0;
+}
+
+/* Floating Menu Animation */
+.tippy-box[data-animation='fade'][data-state='hidden'] {
+  opacity: 0;
+}
+</style>

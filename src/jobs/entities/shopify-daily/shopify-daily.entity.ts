@@ -15,11 +15,12 @@ export const shopifyDaily = new Entity({
   description: "Daily Shopify sales performance broken down by location.",
   sources: [shopifyOrders],
   partitionBy: "date",
-  clusterBy: ["account_id", "country", "region", "city"],
-  grain: ["date", "account_id", "country", "region", "city"],
+  clusterBy: ["account_id", "source", "country", "region"],
+  grain: ["date", "account_id", "source", "country", "region", "city"],
   dimensions: {
     date: { type: z.string() },
     account_id: { type: z.string() },
+    source: { type: z.string(), sourceField: "source" },
     country: { 
       type: z.string(), 
       sourceField: "order_shipping_address_country" 

@@ -26,5 +26,6 @@ export const ga4PagePerformance = new BronzeImport({
     purchase_to_view_rate: z.number(),
     screen_page_views: z.number(),
     sessions: z.number(),
+    conversions: z.number(),
   },
 });

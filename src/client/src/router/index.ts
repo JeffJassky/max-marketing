@@ -6,9 +6,11 @@ import SocialSparkView from '../views/SocialSparkView.vue';
 import SettingsView from '../views/SettingsView.vue';
 import MonitorsView from '../views/MonitorsView.vue';
 import SuperlativesView from '../views/SuperlativesView.vue';
+import OverviewsView from '../views/OverviewsView.vue';
 
 export const routes: RouteRecordRaw[] = [
   { path: '/', name: 'dashboard', component: DashboardView },
+  { path: '/overviews', name: 'overviews', component: OverviewsView },
   { path: '/monitors', name: 'monitors', component: MonitorsView },
   { path: '/superlatives', name: 'superlatives', component: SuperlativesView },
   { path: '/brand-voice', name: 'brand-voice', component: BrandVoiceView },

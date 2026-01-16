@@ -97,6 +97,14 @@ export const socialMediaDaily = new Entity({
         facebookOrganicPosts: { sourceField: "post_comments_total" },
       },
     },
+    shares: {
+      type: z.number(),
+      aggregation: "sum",
+      sources: {
+        instagramMedia: { sourceField: "media_shares" },
+        facebookOrganicPosts: { expression: "0" },
+      },
+    },
     engagement: {
       type: z.number(),
       aggregation: "sum",
