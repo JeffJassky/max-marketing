@@ -13,6 +13,7 @@ export const googleAdsCampaignPerformance = new BronzeImport({
   params: {
     date_preset: "last_90d",
   },
+  uniquenessKey: ["date", "account_id", "campaign_id"],
   dimensions: {
     date: z.string(),
     account_id: z.string(),

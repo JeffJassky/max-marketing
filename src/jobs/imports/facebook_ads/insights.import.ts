@@ -13,6 +13,7 @@ export const facebookAdsInsights = new BronzeImport({
   params: {
     date_preset: "last_90d",
   },
+  uniquenessKey: ["date", "account_id", "campaign_id", "adset_id", "publisher_platform", "platform_position"],
   dimensions: {
     date: z.string(),
     account_id: z.string(),
@@ -27,6 +28,8 @@ export const facebookAdsInsights = new BronzeImport({
   metrics: {
     spend: z.number(),
     impressions: z.number(),
+    reach: z.number().optional(),
+    frequency: z.number().optional(),
     clicks: z.number(),
     actions: z.number(), // Total actions (proxy for conversions if not specific)
     action_values: z.array(z.object({ action_type: z.string(), value: z.string() })).optional(), // Often complex structure

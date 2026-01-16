@@ -248,6 +248,7 @@ export type Measure = z.infer<typeof MeasureSchema>;
 export const MonitorScanConfigSchema = z.object({
   dimensions: z.array(z.string()),
   minVolume: z.number().default(0),
+  filters: z.array(MeasureFilterSchema).optional(),
 });
 
 // Strategy 1: Deterministic / Absolute
@@ -255,6 +256,9 @@ export const MonitorStrategyThresholdSchema = z.object({
   type: z.literal("threshold"),
   min: z.number().optional(),
   max: z.number().optional(),
+  // Support legacy format if needed, or unify
+  operator: z.enum([">", "<", ">=", "<=", "=", "!="]).optional(),
+  value: z.number().optional(),
 });
 
 // Strategy 2: Relative Change
@@ -295,6 +299,8 @@ export const MonitorClassificationSchema = z.enum([
   "known_problem",
   "heuristic",
   "statistical",
+  "efficiency",
+  "creative",
 ]);
 
 export const MonitorImpactConfigSchema = z.object({

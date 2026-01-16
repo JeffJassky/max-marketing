@@ -8,11 +8,13 @@ import MonitorsView from '../views/MonitorsView.vue';
 import SuperlativesView from '../views/SuperlativesView.vue';
 import OverviewsView from '../views/OverviewsView.vue';
 import ReportBuilderView from '../views/ReportBuilderView.vue';
+import CreativeLabView from '../views/CreativeLabView.vue';
 
 export const routes: RouteRecordRaw[] = [
   { path: '/', name: 'dashboard', component: DashboardView },
   { path: '/overviews', name: 'overviews', component: OverviewsView },
   { path: '/report-builder', name: 'report-builder', component: ReportBuilderView },
+  { path: '/creative-lab', name: 'creative-lab', component: CreativeLabView },
   { path: '/monitors', name: 'monitors', component: MonitorsView },
   { path: '/superlatives', name: 'superlatives', component: SuperlativesView },
   { path: '/brand-voice', name: 'brand-voice', component: BrandVoiceView },

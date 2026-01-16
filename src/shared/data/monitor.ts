@@ -18,23 +18,25 @@ export class Monitor {
   /**
    * Fetches anomalies for this specific monitor.
    */
-  async getAnomalies(accountId: string, limit: number = 100) {
+  async getAnomalies(accountIds: string | string[], limit: number = 100) {
     const bq = createBigQueryClient();
     const tableName = snakeCase(this.id);
+    const ids = Array.isArray(accountIds) ? accountIds : [accountIds];
+
     const query = `
       SELECT *, '${tableName}' as source_table
       FROM \`anomalies.${tableName}\`
-      WHERE account_id = @accountId
+      WHERE account_id IN UNNEST(@accountIds)
       ORDER BY detected_at DESC
       LIMIT @limit
     `;
     
-    console.log(`[Monitor] Querying anomalies.${tableName} for account: ${accountId}`);
+    console.log(`[Monitor] Querying anomalies.${tableName} for accounts: ${ids.join(', ')}`);
     
     try {
       const [rows] = await bq.query({
         query,
-        params: { accountId, limit }
+        params: { accountIds: ids, limit }
       });
 
       return rows.map(row => ({
@@ -55,9 +57,9 @@ export class Monitor {
   /**
    * Static helper to fetch and combine anomalies from multiple monitors.
    */
-  static async getUnifiedAnomalies(monitors: Monitor[], accountId: string, limit: number = 100) {
+  static async getUnifiedAnomalies(monitors: Monitor[], accountIds: string | string[], limit: number = 100) {
       const promises = monitors.map(m => 
-          m.getAnomalies(accountId, limit)
+          m.getAnomalies(accountIds, limit)
               .catch(err => {
                   console.warn(`Failed to fetch from monitor ${m.id}:`, err.message);
                   return [];

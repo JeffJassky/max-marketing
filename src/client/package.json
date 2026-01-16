@@ -20,6 +20,7 @@
     "@tiptap/vue-3": "^3.15.3",
     "@types/marked": "^6.0.0",
     "apexcharts": "^3.54.1",
+    "deep-chat": "^2.4.1",
     "lucide-vue-next": "^0.554.0",
     "marked": "^17.0.1",
     "vue": "^3.5.13",

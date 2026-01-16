@@ -22,8 +22,8 @@ export const adsDaily = new Entity({
   description: "Unified daily performance across Google and Meta Ads.",
   sources: [googleAdsCampaignPerformance, facebookAdsInsights],
   partitionBy: "date",
-  clusterBy: ["platform", "account_id", "campaign_id"],
-  grain: ["date", "account_id", "campaign_id", "platform"],
+  clusterBy: ["platform", "account_id", "campaign_id", "adset_id"],
+  grain: ["date", "account_id", "campaign_id", "adset_id", "platform"],
   dimensions: {
     date: { type: z.string() },
     account_id: { type: z.string() },
@@ -40,6 +40,20 @@ export const adsDaily = new Entity({
       sourceField: "campaign_name",
       sources: {
         campaignPerformance: { sourceField: "campaign" },
+      },
+    },
+    adset_id: {
+      type: z.string(),
+      sources: {
+        campaignPerformance: { expression: "CAST(NULL AS STRING)" },
+        facebookAdsInsights: { sourceField: "adset_id" },
+      },
+    },
+    adset_name: {
+      type: z.string(),
+      sources: {
+        campaignPerformance: { expression: "CAST(NULL AS STRING)" },
+        facebookAdsInsights: { sourceField: "adset_name" },
       },
     },
     channel_group: {
@@ -68,6 +82,14 @@ export const adsDaily = new Entity({
       type: z.number(),
       aggregation: "sum",
       sourceField: "impressions",
+    },
+    reach: {
+      type: z.number(),
+      aggregation: "sum",
+      sourceField: "reach",
+      sources: {
+        campaignPerformance: { expression: "0" },
+      },
     },
     video_views: {
       type: z.number(),

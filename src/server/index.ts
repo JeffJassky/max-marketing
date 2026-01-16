@@ -18,6 +18,8 @@ import { wastedSpendClickMonitor } from "../jobs/entities/keyword-daily/monitors
 import { highCPAMonitor } from "../jobs/entities/keyword-daily/monitors/high-cpa.monitor";
 import { lowROASMonitor } from "../jobs/entities/keyword-daily/monitors/low-roas.monitor";
 import { broadMatchDriftMonitor } from "../jobs/entities/keyword-daily/monitors/broad-match-drift.monitor";
+import { audienceSaturationMonitor } from "../jobs/entities/ads-daily/monitors/audience-saturation.monitor";
+import { creativeFatigueMonitor } from "../jobs/entities/creative-daily/monitors/creative-fatigue.monitor";
 import { pmaxSpendBreakdown } from "../jobs/entities/pmax-daily/aggregateReports/pmax-spend-breakdown.aggregateReport";
 import { adsSpendBreakdown } from "../jobs/entities/ads-daily/aggregateReports/ads-spend-breakdown.aggregateReport";
 import { googleAdsCampaignPerformance } from "../jobs/entities/ads-daily/aggregateReports/google-ads-campaign.aggregateReport";
@@ -25,39 +27,118 @@ import { metaAdsCampaignPerformance } from "../jobs/entities/ads-daily/aggregate
 import { ga4AcquisitionPerformance } from "../jobs/entities/ga4-daily/aggregateReports/ga4-acquisition.aggregateReport";
 import { shopifySourcePerformance } from "../jobs/entities/shopify-daily/aggregateReports/shopify-source.aggregateReport";
 import { socialPlatformPerformance } from "../jobs/entities/social-media-daily/aggregateReports/social-platform.aggregateReport";
+import { creativePerformanceReport } from "../jobs/entities/creative-daily/aggregateReports/creative-performance.aggregateReport";
 import { clientAccountModel } from "./models/ClientAccount";
 import { buildReportQuery } from "../shared/data/queryBuilder";
 import { AllAwards } from "../shared/data/awards/library";
 import { prompt as analystPrompt } from "../shared/data/llm/analyst-reporter.prompt";
 import { prompt as editorPrompt } from "../shared/data/llm/editor.prompt";
 import { generateStructuredContent, generateContent } from "../shared/vendors/google/gemini";
+import { coreMonitors, allAggregateReports } from "./registry";
+import { MarketingAgent } from "./services/agent";
 
 const app = express();
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
-// Helper to list core monitors
-const coreMonitors = [
-  accountSpendAnomalyMonitor,
-  accountConversionDropMonitor,
-  activePmaxCampaignMonitor,
-  activeAdsCampaignMonitor,
-  wastedSpendConversionMonitor,
-  wastedSpendClickMonitor,
-  highCPAMonitor,
-  lowROASMonitor,
-  broadMatchDriftMonitor,
-];
+app.post("/api/chat", async (req: Request, res: Response) => {
+  const { messages, context } = req.body;
+  
+  if (!messages || !Array.isArray(messages)) {
+    return res.status(400).json({ error: "Messages array is required" });
+  }
 
-const allAggregateReports = [
-  pmaxSpendBreakdown,
-  adsSpendBreakdown,
-  googleAdsCampaignPerformance,
-  metaAdsCampaignPerformance,
-  ga4AcquisitionPerformance,
-  shopifySourcePerformance,
-  socialPlatformPerformance,
-];
+  try {
+    const agent = new MarketingAgent(context || {});
+    const response = await agent.chat(messages);
+    res.json({ text: response });
+  } catch (error) {
+    console.error("Error in chat agent:", error);
+    res.status(500).json({ error: "The marketing agent encountered an error." });
+  }
+});
+
+// --- Data Fetching Helpers ---
+
+const fetchSuperlatives = async (bq: any, accountIds: string[], month?: string) => {
+  let monthFilter = "";
+  if (month) {
+    monthFilter = "AND period_label = @month";
+  } else {
+    monthFilter = "AND period_label = (SELECT MAX(period_label) FROM `reports.superlatives_monthly`)";
+  }
+
+  const query = `
+    SELECT *
+    FROM \`reports.superlatives_monthly\`
+    WHERE (group_id IN UNNEST(@accountIds) OR account_id IN UNNEST(@accountIds))
+    ${monthFilter}
+    ORDER BY metric_name, position ASC
+    LIMIT 2000
+  `;
+
+  const [rows] = await bq.query({
+    query,
+    params: { accountIds, month: month || null },
+  });
+
+  return rows.map((row: any) => {
+    const rowAwards = Array.isArray(row.awards) ? row.awards : [];
+    return {
+      ...row,
+      awards: rowAwards
+        .map((awardId: string) => {
+          const info = AllAwards.find((a) => a.id === awardId);
+          if (!info) return null;
+          return {
+            id: info.id,
+            label: info.label,
+            description: info.description,
+            emoji: info.icon,
+          };
+        })
+        .filter(Boolean),
+    };
+  });
+};
+
+const fetchOverviews = async (bq: any, accountIds: string[], start: string, end: string) => {
+  const results: Record<string, any> = {};
+  
+  const promises = allAggregateReports.map(async (report) => {
+    try {
+      // Use 'total' grain for summary context
+      const sql = buildReportQuery(report, {
+        startDate: start,
+        endDate: end,
+        accountIds: accountIds,
+        timeGrain: 'total'
+      });
+      
+      const [rows] = await bq.query({
+        query: sql,
+        params: { accountIds },
+      });
+      
+      results[report.id] = { rows }; 
+    } catch (e) {
+      console.warn(`Failed to fetch overview for ${report.id} in generation context`, e);
+    }
+  });
+  
+  await Promise.all(promises);
+  return results;
+};
+
+const getDatesForMonth = (periodLabel: string) => {
+  if (!periodLabel) return null;
+  const parts = periodLabel.split('-').map(Number);
+  if (parts.length !== 2) return null;
+  const [year, month] = parts;
+  const start = new Date(year, month - 1, 1).toISOString().split('T')[0];
+  const end = new Date(year, month, 0).toISOString().split('T')[0];
+  return { start, end };
+};
 
 app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
   try {
@@ -218,14 +299,14 @@ app.get("/api/monitors/anomalies", async (req: Request, res: Response) => {
       const monitor = coreMonitors.find((m) => m.id === monitorId);
       if (!monitor) return res.status(404).json({ error: "Monitor not found" });
 
-      const rows = await monitor.getAnomalies(uniqueIds[0], 50);
+      const rows = await monitor.getAnomalies(uniqueIds, 50);
       return res.json(rows);
     }
 
     // Unified feed
     const flat = await Monitor.getUnifiedAnomalies(
       coreMonitors,
-      uniqueIds[0],
+      uniqueIds,
       10
     );
     res.json(flat);
@@ -361,7 +442,7 @@ app.get("/api/aggregateReports/:reportId", async (req: Request, res: Response) =
       SELECT *
       FROM \`${tableFqn}\`
       WHERE account_id IN UNNEST(@accountIds)
-      AND detected_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+      AND detected_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
       ORDER BY detected_at DESC
       LIMIT 1000
     `;
@@ -382,7 +463,7 @@ app.get("/api/aggregateReports/:reportId", async (req: Request, res: Response) =
         SELECT *, ROW_NUMBER() OVER (PARTITION BY ${report.definition.output.grain.join(', ')} ORDER BY detected_at DESC) as rn
         FROM \`${tableFqn}\`
         WHERE account_id IN UNNEST(@accountIds)
-        AND detected_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+        AND detected_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
       )
       WHERE rn = 1
     `;
@@ -566,6 +647,119 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
   }
 });
 
+app.get("/api/executive/summary", async (req: Request, res: Response) => {
+  const { accountId, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId, days = "30" } = req.query;
+
+  const adsAccountIds: string[] = [];
+  if (googleAdsId) adsAccountIds.push(String(googleAdsId));
+  if (facebookAdsId) adsAccountIds.push(String(facebookAdsId));
+
+  const shopifyAccountIds: string[] = [];
+  if (shopifyId) shopifyAccountIds.push(String(shopifyId));
+
+  const uniqueAdsIds = Array.from(new Set(adsAccountIds));
+  const uniqueShopifyIds = Array.from(new Set(shopifyAccountIds));
+
+  if (uniqueAdsIds.length === 0 && uniqueShopifyIds.length === 0) {
+    return res.status(400).json({ error: "At least one platform ID is required" });
+  }
+
+  const lookback = parseInt(String(days));
+
+  try {
+    const bq = createBigQueryClient();
+
+    // SQL for Spend (Ads)
+    const spendQuery = `
+      WITH current_period AS (
+        SELECT SUM(spend) as spend
+        FROM \`entities.ads_daily\`
+        WHERE account_id IN UNNEST(@accountIds)
+        AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL @days DAY)
+      ),
+      prev_period AS (
+        SELECT SUM(spend) as spend
+        FROM \`entities.ads_daily\`
+        WHERE account_id IN UNNEST(@accountIds)
+        AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL (@days * 2) DAY)
+        AND date < DATE_SUB(CURRENT_DATE(), INTERVAL @days DAY)
+      )
+      SELECT 
+        COALESCE(c.spend, 0) as current_spend,
+        COALESCE(p.spend, 0) as prev_spend
+      FROM current_period c, prev_period p
+    `;
+
+    // SQL for Revenue (Shopify)
+    const revenueQuery = `
+      WITH current_period AS (
+        SELECT 
+          SUM(revenue) as revenue,
+          SUM(CASE WHEN customer_type = 'new' THEN revenue ELSE 0 END) as new_rev
+        FROM \`entities.shopify_daily\`
+        WHERE account_id IN UNNEST(@accountIds)
+        AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL @days DAY)
+      ),
+      prev_period AS (
+        SELECT 
+          SUM(revenue) as revenue,
+          SUM(CASE WHEN customer_type = 'new' THEN revenue ELSE 0 END) as new_rev
+        FROM \`entities.shopify_daily\`
+        WHERE account_id IN UNNEST(@accountIds)
+        AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL (@days * 2) DAY)
+        AND date < DATE_SUB(CURRENT_DATE(), INTERVAL @days DAY)
+      )
+      SELECT 
+        COALESCE(c.revenue, 0) as current_revenue,
+        COALESCE(p.revenue, 0) as prev_revenue,
+        COALESCE(c.new_rev, 0) as current_new_rev,
+        COALESCE(p.new_rev, 0) as prev_new_rev
+      FROM current_period c, prev_period p
+    `;
+
+    const spendPromise = uniqueAdsIds.length > 0
+      ? bq.query({ query: spendQuery, params: { accountIds: uniqueAdsIds, days: lookback } })
+      : Promise.resolve([[{ current_spend: 0, prev_spend: 0 }]] as any);
+
+    const revPromise = uniqueShopifyIds.length > 0
+      ? bq.query({ query: revenueQuery, params: { accountIds: uniqueShopifyIds, days: lookback } })
+      : Promise.resolve([[{ current_revenue: 0, prev_revenue: 0, current_new_rev: 0, prev_new_rev: 0 }]] as any);
+
+    const [[spendRows], [revRows]] = await Promise.all([spendPromise, revPromise]);
+
+    const currentSpend = spendRows[0]?.current_spend || 0;
+    const prevSpend = spendRows[0]?.prev_spend || 0;
+    const currentRev = revRows[0]?.current_revenue || 0;
+    const prevRev = revRows[0]?.prev_revenue || 0;
+    const currentNewRev = revRows[0]?.current_new_rev || 0;
+    const prevNewRev = revRows[0]?.prev_new_rev || 0;
+
+    const currentMer = currentSpend > 0 ? currentRev / currentSpend : 0;
+    const prevMer = prevSpend > 0 ? prevRev / prevSpend : 0;
+
+    const merChange = prevMer > 0 ? ((currentMer - prevMer) / prevMer) * 100 : 0;
+    const spendChange = prevSpend > 0 ? ((currentSpend - prevSpend) / prevSpend) * 100 : 0;
+    const revChange = prevRev > 0 ? ((currentRev - prevRev) / prevRev) * 100 : 0;
+
+    const acquisitionPct = currentRev > 0 ? (currentNewRev / currentRev) * 100 : 0;
+    const prevAcquisitionPct = prevRev > 0 ? (prevNewRev / prevRev) * 100 : 0;
+    const acquisitionChange = acquisitionPct - prevAcquisitionPct;
+
+    res.json({
+      scorecard: {
+        mer: { value: currentMer, change: merChange },
+        spend: { value: currentSpend, change: spendChange },
+        revenue: { value: currentRev, change: revChange },
+        acquisition: { value: acquisitionPct, change: acquisitionChange, newRevenue: currentNewRev }
+      },
+      period: `${lookback}d`
+    });
+  } catch (error) {
+    console.error("Error fetching executive summary:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 app.get("/api/aggregateReports/pmax-spend-breakdown", async (req: Request, res: Response) => {
   const { accountId } = req.query;
   if (!accountId) return res.status(400).json({ error: "accountId required" });
@@ -599,7 +793,7 @@ app.get("/api/aggregateReports/ads-spend-breakdown", async (req: Request, res: R
       SELECT *
       FROM \`reports.ads_spend_breakdown\`
       WHERE account_id IN UNNEST(@accountIds)
-      AND detected_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+      AND detected_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
       ORDER BY spend DESC
     `;
 
@@ -651,49 +845,8 @@ app.get("/api/reports/superlatives", async (req: Request, res: Response) => {
 
   try {
     const bq = createBigQueryClient();
-    
-    let monthFilter = "";
-    if (month) {
-      monthFilter = "AND period_label = @month";
-    } else {
-      // Default to most recent month
-      monthFilter = "AND period_label = (SELECT MAX(period_label) FROM `reports.superlatives_monthly`)";
-    }
-
-    const query = `
-      SELECT *
-      FROM \`reports.superlatives_monthly\`
-      WHERE (group_id IN UNNEST(@accountIds) OR account_id IN UNNEST(@accountIds))
-      ${monthFilter}
-      ORDER BY metric_name, position ASC
-      LIMIT 2000
-    `;
-
-    const [rows] = await bq.query({
-      query,
-      params: { accountIds: uniqueIds, month: month || null },
-    });
-
-    const enrichedRows = rows.map((row: any) => {
-      const rowAwards = Array.isArray(row.awards) ? row.awards : [];
-      return {
-        ...row,
-        awards: rowAwards
-          .map((awardId: string) => {
-            const info = AllAwards.find((a) => a.id === awardId);
-            if (!info) return null;
-            return {
-              id: info.id,
-              label: info.label,
-              description: info.description,
-              emoji: info.icon,
-            };
-          })
-          .filter(Boolean),
-      };
-    });
-
-    res.json(enrichedRows);
+    const rows = await fetchSuperlatives(bq, uniqueIds, month as string);
+    res.json(rows);
   } catch (error) {
     console.error("Error fetching superlatives:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -701,12 +854,28 @@ app.get("/api/reports/superlatives", async (req: Request, res: Response) => {
 });
 
 app.post("/api/reports/generate-talking-points", async (req: Request, res: Response) => {
-  const { superlatives, overviews } = req.body;
-  if ((!superlatives || !Array.isArray(superlatives)) && (!overviews || Object.keys(overviews).length === 0)) {
-    return res.status(400).json({ error: "Superlatives array or Overviews data is required" });
-  }
+  let { superlatives, overviews, accountIds, month } = req.body;
 
   try {
+    // If data is missing but context is provided, fetch it server-side
+    if ((!superlatives?.length && !overviews) && (accountIds?.length && month)) {
+      console.log(`Fetching context data server-side for month: ${month}`);
+      const bq = createBigQueryClient();
+      
+      // Fetch Superlatives
+      superlatives = await fetchSuperlatives(bq, accountIds, month);
+      
+      // Fetch Overviews
+      const dateRange = getDatesForMonth(month);
+      if (dateRange) {
+        overviews = await fetchOverviews(bq, accountIds, dateRange.start, dateRange.end);
+      }
+    }
+
+    if ((!superlatives || !Array.isArray(superlatives)) && (!overviews || Object.keys(overviews || {}).length === 0)) {
+      return res.status(400).json({ error: "Superlatives/Overviews data OR accountIds/month context is required" });
+    }
+
     const systemInstruction = `${analystPrompt}\n\nIMPORTANT: You MUST return exactly 15 talking points in the following JSON format:
     {
       "talking_points": [

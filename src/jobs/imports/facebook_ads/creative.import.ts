@@ -28,6 +28,8 @@ export const facebookAdsCreative = new BronzeImport({
   metrics: {
     spend: z.number(),
     impressions: z.number(),
+    reach: z.number().optional(),
+    frequency: z.number().optional(),
     clicks: z.number(),
     actions_total: z.number(),
     actions_video_view: z.number().optional(),

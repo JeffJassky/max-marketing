@@ -60,15 +60,6 @@ const isGeneratingTalkingPoints = ref(false);
 const isGeneratingDraft = ref(false);
 const reportData = ref<{ report_title: string; blocks: any[] } | null>(null);
 
-// Reports to fetch for context
-const reportsToFetch = [
-  { id: 'googleAdsCampaignPerformance', label: 'Google Ads', icon: BarChart3 },
-  { id: 'metaAdsCampaignPerformance', label: 'Meta Ads', icon: Facebook },
-  { id: 'ga4AcquisitionPerformance', label: 'GA4', icon: Globe },
-  { id: 'shopifySourcePerformance', label: 'Shopify', icon: ShoppingBag },
-  { id: 'socialPlatformPerformance', label: 'Social', icon: Instagram }
-];
-
 const loadMonths = async () => {
   try {
     const res = await fetch('/api/reports/superlatives/months');
@@ -83,83 +74,8 @@ const loadMonths = async () => {
   }
 };
 
-const getDateRangeForMonth = (periodLabel: string) => {
-  if (!periodLabel) return null;
-  const [year, month] = periodLabel.split('-').map(Number);
-  const start = new Date(year, month - 1, 1).toISOString().split('T')[0];
-  const end = new Date(year, month, 0).toISOString().split('T')[0];
-  return { start, end };
-};
-
-const loadData = async () => {
-  if (!selectedAccount?.value || !selectedMonth.value) return;
-  
-  loading.value = true;
-  error.value = null;
-  superlatives.value = [];
-  overviews.value = {};
-
-  try {
-    const { id, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId } = selectedAccount.value;
-    const dateRange = getDateRangeForMonth(selectedMonth.value);
-
-    // 1. Fetch Superlatives
-    const params = new URLSearchParams();
-    if (id) params.append('accountId', id);
-    if (googleAdsId) params.append('googleAdsId', googleAdsId);
-    if (facebookAdsId) params.append('facebookAdsId', facebookAdsId);
-    if (ga4Id) params.append('ga4Id', ga4Id);
-    if (shopifyId) params.append('shopifyId', shopifyId);
-    if (instagramId) params.append('instagramId', instagramId);
-    if (facebookPageId) params.append('facebookPageId', facebookPageId);
-    if (selectedMonth.value) params.append('month', selectedMonth.value);
-
-    const supRes = await fetch(`/api/reports/superlatives?${params.toString()}`);
-    if (supRes.ok) {
-      superlatives.value = await supRes.json();
-    }
-
-    // 2. Fetch Overviews (Parallel)
-    if (dateRange) {
-      const overviewPromises = reportsToFetch.map(async (report) => {
-        const p = new URLSearchParams();
-        // Add account IDs
-        if (id) p.append('accountId', id);
-        if (googleAdsId) p.append('googleAdsId', googleAdsId);
-        if (facebookAdsId) p.append('facebookAdsId', facebookAdsId);
-        if (ga4Id) p.append('ga4Id', ga4Id);
-        if (shopifyId) p.append('shopifyId', shopifyId);
-        if (instagramId) p.append('instagramId', instagramId);
-        if (facebookPageId) p.append('facebookPageId', facebookPageId);
-        
-        p.append('start', dateRange.start);
-        p.append('end', dateRange.end);
-        p.append('grain', 'total'); // We only need totals for context, mostly
-
-        try {
-          const res = await fetch(`/api/reports/${report.id}/live?${p.toString()}`);
-          if (res.ok) {
-            const data = await res.json();
-            // Store by report ID
-            overviews.value[report.id] = data; 
-          }
-        } catch (e) {
-          console.warn(`Failed to load ${report.id}`, e);
-        }
-      });
-      await Promise.all(overviewPromises);
-    }
-
-  } catch (err: any) {
-    console.error(err);
-    error.value = 'Failed to load report context data.';
-  } finally {
-    loading.value = false;
-  }
-};
-
 const generateTalkingPoints = async () => {
-  if (superlatives.value.length === 0 && Object.keys(overviews.value).length === 0) return;
+  if (!selectedAccount?.value || !selectedMonth.value) return;
   
   isGeneratingTalkingPoints.value = true;
   talkingPoints.value = [];
@@ -167,12 +83,23 @@ const generateTalkingPoints = async () => {
   reportData.value = null;
   
   try {
+    const acc = selectedAccount.value;
+    const accountIds = Array.from(new Set([
+      acc.id,
+      acc.googleAdsId,
+      acc.facebookAdsId,
+      acc.ga4Id,
+      acc.shopifyId,
+      acc.instagramId,
+      acc.facebookPageId
+    ].filter(Boolean) as string[]));
+
     const res = await fetch('/api/reports/generate-talking-points', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
-        superlatives: superlatives.value,
-        overviews: overviews.value
+        accountIds,
+        month: selectedMonth.value
       })
     });
     
@@ -230,10 +157,6 @@ const formatMonth = (label: string) => {
 onMounted(() => {
   loadMonths();
 });
-
-watch([() => selectedAccount?.value, selectedMonth], () => {
-  loadData();
-});
 </script>
 
 <template>
@@ -275,41 +198,29 @@ watch([() => selectedAccount?.value, selectedMonth], () => {
     <div class="flex-1 overflow-y-auto p-8">
       <div class="max-w-6xl mx-auto space-y-8">
         
-        <!-- Context Summary -->
-        <div class="bg-white p-6 rounded-2xl border border-indigo-100 shadow-sm">
-          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Analysis Context</h3>
-          <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            <div class="p-3 bg-indigo-50 rounded-xl border border-indigo-100">
-              <p class="text-xs text-indigo-400 font-bold uppercase mb-1">Superlatives</p>
-              <p class="text-xl font-black text-indigo-900">{{ superlatives.length }}</p>
-            </div>
-            <div v-for="report in reportsToFetch" :key="report.id" class="p-3 bg-slate-50 rounded-xl border border-slate-100">
-              <div class="flex items-center gap-2 mb-1">
-                <component :is="report.icon" class="w-3 h-3 text-slate-400" />
-                <p class="text-xs text-slate-500 font-bold uppercase truncate">{{ report.label }}</p>
-              </div>
-              <p class="text-lg font-bold text-slate-700" :class="overviews[report.id]?.rows?.length ? 'text-slate-900' : 'text-slate-300'">
-                {{ overviews[report.id]?.rows?.length ? 'Loaded' : '—' }}
-              </p>
-            </div>
+        <!-- Action Row -->
+        <div v-if="!talkingPoints.length && !isGeneratingTalkingPoints && !reportData" class="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-indigo-100 shadow-sm text-center">
+          <div class="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mb-6">
+            <Sparkles class="text-indigo-600" :size="40" />
           </div>
-          <div class="mt-6 flex justify-end">
-             <button 
-                v-if="!isGeneratingTalkingPoints && !talkingPoints.length"
-                @click="generateTalkingPoints"
-                :disabled="loading || (!superlatives.length && !Object.keys(overviews).length)"
-                class="bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Sparkles :size="18" />
-                Analyze Performance
-              </button>
-          </div>
+          <h2 class="text-2xl font-bold text-slate-800 mb-2">Ready to analyze performance?</h2>
+          <p class="text-slate-500 mb-8 max-w-md">
+            {{ selectedMonth ? `We'll scan all chart data and platform metrics for ${formatMonth(selectedMonth)} to find your biggest wins.` : 'Please select a month to begin analysis.' }}
+          </p>
+          <button 
+            @click="generateTalkingPoints"
+            :disabled="!selectedAccount || !selectedMonth"
+            class="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Sparkles :size="24" />
+            Analyze Performance
+          </button>
         </div>
 
         <!-- Analysis State -->
         <div v-if="isGeneratingTalkingPoints" class="p-20 flex flex-col items-center justify-center gap-4 bg-white rounded-2xl border border-slate-100">
           <div class="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p class="font-bold text-slate-400 animate-pulse">Gemini is analyzing {{ superlatives.length }} superlatives and {{ Object.keys(overviews).length }} reports...</p>
+          <p class="font-bold text-slate-400 animate-pulse">Gemini is gathering data and building your story...</p>
         </div>
 
         <!-- Builder Interface -->

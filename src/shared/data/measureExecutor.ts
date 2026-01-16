@@ -68,17 +68,21 @@ export class MeasureExecutor {
         // Extra Context Metrics
         extraMetrics.forEach(metricName => {
             const entityMetrics = (entity as any).definition?.metrics || (entity as any).metrics || {};
-            const def = entityMetrics[metricName];
+            const entityDims = (entity as any).definition?.dimensions || (entity as any).dimensions || {};
             
-            if (def) {
-                if (def.expression) {
-                     selects.push(`${def.expression} AS ${metricName}`);
+            const metDef = entityMetrics[metricName];
+            const dimDef = entityDims[metricName];
+            
+            if (metDef) {
+                if (metDef.expression) {
+                     selects.push(`${metDef.expression} AS ${metricName}`);
                 } else {
-                    // For Silver entities, the column name IS the metricName.
-                    // sourceField is only relevant when transforming Bronze -> Silver.
-                    const agg = def.aggregation || 'sum'; 
+                    const agg = metDef.aggregation || 'sum'; 
                     selects.push(`${agg.toUpperCase()}(\`${metricName}\`) AS ${metricName}`);
                 }
+            } else if (dimDef) {
+                // If it's a dimension, use ANY_VALUE to include it in the aggregation result
+                selects.push(`ANY_VALUE(\`${metricName}\`) AS ${metricName}`);
             } else {
                 // Fallback: assume simple sum of a column with same name
                 selects.push(`SUM(\`${metricName}\`) AS ${metricName}`);

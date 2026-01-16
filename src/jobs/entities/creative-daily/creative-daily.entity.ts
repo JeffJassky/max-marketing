@@ -63,6 +63,14 @@ export const creativeDaily = new Entity({
       aggregation: "sum",
       sourceField: "impressions",
     },
+    reach: {
+      type: z.number(),
+      aggregation: "sum",
+      sourceField: "reach",
+      sources: {
+        googleAdsCreative: { expression: "0" },
+      },
+    },
     clicks: { type: z.number(), aggregation: "sum", sourceField: "clicks" },
     video_views: {
       type: z.number(),

@@ -26,6 +26,28 @@ export const shopifyUnitsSoldMeasure: Measure = {
   name: "Daily Shopify Units Sold",
   description: "Total daily units sold for Shopify products.",
   value: { field: "units_sold", aggregation: "sum" },
-  allowedDimensions: ["account_id", "product_id", "product_vendor", "product_type", "date"],
+  allowedDimensions: ["account_id", "country", "region", "city", "date"],
+};
+
+export const shopifyNewCustomerRevenueMeasure: Measure = {
+  id: "shopify_new_customer_revenue",
+  entityId: shopifyDaily.id,
+  name: "New Customer Revenue",
+  description: "Total revenue from customers making their first purchase.",
+  value: {
+    expression: "SUM(CASE WHEN customer_type = 'new' THEN revenue ELSE 0 END)",
+  },
+  allowedDimensions: ["account_id", "source", "date"],
+};
+
+export const shopifyReturningCustomerRevenueMeasure: Measure = {
+  id: "shopify_returning_customer_revenue",
+  entityId: shopifyDaily.id,
+  name: "Returning Customer Revenue",
+  description: "Total revenue from repeat customers.",
+  value: {
+    expression: "SUM(CASE WHEN customer_type = 'returning' THEN revenue ELSE 0 END)",
+  },
+  allowedDimensions: ["account_id", "source", "date"],
 };
 

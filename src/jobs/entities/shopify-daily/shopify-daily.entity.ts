@@ -15,12 +15,16 @@ export const shopifyDaily = new Entity({
   description: "Daily Shopify sales performance broken down by location.",
   sources: [shopifyOrders],
   partitionBy: "date",
-  clusterBy: ["account_id", "source", "country", "region"],
-  grain: ["date", "account_id", "source", "country", "region", "city"],
+  clusterBy: ["account_id", "source", "customer_type", "country"],
+  grain: ["date", "account_id", "source", "customer_type", "country", "region", "city"],
   dimensions: {
     date: { type: z.string() },
     account_id: { type: z.string() },
     source: { type: z.string(), sourceField: "source" },
+    customer_type: { 
+      type: z.string(), 
+      expression: "CASE WHEN order_customer_number_of_orders > 1 OR LOWER(customer_is_returning) = 'true' THEN 'returning' ELSE 'new' END" 
+    },
     country: { 
       type: z.string(), 
       sourceField: "order_shipping_address_country" 

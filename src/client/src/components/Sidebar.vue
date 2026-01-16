@@ -17,7 +17,9 @@ import {
   Star,
   Globe,
   Activity,
-  Trophy
+  Trophy,
+  Image as ImageIcon,
+  FileText
 } from 'lucide-vue-next';
 import AccountSelector from './AccountSelector.vue';
 const router = useRouter();
@@ -28,7 +30,8 @@ const navItems = [
   { id: 'overviews', icon: BarChart3, label: 'Overviews', path: '/overviews' },
   { id: 'monitors', icon: Activity, label: 'Monitors', path: '/monitors' },
   { id: 'superlatives', icon: Trophy, label: 'Hall of Fame', path: '/superlatives' },
-  { id: 'report-builder', icon: Sparkles, label: 'Report Builder', path: '/report-builder' },
+  { id: 'creative-lab', icon: ImageIcon, label: 'Creative Lab', path: '/creative-lab' },
+  { id: 'report-builder', icon: FileText, label: 'Report Builder', path: '/report-builder' },
   {
     id: 'brand-voice',
     icon: MessageSquare,
@@ -43,7 +46,7 @@ const navItems = [
     ]
   },
   { id: 'google-ads', icon: BarChart3, label: 'Google Ads Suite', path: '/google-ads' },
-  { id: 'social-spark', icon: Sparkles, label: 'Social Spark', path: '/social-spark' },
+  { id: 'social-spark', icon: Hash, label: 'Social Spark', path: '/social-spark' },
   { id: 'local-seo', icon: MapPin, label: 'Local SEO', path: '/local-seo', locked: true },
   { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' }
 ];

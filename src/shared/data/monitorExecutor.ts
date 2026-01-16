@@ -47,7 +47,13 @@ export class MonitorExecutor {
     // 3. Fetch Data
     const contextMetrics = monitor.contextMetrics || [];
     const rows = await this.measureExecutor.fetch(
-      measure,
+      {
+        ...measure,
+        filters: [
+          ...(measure.filters || []),
+          ...(monitor.scanConfig.filters || []),
+        ],
+      },
       entity,
       options,
       fetchDimensions,

@@ -39,3 +39,27 @@ export const adsSalesVolumeMeasure: Measure = {
   },
   allowedDimensions: ["account_id", "platform", "campaign_id", "channel_group", "date"],
 };
+
+// 4. Unified Frequency Measure (Mainly Meta)
+export const adsFrequencyMeasure: Measure = {
+  id: "ads_frequency_daily",
+  entityId: adsDaily.id,
+  name: "Ad Frequency",
+  description: "Average number of times a single person has seen the ad (Impressions / Reach).",
+  value: {
+    expression: "SAFE_DIVIDE(SUM(impressions), SUM(reach))",
+  },
+  allowedDimensions: ["account_id", "platform", "campaign_id", "adset_id", "date"],
+};
+
+// 5. Unified ROAS Measure
+export const adsROASMeasure: Measure = {
+  id: "ads_roas_daily",
+  entityId: adsDaily.id,
+  name: "Ad ROAS",
+  description: "Return on Ad Spend (Revenue / Spend).",
+  value: {
+    expression: "SAFE_DIVIDE(SUM(conversions_value), SUM(spend))",
+  },
+  allowedDimensions: ["account_id", "platform", "campaign_id", "adset_id", "channel_group", "date"],
+};

@@ -72,6 +72,8 @@ export type BronzeImportDef<
   clusterBy?: string[];
   /** Optional: Default parameters to send with the Windsor API request. */
   params?: WindsorRequestParams;
+  /** Optional: The set of fields that uniquely identify a row in the raw data. Used for deduplication. */
+  uniquenessKey?: string[];
 };
 
 /**
@@ -248,8 +250,23 @@ export class Entity<S extends BronzeImport<any, any>> extends BaseData {
 
   getTransformQuery(): string {
     const buildSourceQuery = (source: BronzeImport<any, any>) => {
-      const sourceTable = source.fqn;
+      const sourceTableFqn = source.fqn;
       const sourceId = source.id;
+      const uniquenessKey = source.definition.uniquenessKey;
+
+      let fromExpression = "";
+
+      // If a uniquenessKey is defined, wrap the source table in a deduplication subquery
+      if (uniquenessKey && uniquenessKey.length > 0) {
+        fromExpression = `(
+          SELECT * EXCEPT(rn) FROM (
+            SELECT *, ROW_NUMBER() OVER(PARTITION BY ${uniquenessKey.join(", ")} ORDER BY (SELECT NULL)) as rn 
+            FROM \`${sourceTableFqn}\`
+          ) WHERE rn = 1
+        )`;
+      } else {
+        fromExpression = `\`${sourceTableFqn}\``;
+      }
 
       const grainAndDimensionSelects: (string | import("knex").Knex.Raw)[] = [];
 
@@ -315,7 +332,7 @@ export class Entity<S extends BronzeImport<any, any>> extends BaseData {
 
       return qb
         .select(...grainAndDimensionSelects, ...metricSelects)
-        .from(qb.raw(`\`${sourceTable}\``))
+        .from(qb.raw(fromExpression))
         .groupBy(...this.definition.grain.map(String))
         .toQuery();
     };
