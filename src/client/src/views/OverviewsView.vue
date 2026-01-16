@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, inject, type Ref } from 'vue';
+import { ref, watch, inject, type Ref } from 'vue';
 import {
   Layout,
   BarChart3,
@@ -57,8 +57,21 @@ const selectedDateRange = ref<string>(DateRanges.THIS_MONTH);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
-// We store the RAW daily data here
-const rawDailyData = ref<any[]>([]);
+interface ReportHeader {
+  key: string;
+  label: string;
+  type: 'dimension' | 'metric' | 'rate' | 'sparkline';
+  metric?: string; // For sparkline column
+}
+
+interface ReportData {
+  headers: ReportHeader[];
+  rows: any[];
+  totals: Record<string, number>;
+  dailyTotals: Record<string, number[]>;
+}
+
+const reportData = ref<ReportData>({ headers: [], rows: [], totals: {}, dailyTotals: {} });
 
 // Helper to get dates
 const getDateParams = () => {
@@ -97,7 +110,7 @@ const loadReport = async () => {
 
   loading.value = true;
   error.value = null;
-  rawDailyData.value = [];
+  reportData.value = { headers: [], rows: [], totals: {}, dailyTotals: {} };
 
   try {
     const dates = getDateParams();
@@ -122,7 +135,13 @@ const loadReport = async () => {
     if (!res.ok) throw new Error('Failed to load report');
     
     const data = await res.json();
-    rawDailyData.value = Array.isArray(data) ? data : [];
+    // Handle both array (legacy fallback) and object formats
+    if (Array.isArray(data)) {
+        // Fallback or empty state
+        reportData.value = { headers: [], rows: [], totals: {}, dailyTotals: {} };
+    } else {
+        reportData.value = data;
+    }
   } catch (err) {
     console.error(err);
     error.value = 'Failed to load report data.';
@@ -130,113 +149,6 @@ const loadReport = async () => {
     loading.value = false;
   }
 };
-
-// Process Data for Display
-// We need to Group By the main entity (Campaign, Source, etc)
-// And calculate totals + sparkline arrays
-const processedData = computed(() => {
-  if (!rawDailyData.value.length) return { headers: [], rows: [], totals: {} };
-
-  // 1. Identify Grouping Keys (exclude date, account_id, metrics)
-  // Simple heuristic: Text fields are dimensions, Number fields are metrics
-  const sample = rawDailyData.value[0];
-  const excluded = ['account_id', 'date', 'partition', 'cluster'];
-  
-  const dimensions = Object.keys(sample).filter(k => 
-    !excluded.includes(k) && typeof sample[k] === 'string'
-  );
-  
-  const metrics = Object.keys(sample).filter(k => 
-    typeof sample[k] === 'number'
-  );
-
-  // 2. Group Rows
-  const groups: Record<string, any> = {};
-  
-  rawDailyData.value.forEach(row => {
-    // Create a unique key for the group
-    const groupKey = dimensions.map(d => row[d]).join('||');
-    
-    if (!groups[groupKey]) {
-      groups[groupKey] = {
-        _key: groupKey,
-        _daily: [] as any[],
-        // Initialize dimensions
-        ...dimensions.reduce((acc, d) => ({ ...acc, [d]: row[d] }), {}),
-        // Initialize metrics to 0
-        ...metrics.reduce((acc, m) => ({ ...acc, [m]: 0 }), {})
-      };
-    }
-
-    // Add to daily history (sorted by date ideally, assuming API returns sorted or we sort)
-    groups[groupKey]._daily.push(row);
-
-    // Accumulate SUM metrics
-    // For rates (ROAS, CTR), summing is wrong. We need to re-calculate if possible, 
-    // or just average them (less accurate).
-    // Better: If we have the components (Spend, Rev), recalculate.
-    // For now, let's just SUM everything and handle rates specifically if we identify them.
-    metrics.forEach(m => {
-       groups[groupKey][m] += (row[m] || 0);
-    });
-  });
-
-  // 3. Post-Process Groups (Fix Rates)
-  const rows = Object.values(groups).map(row => {
-    // Recalculate known derived metrics if components exist
-    if (row.spend !== undefined && row.revenue !== undefined) {
-      row.roas = row.spend > 0 ? row.revenue / row.spend : 0;
-    } else if (row.conversions_value !== undefined && row.spend !== undefined) {
-      row.roas = row.spend > 0 ? row.conversions_value / row.spend : 0;
-    }
-
-    if (row.clicks !== undefined && row.impressions !== undefined) {
-      row.ctr = row.impressions > 0 ? row.clicks / row.impressions : 0;
-    }
-
-    if (row.spend !== undefined && row.conversions !== undefined) {
-      row.cpa = row.conversions > 0 ? row.spend / row.conversions : 0;
-    }
-
-    if (row.revenue !== undefined && row.orders !== undefined) {
-      row.aov = row.orders > 0 ? row.revenue / row.orders : 0;
-    }
-    
-    // Engagement Rate
-    if (row.engaged_sessions !== undefined && row.sessions !== undefined) {
-      row.engagement_rate = row.sessions > 0 ? row.engaged_sessions / row.sessions : 0;
-    }
-
-    // Sort daily data by date
-    row._daily.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    return row;
-  });
-
-  // 4. Headers
-  const headers = [
-    ...dimensions.map(d => ({ key: d, label: formatLabel(d), type: 'dimension' })),
-    { key: '_sparkline', label: 'Trend', type: 'sparkline' }, // Add Sparkline column
-    ...metrics.filter(m => !m.includes('rate') && !m.includes('roas') && !m.includes('ctr') && !m.includes('aov') && !m.includes('cpa')).map(m => ({ key: m, label: formatLabel(m), type: 'metric' })),
-    // Add rates at the end
-    ...metrics.filter(m => m.includes('rate') || m.includes('roas') || m.includes('ctr') || m.includes('aov') || m.includes('cpa')).map(m => ({ key: m, label: formatLabel(m), type: 'rate' }))
-  ];
-
-  // 5. Grand Totals (for Cards)
-  const grandTotals: Record<string, number> = {};
-  metrics.forEach(m => {
-    grandTotals[m] = rows.reduce((acc, r) => acc + (r[m] || 0), 0);
-  });
-  
-  // Fix grand total rates
-  // (Same logic as row fix)
-  // ... omitting for brevity, displaying Sum/Avg note in UI is acceptable for prototype
-
-  return { headers, rows, totals: grandTotals };
-});
-
-const formatLabel = (key: string) => 
-  key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
 const formatValue = (key: string, value: any) => {
   if (typeof value === 'number') {
@@ -251,19 +163,33 @@ const formatValue = (key: string, value: any) => {
   return value;
 };
 
-// Determine which metric to show in sparkline
-// Priority: Spend -> Revenue -> Impressions -> Sessions
-const getSparklineMetric = (row: any) => {
-  if (row._daily[0]?.spend !== undefined) return 'spend';
-  if (row._daily[0]?.revenue !== undefined) return 'revenue';
-  if (row._daily[0]?.impressions !== undefined) return 'impressions';
-  if (row._daily[0]?.sessions !== undefined) return 'sessions';
-  return Object.keys(row).find(k => typeof row[k] === 'number' && k !== 'account_id') || '';
+// Calculate Cumulative Sum for Summary Cards
+const getCumulativeTotal = (key: string) => {
+  const dailyValues = reportData.value.dailyTotals[key];
+  if (!dailyValues) return [];
+
+  const cumulative: number[] = [];
+  let runningSum = 0;
+  dailyValues.forEach(val => {
+    runningSum += val;
+    cumulative.push(runningSum);
+  });
+  return cumulative;
 };
 
-const getSparklineData = (row: any) => {
-  const metric = getSparklineMetric(row);
-  return row._daily.map((d: any) => d[metric] || 0);
+// Get Sparkline Data for Table Row (Daily Trend)
+const getSparklineData = (row: any, metricKey?: string) => {
+  if (!row._daily || !row._daily.length) return [];
+  // Use the metric defined in the header or default to first metric
+  // The header passed the metric key? 
+  // Wait, in the template we iterate headers. The sparkline header has `metric` prop.
+  // But wait, the header structure I defined on server: 
+  // { key: '_sparkline', label: '...', type: 'sparkline', metric: 'spend' }
+  
+  if (metricKey) {
+      return row._daily.map((d: any) => d[metricKey] || 0);
+  }
+  return [];
 };
 
 watch([() => activeTab.value, () => selectedAccount?.value, selectedDateRange], () => {
@@ -345,7 +271,7 @@ watch([() => activeTab.value, () => selectedAccount?.value, selectedDateRange], 
         <button @click="loadReport" class="mt-4 px-4 py-2 bg-white border border-slate-300 rounded text-slate-600 hover:bg-slate-50">Retry</button>
       </div>
 
-      <div v-else-if="!processedData.rows.length" class="flex flex-col items-center justify-center h-64 text-slate-400 bg-white rounded-xl border border-dashed border-slate-300">
+      <div v-else-if="!reportData.rows.length" class="flex flex-col items-center justify-center h-64 text-slate-400 bg-white rounded-xl border border-dashed border-slate-300">
         <BarChart3 class="w-12 h-12 mb-2 text-slate-200" />
         <p>No data available for this period.</p>
         <p class="text-xs mt-1">Try selecting a different date range or account.</p>
@@ -356,28 +282,18 @@ watch([() => activeTab.value, () => selectedAccount?.value, selectedDateRange], 
         <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
            <!-- Pick top 4 numeric metrics -->
            <div 
-            v-for="header in processedData.headers.filter(h => h.type === 'metric' || h.type === 'rate').slice(0, 4)" 
+            v-for="header in reportData.headers.filter(h => h.type === 'metric' || h.type === 'rate').slice(0, 4)" 
             :key="header.key"
             class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm"
           >
             <p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">{{ header.label }}</p>
             <p class="text-2xl font-bold text-slate-900">
-               {{ formatValue(header.key, processedData.totals[header.key] || processedData.rows.reduce((acc, row) => acc + (row[header.key] || 0), 0)) }}
+               {{ formatValue(header.key, reportData.totals[header.key]) }}
             </p>
-            <!-- Tiny Sparkline for Total? -->
+            <!-- Cumulative Sparkline for Total -->
             <div class="mt-2 h-8 w-full">
-              <!-- Aggregate daily totals for the whole account to show overall trend -->
                <Sparkline 
-                :data="(() => {
-                  // Aggregate all rows' daily data by date
-                  const dailyTotals: Record<string, number> = {};
-                  processedData.rows.forEach(row => {
-                    row._daily.forEach((d: any) => {
-                      dailyTotals[d.date] = (dailyTotals[d.date] || 0) + (d[header.key] || 0);
-                    });
-                  });
-                  return Object.keys(dailyTotals).sort().map(date => dailyTotals[date]);
-                })()"
+                :data="getCumulativeTotal(header.key)"
                 :height="30"
                 :width="200"
                 color="#6366f1"
@@ -390,14 +306,14 @@ watch([() => activeTab.value, () => selectedAccount?.value, selectedDateRange], 
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
             <h3 class="font-bold text-slate-800">Detailed Breakdown</h3>
-            <span class="text-xs text-slate-500">{{ processedData.rows.length }} rows</span>
+            <span class="text-xs text-slate-500">{{ reportData.rows.length }} rows</span>
           </div>
           <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-slate-100">
               <thead class="bg-slate-50">
                 <tr>
                   <th 
-                    v-for="header in processedData.headers" 
+                    v-for="header in reportData.headers" 
                     :key="header.key"
                     class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap"
                   >
@@ -406,15 +322,15 @@ watch([() => activeTab.value, () => selectedAccount?.value, selectedDateRange], 
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-slate-50">
-                <tr v-for="(row, idx) in processedData.rows" :key="idx" class="hover:bg-slate-50 transition-colors">
+                <tr v-for="(row, idx) in reportData.rows" :key="idx" class="hover:bg-slate-50 transition-colors">
                   <td 
-                    v-for="header in processedData.headers" 
+                    v-for="header in reportData.headers" 
                     :key="header.key"
                     class="px-6 py-4 whitespace-nowrap text-sm text-slate-700"
                     :class="{'font-mono': header.type !== 'dimension' && header.type !== 'sparkline', 'font-medium': header.type === 'dimension'}"
                   >
                     <template v-if="header.type === 'sparkline'">
-                      <Sparkline :data="getSparklineData(row)" :width="100" :height="24" color="#818cf8" />
+                      <Sparkline :data="getSparklineData(row, header.metric)" :width="100" :height="24" color="#818cf8" />
                     </template>
                     <template v-else>
                       {{ formatValue(header.key, row[header.key]) }}

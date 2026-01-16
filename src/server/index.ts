@@ -402,6 +402,19 @@ app.get("/api/aggregateReports/:reportId", async (req: Request, res: Response) =
   }
 });
 
+// Helper to get all dates in range
+const getDatesInRange = (startDate: string, endDate: string) => {
+  const dates: string[] = [];
+  const current = new Date(startDate);
+  const end = new Date(endDate);
+  
+  while (current <= end) {
+    dates.push(current.toISOString().split('T')[0]);
+    current.setDate(current.getDate() + 1);
+  }
+  return dates;
+};
+
 app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
   const { reportId } = req.params;
   const { 
@@ -457,6 +470,94 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
       query: sql,
       params: { accountIds: uniqueIds },
     });
+
+    if (timeGrain === 'daily') {
+      if (rows.length === 0) {
+        return res.json({ headers: [], rows: [], totals: {} });
+      }
+
+      const allDates = getDatesInRange(startDate, endDate);
+      const sample = rows[0];
+      const excluded = ['account_id', 'date', 'partition', 'cluster'];
+      const dimensions = Object.keys(sample).filter(k => !excluded.includes(k) && typeof sample[k] === 'string');
+      const metrics = Object.keys(sample).filter(k => typeof sample[k] === 'number');
+
+      const groups: Record<string, any> = {};
+
+      rows.forEach(row => {
+        const groupKey = dimensions.map(d => row[d]).join('||');
+        if (!groups[groupKey]) {
+          groups[groupKey] = {
+            _key: groupKey,
+            _dailyMap: {} as Record<string, any>,
+            ...dimensions.reduce((acc, d) => ({ ...acc, [d]: row[d] }), {}),
+            ...metrics.reduce((acc, m) => ({ ...acc, [m]: 0 }), {})
+          };
+        }
+
+        const dateStr = row.date && typeof row.date === 'object' && 'value' in row.date ? row.date.value : row.date;
+        if (dateStr) {
+          groups[groupKey]._dailyMap[dateStr] = row;
+        }
+
+        metrics.forEach(m => {
+          groups[groupKey][m] += (row[m] || 0);
+        });
+      });
+
+      const processedRows = Object.values(groups).map(row => {
+        row._daily = allDates.map(date => {
+          const entry = row._dailyMap[date];
+          return entry || metrics.reduce((acc, m) => ({ ...acc, [m]: 0 }), { date });
+        });
+        delete row._dailyMap;
+
+        // Recalculate Rates (simplified backend logic)
+        if (row.spend !== undefined && row.revenue !== undefined && row.spend > 0) row.roas = row.revenue / row.spend;
+        if (row.conversions_value !== undefined && row.spend !== undefined && row.spend > 0) row.roas = row.conversions_value / row.spend;
+        if (row.clicks !== undefined && row.impressions !== undefined && row.impressions > 0) row.ctr = row.clicks / row.impressions;
+        if (row.spend !== undefined && row.conversions !== undefined && row.conversions > 0) row.cpa = row.spend / row.conversions;
+        if (row.revenue !== undefined && row.orders !== undefined && row.orders > 0) row.aov = row.revenue / row.orders;
+        if (row.engaged_sessions !== undefined && row.sessions !== undefined && row.sessions > 0) row.engagement_rate = row.engaged_sessions / row.sessions;
+
+        return row;
+      });
+
+      // Headers
+      const formatLabel = (key: string) => key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      
+      const getSparklineMetric = (row: any) => {
+        if (row._daily[0]?.spend !== undefined) return 'spend';
+        if (row._daily[0]?.revenue !== undefined) return 'revenue';
+        if (row._daily[0]?.impressions !== undefined) return 'impressions';
+        if (row._daily[0]?.sessions !== undefined) return 'sessions';
+        return Object.keys(row).find(k => typeof row[k] === 'number' && k !== 'account_id') || '';
+      };
+
+      const sparklineMetric = processedRows.length ? getSparklineMetric(processedRows[0]) : '';
+
+      const headers = [
+        ...dimensions.map(d => ({ key: d, label: formatLabel(d), type: 'dimension' })),
+        { key: '_sparkline', label: `${formatLabel(sparklineMetric)} Trend`, type: 'sparkline', metric: sparklineMetric },
+        ...metrics.filter(m => !m.includes('rate') && !m.includes('roas') && !m.includes('ctr') && !m.includes('aov') && !m.includes('cpa')).map(m => ({ key: m, label: formatLabel(m), type: 'metric' })),
+        ...metrics.filter(m => m.includes('rate') || m.includes('roas') || m.includes('ctr') || m.includes('aov') || m.includes('cpa')).map(m => ({ key: m, label: formatLabel(m), type: 'rate' }))
+      ];
+
+      // Totals
+      const totals: Record<string, number> = {};
+      const dailyTotals: Record<string, number[]> = {}; // metric -> [val, val, ...] (aligned with allDates)
+
+      metrics.forEach(m => {
+        totals[m] = processedRows.reduce((acc, r) => acc + (r[m] || 0), 0);
+        
+        // Aggregate daily values across all rows
+        dailyTotals[m] = allDates.map((date, idx) => {
+            return processedRows.reduce((acc, row) => acc + (row._daily[idx]?.[m] || 0), 0);
+        });
+      });
+
+      return res.json({ headers, rows: processedRows, totals, dailyTotals });
+    }
 
     res.json(rows);
   } catch (error) {

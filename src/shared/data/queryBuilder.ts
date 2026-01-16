@@ -140,9 +140,9 @@ export function buildReportQuery(
 
   // Order By
   if (options.timeGrain === "daily") {
-    finalQueryBuilder.orderBy("date", "asc");
+    finalQueryBuilder.orderByRaw("date ASC");
   } else if (def.orderBy) {
-    finalQueryBuilder.orderBy(String(def.orderBy.field), def.orderBy.direction ?? "desc");
+    finalQueryBuilder.orderByRaw(`${def.orderBy.field} ${def.orderBy.direction ?? "desc"}`);
   }
 
   return finalQueryBuilder.toQuery();
