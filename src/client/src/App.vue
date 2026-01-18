@@ -94,8 +94,8 @@ provide('selectAccount', selectAccount);
 
     <!-- Chat Drawer -->
     <div
-      v-if="showChat"
-      class="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl z-[60] border-l border-slate-200 flex flex-col animate-in slide-in-from-right duration-300"
+      v-show="showChat"
+      class="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl z-[60] border-l border-slate-200 flex flex-col"
     >
       <!-- Header -->
       <div
@@ -125,28 +125,24 @@ provide('selectAccount', selectAccount);
       </div>
 
       <!-- Chat Area -->
-      <div class="flex-1 min-h-0 relative bg-white">
+      <div class="flex-1 min-h-0 overflow-hidden">
         <deep-chat
           demo="true"
           speechToText="true"
+          browserStorage="true"
           :connect="{
             url: '/api/chat',
             method: 'POST',
             additionalBodyProps: { context: chatContext }
           }"
           :introMessage="{ text: 'Hi! I\'m Max. I can analyze your ad performance, detect waste, and answer specific questions about your Google, Meta, or Shopify data. What can I help you with today?' }"
-          :chatStyle='{
-            "width": "100%",
-            "height": "100%",
-            "border": "none"
-          }'
+          style="height: 100%; width: 100%; border: none; display: block;"
           :messageStyles='{
             "default": {
-              "user": { "bubble": { "backgroundColor": "#4f46e5" } },
-              "ai": { "bubble": { "backgroundColor": "#f8fafc", "color": "#1e293b", "border": "1px solid #e2e8f0", maxWidth: "auto" } }
+              "user": { "bubble": { "backgroundColor": "#4f46e5", "maxWidth": "85%" } },
+              "ai": { "bubble": { "backgroundColor": "#f8fafc", "color": "#1e293b", "border": "1px solid #e2e8f0", "maxWidth": "95%", "overflowX": "auto" } }
             }
           }'
-          class="absolute inset-0"
         ></deep-chat>
       </div>
     </div>

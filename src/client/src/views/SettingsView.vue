@@ -16,36 +16,40 @@ interface MaxAccount {
   shopifyId: string | null;
   instagramId: string | null;
   facebookPageId: string | null;
+  gscId: string | null;
 }
 
-const platformAccounts = ref<{ 
-  google: PlatformAccount[], 
-  facebook: PlatformAccount[], 
-  ga4: PlatformAccount[], 
+const platformAccounts = ref<{
+  google: PlatformAccount[],
+  facebook: PlatformAccount[],
+  ga4: PlatformAccount[],
   shopify: PlatformAccount[],
   instagram: PlatformAccount[],
-  facebook_organic: PlatformAccount[]
+  facebook_organic: PlatformAccount[],
+  gsc: PlatformAccount[]
 }>({
   google: [],
   facebook: [],
   ga4: [],
   shopify: [],
   instagram: [],
-  facebook_organic: []
+  facebook_organic: [],
+  gsc: []
 });
 
 const accounts = ref<MaxAccount[]>([]);
 const newAccountIds = ref(new Set<string>());
 const isEditing = ref<string | null>(null); // ID of account being edited
-const editForm = ref<MaxAccount>({ 
-  id: '', 
-  name: '', 
-  googleAdsId: null, 
-  facebookAdsId: null, 
-  ga4Id: null, 
+const editForm = ref<MaxAccount>({
+  id: '',
+  name: '',
+  googleAdsId: null,
+  facebookAdsId: null,
+  ga4Id: null,
   shopifyId: null,
   instagramId: null,
-  facebookPageId: null
+  facebookPageId: null,
+  gscId: null
 });
 
 // Load platform accounts
@@ -68,15 +72,16 @@ const loadAccounts = async () => {
     } else {
       // Create initial account if none exist
       const id = crypto.randomUUID();
-      const newAccount: MaxAccount = { 
-        id, 
-        name: 'My First Account', 
-        googleAdsId: null, 
+      const newAccount: MaxAccount = {
+        id,
+        name: 'My First Account',
+        googleAdsId: null,
         facebookAdsId: null,
         ga4Id: null,
         shopifyId: null,
         instagramId: null,
-        facebookPageId: null
+        facebookPageId: null,
+        gscId: null
       };
       await fetch('/api/accounts', {
         method: 'POST',
@@ -145,7 +150,8 @@ const createAccount = () => {
     ga4Id: null,
     shopifyId: null,
     instagramId: null,
-    facebookPageId: null
+    facebookPageId: null,
+    gscId: null
   };
   newAccountIds.value.add(id);
   accounts.value.push(newAccount);
@@ -196,7 +202,7 @@ onMounted(() => {
                 <input v-model="editForm.name" type="text" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
               </div>
               
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <label class="block text-xs font-bold text-slate-500 mb-1 flex items-center">
                     <img src="https://www.gstatic.com/images/branding/product/1x/ads_2022_48dp.png" class="w-4 h-4 mr-1"/> Google Ads ID
@@ -227,6 +233,17 @@ onMounted(() => {
                     <option :value="null">Select Property...</option>
                     <option v-for="ga4 in platformAccounts.ga4" :key="ga4.id" :value="ga4.id">
                       {{ ga4.name }} ({{ ga4.id }})
+                    </option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-500 mb-1 flex items-center">
+                    <img src="https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png" class="w-4 h-4 mr-1"/> Search Console
+                  </label>
+                  <select v-model="editForm.gscId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                    <option :value="null">Select Property...</option>
+                    <option v-for="gsc in platformAccounts.gsc" :key="gsc.id" :value="gsc.id">
+                      {{ gsc.name }} ({{ gsc.id }})
                     </option>
                   </select>
                 </div>
@@ -289,6 +306,10 @@ onMounted(() => {
                   <div class="flex items-center">
                     <span class="w-2 h-2 rounded-full mr-2" :class="account.ga4Id ? 'bg-orange-500' : 'bg-slate-300'"></span>
                     GA4: {{ account.ga4Id ? platformAccounts.ga4.find(g => g.id === account.ga4Id)?.name || account.ga4Id : 'Not Linked' }}
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-2 h-2 rounded-full mr-2" :class="account.gscId ? 'bg-yellow-500' : 'bg-slate-300'"></span>
+                    GSC: {{ account.gscId ? platformAccounts.gsc.find(g => g.id === account.gscId)?.name || account.gscId : 'Not Linked' }}
                   </div>
                   <div class="flex items-center">
                     <span class="w-2 h-2 rounded-full mr-2" :class="account.shopifyId ? 'bg-emerald-500' : 'bg-slate-300'"></span>

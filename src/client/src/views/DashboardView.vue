@@ -31,6 +31,9 @@ interface MaxAccount {
   facebookAdsId: string | null;
   ga4Id: string | null;
   shopifyId: string | null;
+  instagramId: string | null;
+  facebookPageId: string | null;
+  gscId: string | null;
 }
 
 interface SpendSegment {
@@ -56,8 +59,13 @@ const spendMix = ref<any>(null);
 const loading = ref(true);
 const spendDataLoading = ref(false);
 
-const formatCurrency = (val: number) => {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+const formatCurrency = (val: number, decimals = 0) => {
+  return new Intl.NumberFormat('en-US', { 
+    style: 'currency', 
+    currency: 'USD', 
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals 
+  }).format(val);
 };
 
 const loadAll = async () => {
@@ -70,6 +78,9 @@ const loadAll = async () => {
   if (acc.facebookAdsId) params.append('facebookAdsId', acc.facebookAdsId);
   if (acc.ga4Id) params.append('ga4Id', acc.ga4Id);
   if (acc.shopifyId) params.append('shopifyId', acc.shopifyId);
+  if (acc.instagramId) params.append('instagramId', acc.instagramId);
+  if (acc.facebookPageId) params.append('facebookPageId', acc.facebookPageId);
+  if (acc.gscId) params.append('gscId', acc.gscId);
   params.append('days', '30');
 
   try {
@@ -95,6 +106,11 @@ const loadSpendMix = async () => {
   const params = new URLSearchParams();
   if (acc.googleAdsId) params.append('googleAdsId', acc.googleAdsId);
   if (acc.facebookAdsId) params.append('facebookAdsId', acc.facebookAdsId);
+  if (acc.ga4Id) params.append('ga4Id', acc.ga4Id);
+  if (acc.shopifyId) params.append('shopifyId', acc.shopifyId);
+  if (acc.instagramId) params.append('instagramId', acc.instagramId);
+  if (acc.facebookPageId) params.append('facebookPageId', acc.facebookPageId);
+  if (acc.gscId) params.append('gscId', acc.gscId);
   params.append('days', timeRange.value === 'ytd' ? '30' : '90');
 
   try {
@@ -247,6 +263,87 @@ const platformHealth = computed(() => {
             <component :is="scorecard.scorecard.acquisition.change >= 0 ? ArrowUpRight : ArrowDownRight" size="14" />
             <span class="font-bold">{{ Math.abs(scorecard.scorecard.acquisition.change).toFixed(1) }}%</span>
             <span class="text-slate-400 font-normal ml-1">new customer rev.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Attribution & Efficiency -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8" v-if="scorecard && scorecard.scorecard.tcac">
+        <div class="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm">
+          <div class="flex justify-between items-start mb-6">
+            <div>
+              <h3 class="text-xl font-bold text-slate-800">True CAC</h3>
+              <p class="text-xs text-slate-400 mt-1 uppercase font-bold tracking-tighter">Attribution Reality Check</p>
+            </div>
+            <div class="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+              <Target :size="24" />
+            </div>
+          </div>
+          
+          <div class="flex items-end gap-4 mb-8">
+            <div class="text-5xl font-black text-slate-900 leading-none">
+              {{ formatCurrency(scorecard.scorecard.tcac.value, 2) }}
+            </div>
+            <div class="pb-1">
+              <div class="flex items-center gap-1 text-xs font-bold" :class="scorecard.scorecard.tcac.change <= 0 ? 'text-green-600' : 'text-red-600'">
+                <component :is="scorecard.scorecard.tcac.change <= 0 ? ArrowDownRight : ArrowUpRight" size="14" />
+                {{ Math.abs(scorecard.scorecard.tcac.change).toFixed(1) }}%
+              </div>
+              <div class="text-[10px] text-slate-400 uppercase font-black">vs prev</div>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div class="flex justify-between items-center p-4 bg-slate-50 rounded-2xl">
+              <div class="text-sm font-bold text-slate-600">Platform-Reported CAC</div>
+              <div class="text-sm font-black text-slate-400 line-through decoration-red-400/50">
+                {{ formatCurrency(scorecard.scorecard.tcac.platformCac, 2) }}
+              </div>
+            </div>
+            <p class="text-[10px] text-center text-slate-400 px-4 italic">
+              Platforms over-claim credit by 
+              <span class="font-bold text-red-400">
+                {{ scorecard.scorecard.tcac.platformCac > 0 ? (((scorecard.scorecard.tcac.value / scorecard.scorecard.tcac.platformCac) - 1) * 100).toFixed(0) : '0' }}%
+              </span> 
+              on average compared to your Shopify new customer file.
+            </p>
+          </div>
+        </div>
+
+        <div class="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm">
+          <div class="flex justify-between items-start mb-6">
+            <div>
+              <h3 class="text-xl font-bold text-slate-800">Efficiency Gap</h3>
+              <p class="text-xs text-slate-400 mt-1 uppercase font-bold tracking-tighter">Blended vs Platform ROAS</p>
+            </div>
+            <div class="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600">
+              <Zap :size="24" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-8 mb-8">
+            <div>
+              <div class="text-[10px] text-slate-400 uppercase font-black mb-1">Blended ROAS</div>
+              <div class="text-3xl font-black text-slate-900">{{ scorecard.scorecard.mer.value.toFixed(2) }}x</div>
+            </div>
+            <div>
+              <div class="text-[10px] text-slate-400 uppercase font-black mb-1">Platform Avg</div>
+              <div class="text-3xl font-black text-slate-400 line-through decoration-red-400/50">
+                {{ scorecard.scorecard.tcac.platformRoas.toFixed(2) }}x
+              </div>
+            </div>
+          </div>
+
+          <div class="relative pt-4">
+            <div class="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+              <div 
+                class="h-full bg-indigo-500 rounded-full transition-all duration-1000" 
+                :style="{ width: `${scorecard.scorecard.tcac.platformRoas > 0 ? Math.min(100, (scorecard.scorecard.mer.value / scorecard.scorecard.tcac.platformRoas) * 100) : 0}%` }" 
+              />
+            </div>
+            <div class="mt-2 text-[10px] font-bold text-indigo-600 uppercase tracking-widest text-center">
+              {{ scorecard.scorecard.tcac.platformRoas > 0 ? (scorecard.scorecard.mer.value / scorecard.scorecard.tcac.platformRoas * 100).toFixed(0) : '0' }}% Attribution Efficiency
+            </div>
           </div>
         </div>
       </div>

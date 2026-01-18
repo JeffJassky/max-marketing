@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(grep:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vue-tsc:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(curl:*)",
+      "Bash(source .env)",
+      "Bash(bq show:*)",
+      "Bash(bq query:*)"
     ]
   }
 }

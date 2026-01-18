@@ -10,6 +10,7 @@ const ClientAccountSchema = z.object({
   shopifyId: z.string().optional().nullable(),
   instagramId: z.string().optional().nullable(),
   facebookPageId: z.string().optional().nullable(),
+  gscId: z.string().optional().nullable(),
 });
 
 export type ClientAccount = z.infer<typeof ClientAccountSchema>;

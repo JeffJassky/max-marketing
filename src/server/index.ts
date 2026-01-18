@@ -7,6 +7,7 @@ import { ga4PagePerformance } from "../jobs/imports/google_ga4/page-performance.
 import { shopifyOrders } from "../jobs/imports/shopify/orders.import";
 import { instagramMedia } from "../jobs/imports/instagram/media.import";
 import { facebookOrganicPosts } from "../jobs/imports/facebook_organic/posts.import";
+import { googleSearchConsoleAnalytics } from "../jobs/imports/google_search_console/search-analytics.import";
 
 import { Monitor } from "../shared/data/monitor";
 import { accountSpendAnomalyMonitor } from "../jobs/entities/ads-daily/monitors/account-spend-anomaly.monitor";
@@ -204,22 +205,34 @@ app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
       GROUP BY account_id
     `;
 
-    const [googleRowsPromise, facebookRowsPromise, ga4RowsPromise, shopifyRowsPromise, instagramRowsPromise, facebookOrganicRowsPromise] = [
+    const gscQuery = `
+      SELECT
+        account_id AS id,
+        ANY_VALUE(account_name) AS name
+      FROM
+        ${googleSearchConsoleAnalytics.fqn}
+      WHERE account_id IS NOT NULL
+      GROUP BY account_id
+    `;
+
+    const [googleRowsPromise, facebookRowsPromise, ga4RowsPromise, shopifyRowsPromise, instagramRowsPromise, facebookOrganicRowsPromise, gscRowsPromise] = [
       bq.query(googleQuery),
       bq.query(facebookQuery),
       bq.query(ga4Query),
       bq.query(shopifyQuery),
       bq.query(instagramQuery),
       bq.query(facebookOrganicQuery),
+      bq.query(gscQuery),
     ];
 
-    const [[googleRows], [facebookRows], [ga4Rows], [shopifyRows], [instagramRows], [facebookOrganicRows]] = await Promise.all([
+    const [[googleRows], [facebookRows], [ga4Rows], [shopifyRows], [instagramRows], [facebookOrganicRows], [gscRows]] = await Promise.all([
       googleRowsPromise,
       facebookRowsPromise,
       ga4RowsPromise,
       shopifyRowsPromise,
       instagramRowsPromise,
       facebookOrganicRowsPromise,
+      gscRowsPromise,
     ]);
 
     res.json({
@@ -229,6 +242,7 @@ app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
       shopify: shopifyRows,
       instagram: instagramRows,
       facebook_organic: facebookOrganicRows,
+      gsc: gscRows,
     });
   } catch (error) {
     console.error("Error fetching platform accounts:", error);
@@ -404,7 +418,7 @@ app.get(
 
 app.get("/api/aggregateReports/:reportId", async (req: Request, res: Response) => {
   const { reportId } = req.params;
-  const { accountId, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId } = req.query;
+  const { accountId, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId, gscId } = req.query;
 
   const report = allAggregateReports.find((r) => r.id === reportId);
   if (!report) {
@@ -426,6 +440,7 @@ app.get("/api/aggregateReports/:reportId", async (req: Request, res: Response) =
   if (shopifyId) accountIds.push(String(shopifyId));
   if (instagramId) accountIds.push(String(instagramId));
   if (facebookPageId) accountIds.push(String(facebookPageId));
+  if (gscId) accountIds.push(String(gscId));
 
   const uniqueIds = Array.from(new Set(accountIds));
 
@@ -498,11 +513,11 @@ const getDatesInRange = (startDate: string, endDate: string) => {
 
 app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
   const { reportId } = req.params;
-  const { 
-    start, 
-    end, 
+  const {
+    start,
+    end,
     grain,
-    accountId, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId 
+    accountId, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId, gscId
   } = req.query;
 
   const report = allAggregateReports.find((r) => r.id === reportId);
@@ -519,6 +534,7 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
   if (shopifyId) accountIds.push(String(shopifyId));
   if (instagramId) accountIds.push(String(instagramId));
   if (facebookPageId) accountIds.push(String(facebookPageId));
+  if (gscId) accountIds.push(String(gscId));
 
   const uniqueIds = Array.from(new Set(accountIds));
   if (uniqueIds.length === 0) {
@@ -542,15 +558,20 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
       startDate,
       endDate,
       accountIds: uniqueIds,
-      timeGrain
+      timeGrain,
+      limit: 500 // Limit rows to prevent browser crashes
     });
 
     console.log(`Executing live report query for ${reportId} (${timeGrain})`);
+    console.log(`  Account IDs filter:`, uniqueIds);
+    console.log(`  Date range: ${startDate} to ${endDate}`);
     
     const [rows] = await bq.query({
       query: sql,
       params: { accountIds: uniqueIds },
     });
+
+    console.log(`  Query returned ${rows.length} rows`);
 
     if (timeGrain === 'daily') {
       if (rows.length === 0) {
@@ -581,8 +602,19 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
           groups[groupKey]._dailyMap[dateStr] = row;
         }
 
+        // Metrics that should be averaged, not summed
+        const avgMetrics = ['position', 'ctr', 'roas', 'cpa', 'aov', 'engagement_rate', 'bounce_rate'];
+
         metrics.forEach(m => {
-          groups[groupKey][m] += (row[m] || 0);
+          if (avgMetrics.includes(m)) {
+            // For averaged metrics, track sum and count separately
+            if (!groups[groupKey]._avgSums) groups[groupKey]._avgSums = {};
+            if (!groups[groupKey]._avgCounts) groups[groupKey]._avgCounts = {};
+            groups[groupKey]._avgSums[m] = (groups[groupKey]._avgSums[m] || 0) + (row[m] || 0);
+            groups[groupKey]._avgCounts[m] = (groups[groupKey]._avgCounts[m] || 0) + 1;
+          } else {
+            groups[groupKey][m] += (row[m] || 0);
+          }
         });
       });
 
@@ -593,7 +625,16 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
         });
         delete row._dailyMap;
 
-        // Recalculate Rates (simplified backend logic)
+        // Calculate averages for metrics that shouldn't be summed
+        if (row._avgSums && row._avgCounts) {
+          for (const m of Object.keys(row._avgSums)) {
+            row[m] = row._avgSums[m] / row._avgCounts[m];
+          }
+          delete row._avgSums;
+          delete row._avgCounts;
+        }
+
+        // Recalculate derived rates from summed base metrics
         if (row.spend !== undefined && row.revenue !== undefined && row.spend > 0) row.roas = row.revenue / row.spend;
         if (row.conversions_value !== undefined && row.spend !== undefined && row.spend > 0) row.roas = row.conversions_value / row.spend;
         if (row.clicks !== undefined && row.impressions !== undefined && row.impressions > 0) row.ctr = row.clicks / row.impressions;
@@ -603,6 +644,16 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
 
         return row;
       });
+
+      // Sort processed rows by most relevant metric (clicks > impressions > spend > revenue)
+      const sortKey = metrics.includes('clicks') ? 'clicks'
+        : metrics.includes('impressions') ? 'impressions'
+        : metrics.includes('spend') ? 'spend'
+        : metrics.includes('revenue') ? 'revenue'
+        : metrics.includes('sessions') ? 'sessions'
+        : metrics[0];
+
+      processedRows.sort((a, b) => (b[sortKey] || 0) - (a[sortKey] || 0));
 
       // Headers
       const formatLabel = (key: string) => key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -627,15 +678,36 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
       // Totals
       const totals: Record<string, number> = {};
       const dailyTotals: Record<string, number[]> = {}; // metric -> [val, val, ...] (aligned with allDates)
+      const avgMetricsForTotals = ['position', 'ctr', 'roas', 'cpa', 'aov', 'engagement_rate', 'bounce_rate'];
 
       metrics.forEach(m => {
-        totals[m] = processedRows.reduce((acc, r) => acc + (r[m] || 0), 0);
-        
+        if (avgMetricsForTotals.includes(m)) {
+          // Average these metrics instead of summing
+          const values = processedRows.map(r => r[m]).filter(v => v !== undefined && v !== null && v !== 0);
+          totals[m] = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+        } else {
+          totals[m] = processedRows.reduce((acc, r) => acc + (r[m] || 0), 0);
+        }
+
         // Aggregate daily values across all rows
         dailyTotals[m] = allDates.map((date, idx) => {
             return processedRows.reduce((acc, row) => acc + (row._daily[idx]?.[m] || 0), 0);
         });
       });
+
+      // Recalculate derived totals from summed base metrics
+      if (totals.clicks !== undefined && totals.impressions !== undefined && totals.impressions > 0) {
+        totals.ctr = totals.clicks / totals.impressions;
+      }
+      if (totals.spend !== undefined && totals.revenue !== undefined && totals.spend > 0) {
+        totals.roas = totals.revenue / totals.spend;
+      }
+      if (totals.conversions_value !== undefined && totals.spend !== undefined && totals.spend > 0) {
+        totals.roas = totals.conversions_value / totals.spend;
+      }
+      if (totals.spend !== undefined && totals.conversions !== undefined && totals.conversions > 0) {
+        totals.cpa = totals.spend / totals.conversions;
+      }
 
       return res.json({ headers, rows: processedRows, totals, dailyTotals });
     }
@@ -672,13 +744,19 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
     // SQL for Spend (Ads)
     const spendQuery = `
       WITH current_period AS (
-        SELECT SUM(spend) as spend
+        SELECT 
+          SUM(spend) as spend,
+          SUM(conversions) as conversions,
+          SUM(conversions_value) as conversions_value
         FROM \`entities.ads_daily\`
         WHERE account_id IN UNNEST(@accountIds)
         AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL @days DAY)
       ),
       prev_period AS (
-        SELECT SUM(spend) as spend
+        SELECT 
+          SUM(spend) as spend,
+          SUM(conversions) as conversions,
+          SUM(conversions_value) as conversions_value
         FROM \`entities.ads_daily\`
         WHERE account_id IN UNNEST(@accountIds)
         AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL (@days * 2) DAY)
@@ -686,7 +764,11 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
       )
       SELECT 
         COALESCE(c.spend, 0) as current_spend,
-        COALESCE(p.spend, 0) as prev_spend
+        COALESCE(p.spend, 0) as prev_spend,
+        COALESCE(c.conversions, 0) as current_conversions,
+        COALESCE(p.conversions, 0) as prev_conversions,
+        COALESCE(c.conversions_value, 0) as current_conversions_value,
+        COALESCE(p.conversions_value, 0) as prev_conversions_value
       FROM current_period c, prev_period p
     `;
 
@@ -695,7 +777,8 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
       WITH current_period AS (
         SELECT 
           SUM(revenue) as revenue,
-          SUM(CASE WHEN customer_type = 'new' THEN revenue ELSE 0 END) as new_rev
+          SUM(CASE WHEN customer_type = 'new' THEN revenue ELSE 0 END) as new_rev,
+          SUM(CASE WHEN customer_type = 'new' THEN orders ELSE 0 END) as new_customers
         FROM \`entities.shopify_daily\`
         WHERE account_id IN UNNEST(@accountIds)
         AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL @days DAY)
@@ -703,7 +786,8 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
       prev_period AS (
         SELECT 
           SUM(revenue) as revenue,
-          SUM(CASE WHEN customer_type = 'new' THEN revenue ELSE 0 END) as new_rev
+          SUM(CASE WHEN customer_type = 'new' THEN revenue ELSE 0 END) as new_rev,
+          SUM(CASE WHEN customer_type = 'new' THEN orders ELSE 0 END) as new_customers
         FROM \`entities.shopify_daily\`
         WHERE account_id IN UNNEST(@accountIds)
         AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL (@days * 2) DAY)
@@ -713,7 +797,9 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
         COALESCE(c.revenue, 0) as current_revenue,
         COALESCE(p.revenue, 0) as prev_revenue,
         COALESCE(c.new_rev, 0) as current_new_rev,
-        COALESCE(p.new_rev, 0) as prev_new_rev
+        COALESCE(p.new_rev, 0) as prev_new_rev,
+        COALESCE(c.new_customers, 0) as current_new_customers,
+        COALESCE(p.new_customers, 0) as prev_new_customers
       FROM current_period c, prev_period p
     `;
 
@@ -729,10 +815,15 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
 
     const currentSpend = spendRows[0]?.current_spend || 0;
     const prevSpend = spendRows[0]?.prev_spend || 0;
+    const currentConversions = spendRows[0]?.current_conversions || 0;
+    const currentConvValue = spendRows[0]?.current_conversions_value || 0;
+
     const currentRev = revRows[0]?.current_revenue || 0;
     const prevRev = revRows[0]?.prev_revenue || 0;
     const currentNewRev = revRows[0]?.current_new_rev || 0;
     const prevNewRev = revRows[0]?.prev_new_rev || 0;
+    const currentNewCustomers = revRows[0]?.current_new_customers || 0;
+    const prevNewCustomers = revRows[0]?.prev_new_customers || 0;
 
     const currentMer = currentSpend > 0 ? currentRev / currentSpend : 0;
     const prevMer = prevSpend > 0 ? prevRev / prevSpend : 0;
@@ -745,12 +836,26 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
     const prevAcquisitionPct = prevRev > 0 ? (prevNewRev / prevRev) * 100 : 0;
     const acquisitionChange = acquisitionPct - prevAcquisitionPct;
 
+    const currentTcac = currentNewCustomers > 0 ? currentSpend / currentNewCustomers : 0;
+    const prevTcac = prevNewCustomers > 0 ? prevSpend / prevNewCustomers : 0;
+    const tcacChange = prevTcac > 0 ? ((currentTcac - prevTcac) / prevTcac) * 100 : 0;
+
+    const platformCac = currentConversions > 0 ? currentSpend / currentConversions : 0;
+    const platformRoas = currentSpend > 0 ? currentConvValue / currentSpend : 0;
+
     res.json({
       scorecard: {
         mer: { value: currentMer, change: merChange },
         spend: { value: currentSpend, change: spendChange },
         revenue: { value: currentRev, change: revChange },
-        acquisition: { value: acquisitionPct, change: acquisitionChange, newRevenue: currentNewRev }
+        acquisition: { value: acquisitionPct, change: acquisitionChange, newRevenue: currentNewRev },
+        tcac: { 
+          value: currentTcac, 
+          change: tcacChange, 
+          platformCac, 
+          platformRoas,
+          newCustomers: currentNewCustomers
+        }
       },
       period: `${lookback}d`
     });
@@ -826,7 +931,7 @@ app.get("/api/reports/superlatives/months", async (_req: Request, res: Response)
 });
 
 app.get("/api/reports/superlatives", async (req: Request, res: Response) => {
-  const { accountId, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId, month } = req.query;
+  const { accountId, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId, gscId, month } = req.query;
 
   const accountIds: string[] = [];
   if (accountId) accountIds.push(String(accountId));
@@ -836,6 +941,7 @@ app.get("/api/reports/superlatives", async (req: Request, res: Response) => {
   if (shopifyId) accountIds.push(String(shopifyId));
   if (instagramId) accountIds.push(String(instagramId));
   if (facebookPageId) accountIds.push(String(facebookPageId));
+  if (gscId) accountIds.push(String(gscId));
 
   const uniqueIds = Array.from(new Set(accountIds));
 

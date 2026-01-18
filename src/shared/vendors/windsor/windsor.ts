@@ -99,7 +99,29 @@ export async function windsorRequest<E extends WindsorEndpoint>(
 
 	console.log('Windsor request URL', `${url}?${params.toString()}`)
 
-	const response = await runtimeFetch(`${url}?${params.toString()}`)
+	// Add timeout to prevent hanging - Windsor can be slow
+	const controller = new AbortController()
+	const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 minute timeout
+
+	let response: Response
+	try {
+		response = await runtimeFetch(`${url}?${params.toString()}`, {
+			signal: controller.signal,
+		})
+	} catch (fetchError: any) {
+		clearTimeout(timeoutId)
+		if (fetchError.name === 'AbortError') {
+			throw new Error('Windsor request timed out after 2 minutes')
+		}
+		// Log more details about the fetch error
+		console.error('Windsor fetch error details:', {
+			name: fetchError.name,
+			message: fetchError.message,
+			cause: fetchError.cause,
+		})
+		throw fetchError
+	}
+	clearTimeout(timeoutId)
 
 	if (!response.ok) {
 		throw new Error(

@@ -9,6 +9,9 @@ import { lowROASMonitor } from "../jobs/entities/keyword-daily/monitors/low-roas
 import { broadMatchDriftMonitor } from "../jobs/entities/keyword-daily/monitors/broad-match-drift.monitor";
 import { audienceSaturationMonitor } from "../jobs/entities/ads-daily/monitors/audience-saturation.monitor";
 import { creativeFatigueMonitor } from "../jobs/entities/creative-daily/monitors/creative-fatigue.monitor";
+import { gscPositionDropMonitor } from "../jobs/entities/gsc-daily/monitors/position-drop.monitor";
+import { gscClickDropMonitor } from "../jobs/entities/gsc-daily/monitors/click-drop.monitor";
+import { gscImpressionDropMonitor } from "../jobs/entities/gsc-daily/monitors/impression-drop.monitor";
 
 import { pmaxSpendBreakdown } from "../jobs/entities/pmax-daily/aggregateReports/pmax-spend-breakdown.aggregateReport";
 import { adsSpendBreakdown } from "../jobs/entities/ads-daily/aggregateReports/ads-spend-breakdown.aggregateReport";
@@ -18,6 +21,8 @@ import { ga4AcquisitionPerformance } from "../jobs/entities/ga4-daily/aggregateR
 import { shopifySourcePerformance } from "../jobs/entities/shopify-daily/aggregateReports/shopify-source.aggregateReport";
 import { socialPlatformPerformance } from "../jobs/entities/social-media-daily/aggregateReports/social-platform.aggregateReport";
 import { creativePerformanceReport } from "../jobs/entities/creative-daily/aggregateReports/creative-performance.aggregateReport";
+import { gscQueryPerformance } from "../jobs/entities/gsc-daily/aggregateReports/gsc-query-performance.aggregateReport";
+import { gscPagePerformance } from "../jobs/entities/gsc-daily/aggregateReports/gsc-page-performance.aggregateReport";
 
 // Entities
 import { adsDaily } from "../jobs/entities/ads-daily/ads-daily.entity";
@@ -28,12 +33,14 @@ import { pmaxDaily } from "../jobs/entities/pmax-daily/pmax-daily.entity";
 import { shopifyDaily } from "../jobs/entities/shopify-daily/shopify-daily.entity";
 import { shopifyProductDaily } from "../jobs/entities/shopify-daily/shopify-product-daily.entity";
 import { socialMediaDaily } from "../jobs/entities/social-media-daily/social-media-daily.entity";
+import { gscDaily } from "../jobs/entities/gsc-daily/gsc-daily.entity";
 
 // Imports
 import { googleAdsCampaignPerformance as googleAdsImport } from "../jobs/imports/google_ads/campaign-performance.import";
 import { facebookAdsInsights as metaAdsImport } from "../jobs/imports/facebook_ads/insights.import";
 import { shopifyOrders as shopifyOrdersImport } from "../jobs/imports/shopify/orders.import";
 import { ga4PagePerformance as ga4PageImport } from "../jobs/imports/google_ga4/page-performance.import";
+import { googleSearchConsoleAnalytics as gscImport } from "../jobs/imports/google_search_console/search-analytics.import";
 
 export const coreMonitors = [
   accountSpendAnomalyMonitor,
@@ -47,6 +54,9 @@ export const coreMonitors = [
   broadMatchDriftMonitor,
   audienceSaturationMonitor,
   creativeFatigueMonitor,
+  gscPositionDropMonitor,
+  gscClickDropMonitor,
+  gscImpressionDropMonitor,
 ];
 
 export const allAggregateReports = [
@@ -58,6 +68,8 @@ export const allAggregateReports = [
   shopifySourcePerformance,
   socialPlatformPerformance,
   creativePerformanceReport,
+  gscQueryPerformance,
+  gscPagePerformance,
 ];
 
 export const allEntities = [
@@ -69,6 +81,7 @@ export const allEntities = [
   shopifyDaily,
   shopifyProductDaily,
   socialMediaDaily,
+  gscDaily,
 ];
 
 export const allImports = [
@@ -76,6 +89,7 @@ export const allImports = [
   metaAdsImport,
   shopifyOrdersImport,
   ga4PageImport,
+  gscImport,
 ];
 
 export const getSchemaCatalog = () => {

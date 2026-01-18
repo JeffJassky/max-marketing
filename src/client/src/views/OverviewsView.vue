@@ -10,7 +10,8 @@ import {
   Calendar,
   RefreshCw,
   Wallet,
-  ChevronDown
+  ChevronDown,
+  Search
 } from 'lucide-vue-next';
 import Sparkline from '../components/Sparkline.vue';
 
@@ -23,6 +24,7 @@ interface MaxAccount {
   shopifyId: string | null;
   instagramId: string | null;
   facebookPageId: string | null;
+  gscId: string | null;
 }
 
 const selectedAccount = inject<Ref<MaxAccount | null>>('selectedAccount');
@@ -32,7 +34,8 @@ const PlatformTab = {
   META: 'META',
   GA4: 'GA4',
   SHOPIFY: 'SHOPIFY',
-  SOCIAL: 'SOCIAL'
+  SOCIAL: 'SOCIAL',
+  GSC: 'GSC'
 } as const;
 
 type PlatformTab = typeof PlatformTab[keyof typeof PlatformTab];
@@ -42,7 +45,8 @@ const tabs = [
   { id: PlatformTab.META, label: 'Meta Ads', icon: Facebook, reportId: 'metaAdsCampaignPerformance' },
   { id: PlatformTab.GA4, label: 'Google Analytics', icon: Globe, reportId: 'ga4AcquisitionPerformance' },
   { id: PlatformTab.SHOPIFY, label: 'Shopify', icon: ShoppingBag, reportId: 'shopifySourcePerformance' },
-  { id: PlatformTab.SOCIAL, label: 'Social', icon: Instagram, reportId: 'socialPlatformPerformance' }
+  { id: PlatformTab.SOCIAL, label: 'Social', icon: Instagram, reportId: 'socialPlatformPerformance' },
+  { id: PlatformTab.GSC, label: 'Search Console', icon: Search, reportId: 'gscQueryPerformance' }
 ];
 
 const DateRanges = {
@@ -125,6 +129,7 @@ const loadReport = async () => {
     if (acc.shopifyId) params.append('shopifyId', acc.shopifyId);
     if (acc.instagramId) params.append('instagramId', acc.instagramId);
     if (acc.facebookPageId) params.append('facebookPageId', acc.facebookPageId);
+    if (acc.gscId) params.append('gscId', acc.gscId);
 
     // Query Params
     params.append('start', dates.start);

@@ -9,6 +9,7 @@ export interface QueryOptions {
   endDate: string; // YYYY-MM-DD
   accountIds: string[];
   timeGrain?: "daily" | "total";
+  limit?: number; // Max rows to return (default 1000 for live queries)
 }
 
 export function buildReportQuery(
@@ -144,6 +145,10 @@ export function buildReportQuery(
   } else if (def.orderBy) {
     finalQueryBuilder.orderByRaw(`${def.orderBy.field} ${def.orderBy.direction ?? "desc"}`);
   }
+
+  // Limit (default 1000 for live queries to prevent browser crashes)
+  const limit = options.limit ?? 1000;
+  finalQueryBuilder.limit(limit);
 
   return finalQueryBuilder.toQuery();
 }
