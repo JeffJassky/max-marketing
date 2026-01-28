@@ -12,7 +12,7 @@ import { Monitor } from "../../shared/data/monitor";
 import { SchemaType } from "@google/generative-ai";
 
 export interface ChatMessage {
-  role: "user" | "model";
+  role: "user" | "model" | "ai";
   text: string;
 }
 
@@ -68,15 +68,22 @@ export class MarketingAgent {
           functionDeclarations: [
             {
               name: "get_distinct_values",
-              description: "Get the unique values for a specific dimension in a table. Use this to see what categories exist (e.g., campaign names, countries).",
+              description:
+                "Get the unique values for a specific dimension in a table. Use this to see what categories exist (e.g., campaign names, countries).",
               parameters: {
                 type: SchemaType.OBJECT,
                 properties: {
-                  entityId: { type: SchemaType.STRING, description: "The virtual table name." },
-                  dimension: { type: SchemaType.STRING, description: "The column name." }
+                  entityId: {
+                    type: SchemaType.STRING,
+                    description: "The virtual table name.",
+                  },
+                  dimension: {
+                    type: SchemaType.STRING,
+                    description: "The column name.",
+                  },
                 },
-                required: ["entityId", "dimension"]
-              }
+                required: ["entityId", "dimension"],
+              },
             },
             {
               name: "execute_sql",
@@ -101,7 +108,7 @@ export class MarketingAgent {
 
     const chat = model.startChat({
       history: history.slice(0, -1).map((m) => ({
-        role: m.role,
+        role: m.role === "ai" ? "model" : m.role,
         parts: [{ text: m.text }],
       })),
     });
@@ -126,35 +133,38 @@ export class MarketingAgent {
         toolCalls.map(async (call) => {
           const { name, args } = call.functionCall!;
           console.log(
-            `\n[Agent][Round ${iterations + 1}] >>> Tool Call: ${name}`
+            `\n[Agent][Round ${iterations + 1}] >>> Tool Call: ${name}`,
           );
           if ((args as any).sql)
             console.log(`[Agent][Virtual SQL]: ${(args as any).sql}`);
 
           let output: any = null;
-                  try {
-                    if (name === "execute_sql") {
-                      output = await this.executeSecureSql((args as any).sql);
-                    } else if (name === "get_distinct_values") {
-                      output = await this.getDistinctValues((args as any).entityId, (args as any).dimension);
-                    }
-                      if (Array.isArray(output)) {
+          try {
+            if (name === "execute_sql") {
+              output = await this.executeSecureSql((args as any).sql);
+            } else if (name === "get_distinct_values") {
+              output = await this.getDistinctValues(
+                (args as any).entityId,
+                (args as any).dimension,
+              );
+            }
+            if (Array.isArray(output)) {
               console.log(
                 `[Agent][Round ${iterations + 1}] <<< Tool Response: [${
                   output.length
-                } rows returned]`
+                } rows returned]`,
               );
             } else {
               console.log(
                 `[Agent][Round ${
                   iterations + 1
-                }] <<< Tool Response: [Object returned]`
+                }] <<< Tool Response: [Object returned]`,
               );
             }
           } catch (e: any) {
             console.error(
               `[Agent][Round ${iterations + 1}] !!! Tool Error in ${name}:`,
-              e.message
+              e.message,
             );
             output = { error: e.message };
           }
@@ -165,7 +175,7 @@ export class MarketingAgent {
               response: { content: output },
             },
           };
-        })
+        }),
       );
 
       result = await chat.sendMessage(toolResponses);
@@ -179,7 +189,7 @@ export class MarketingAgent {
 
     const finalResponse = response.text();
     console.log(
-      `[Agent] Final Response: ${finalResponse.substring(0, 100)}...`
+      `[Agent] Final Response: ${finalResponse.substring(0, 100)}...`,
     );
     return finalResponse;
   }
@@ -208,7 +218,7 @@ export class MarketingAgent {
 
     const catalog = getSchemaCatalog();
     const sortedVirtualNames = Object.keys(catalog).sort(
-      (a, b) => b.length - a.length
+      (a, b) => b.length - a.length,
     );
 
     let secureSql = virtualSql;
@@ -253,9 +263,9 @@ export class MarketingAgent {
 
   private async getDistinctValues(entityId: string, dimension: string) {
     const accountIds = Object.values(this.accountContext).filter(Boolean);
-    
-    const entity = allEntities.find(e => e.id === entityId);
-    const imp = allImports.find(i => i.id === entityId);
+
+    const entity = allEntities.find((e) => e.id === entityId);
+    const imp = allImports.find((i) => i.id === entityId);
     let realTable = "";
 
     if (entity) realTable = entity.fqn;
@@ -272,7 +282,7 @@ export class MarketingAgent {
 
     const [rows] = await this.bq.query({
       query,
-      params: { accountIds }
+      params: { accountIds },
     });
 
     return rows.map((r: any) => r[dimension]);

@@ -55,6 +55,12 @@ const selectAccount = (account: MaxAccount) => {
   window.dispatchEvent(new Event('accounts-updated'));
 };
 
+const chatStorageConfig = computed(() => ({
+  key: `max-marketing-chat-${selectedAccount.value?.id || 'default'}`,
+  scrollHeight: true,
+  maxMessages: 1000
+}));
+
 onMounted(() => {
   loadAccountState();
   window.addEventListener('accounts-updated', loadAccountState);
@@ -127,9 +133,9 @@ provide('selectAccount', selectAccount);
       <!-- Chat Area -->
       <div class="flex-1 min-h-0 overflow-hidden">
         <deep-chat
-          demo="true"
           speechToText="true"
-          browserStorage="true"
+          :browserStorage="chatStorageConfig"
+          :requestBodyLimits="{ maxMessages: 0 }"
           :connect="{
             url: '/api/chat',
             method: 'POST',
