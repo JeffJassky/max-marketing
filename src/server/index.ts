@@ -1,4 +1,5 @@
 import "dotenv/config";
+import path from "path";
 import express, { type Request, type Response } from "express";
 import { createBigQueryClient } from "../shared/vendors/google/bigquery/bigquery";
 import { googleAdsCoreKeywordPerformance } from "../jobs/imports/google_ads/core-keyword-performance.import";
@@ -1039,6 +1040,26 @@ app.post("/api/reports/generate-draft", async (req: Request, res: Response) => {
     console.error("Error generating draft:", error);
     res.status(500).json({ error: "Failed to generate draft" });
   }
+});
+
+// --- Static File Serving (for production) ---
+const clientDistPath = path.resolve(__dirname, "../../src/client/dist");
+app.use(express.static(clientDistPath));
+
+// Catch-all route for SPA - must be the LAST route
+app.get(/.*/, (req: Request, res: Response, next) => {
+  // If the request is for an API route that wasn't matched above, return a 404
+  if (req.path.startsWith("/api")) {
+    return res.status(404).json({ error: "API endpoint not found" });
+  }
+  // Otherwise serve the index.html from the client build for SPA routing
+  res.sendFile(path.join(clientDistPath, "index.html"), (err) => {
+    if (err) {
+      if (!res.headersSent) {
+        res.status(404).send("Client build not found. Run 'yarn build' first.");
+      }
+    }
+  });
 });
 
 const port = process.env.PORT || 3000;
