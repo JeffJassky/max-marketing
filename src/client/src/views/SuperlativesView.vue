@@ -11,6 +11,7 @@ import {
   Flame,
   ChevronDown,
 } from 'lucide-vue-next';
+import { useMonthlySelection } from '../composables/useMonthlySelection';
 
 interface MaxAccount {
   id: string;
@@ -47,25 +48,11 @@ interface Superlative {
 }
 
 const selectedAccount = inject<Ref<MaxAccount | null>>('selectedAccount');
+const { selectedMonth, loadMonths } = useMonthlySelection();
+
 const loading = ref(false);
 const superlatives = ref<Superlative[]>([]);
-const availableMonths = ref<{ period_label: string; period_start: string }[]>([]);
-const selectedMonth = ref<string>('');
 const error = ref<string | null>(null);
-
-const loadMonths = async () => {
-  try {
-    const res = await fetch('/api/reports/superlatives/months');
-    if (res.ok) {
-      availableMonths.value = await res.json();
-      if (availableMonths.value.length > 0 && !selectedMonth.value) {
-        selectedMonth.value = availableMonths.value[0].period_label;
-      }
-    }
-  } catch (err) {
-    console.error('Failed to load months', err);
-  }
-};
 
 const loadSuperlatives = async () => {
   if (!selectedAccount?.value) {
@@ -171,12 +158,6 @@ const formatValue = (metric: string, value: number) => {
   return new Intl.NumberFormat('en-US').format(value);
 };
 
-const formatMonth = (label: string) => {
-  if (!label) return '';
-  const [year, month] = label.split('-');
-  return new Date(parseInt(year), parseInt(month) - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
-};
-
 onMounted(async () => {
   await loadMonths();
   if (selectedAccount?.value) loadSuperlatives();
@@ -205,33 +186,6 @@ watch([() => selectedAccount?.value, selectedMonth], () => {
             Tracking the top performers and market movers across your
             advertising ecosystem.
           </p>
-        </div>
-
-        <div class="flex items-center gap-4">
-          <!-- Month Selector -->
-          <div class="relative group">
-            <label
-              class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1.5 ml-1"
-            >Chart Period</label>
-            <div class="relative">
-              <select
-                v-model="selectedMonth"
-                class="appearance-none bg-white border border-stone-200 text-slate-700 font-bold py-2.5 pl-4 pr-10 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-amplify-purple/20 focus:border-amplify-purple transition-all cursor-pointer min-w-[180px]"
-              >
-                <option
-                  v-for="m in availableMonths"
-                  :key="m.period_label"
-                  :value="m.period_label"
-                >
-                  {{ formatMonth(m.period_label) }}
-                </option>
-              </select>
-              <ChevronDown
-                class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                :size="18"
-              />
-            </div>
-          </div>
         </div>
       </div>
 
@@ -278,8 +232,7 @@ watch([() => selectedAccount?.value, selectedMonth], () => {
           No chart data available
         </h3>
         <p class="text-slate-400 mt-2 max-w-sm mx-auto font-medium">
-          We haven't processed rankings for this period yet. Check back soon or
-          select a different month.
+          We haven't processed rankings for this period yet. Check back soon.
         </p>
       </div>
 

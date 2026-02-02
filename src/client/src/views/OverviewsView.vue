@@ -7,13 +7,12 @@ import {
   ShoppingBag,
   Instagram,
   Facebook,
-  Calendar,
   RefreshCw,
   Wallet,
-  ChevronDown,
   Search
 } from 'lucide-vue-next';
 import Sparkline from '../components/Sparkline.vue';
+import { useDateRange } from '../composables/useDateRange';
 
 interface MaxAccount {
   id: string;
@@ -28,6 +27,7 @@ interface MaxAccount {
 }
 
 const selectedAccount = inject<Ref<MaxAccount | null>>('selectedAccount');
+const { dateParams } = useDateRange();
 
 const PlatformTab = {
   GOOGLE: 'GOOGLE',
@@ -49,15 +49,7 @@ const tabs = [
   { id: PlatformTab.GSC, label: 'Search Console', icon: Search, reportId: 'gscQueryPerformance' }
 ];
 
-const DateRanges = {
-  THIS_MONTH: 'This Month',
-  LAST_MONTH: 'Last Month',
-  LAST_30_DAYS: 'Last 30 Days',
-  LAST_90_DAYS: 'Last 90 Days'
-} as const;
-
 const activeTab = ref<PlatformTab>(PlatformTab.GOOGLE);
-const selectedDateRange = ref<string>(DateRanges.THIS_MONTH);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
@@ -77,35 +69,6 @@ interface ReportData {
 
 const reportData = ref<ReportData>({ headers: [], rows: [], totals: {}, dailyTotals: {} });
 
-// Helper to get dates
-const getDateParams = () => {
-  const now = new Date();
-  let start = new Date();
-  let end = new Date(); // Today
-
-  if (selectedDateRange.value === DateRanges.THIS_MONTH) {
-    start = new Date(now.getFullYear(), now.getMonth(), 1);
-    end = new Date(now.getFullYear(), now.getMonth() + 1, 0); // End of month
-  } else if (selectedDateRange.value === DateRanges.LAST_MONTH) {
-    start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    end = new Date(now.getFullYear(), now.getMonth(), 0);
-  } else if (selectedDateRange.value === DateRanges.LAST_30_DAYS) {
-    start.setDate(now.getDate() - 30);
-  } else if (selectedDateRange.value === DateRanges.LAST_90_DAYS) {
-    start.setDate(now.getDate() - 90);
-  }
-
-  // Ensure we don't request future data if "end of month" is in future? 
-  // BQ handles it fine, but good to be precise.
-  const today = new Date();
-  if (end > today) end = today;
-
-  return {
-    start: start.toISOString().split('T')[0],
-    end: end.toISOString().split('T')[0]
-  };
-};
-
 const loadReport = async () => {
   if (!selectedAccount?.value) return;
 
@@ -117,7 +80,6 @@ const loadReport = async () => {
   reportData.value = { headers: [], rows: [], totals: {}, dailyTotals: {} };
 
   try {
-    const dates = getDateParams();
     const params = new URLSearchParams();
     
     // Account Params
@@ -132,8 +94,8 @@ const loadReport = async () => {
     if (acc.gscId) params.append('gscId', acc.gscId);
 
     // Query Params
-    params.append('start', dates.start);
-    params.append('end', dates.end);
+    params.append('start', dateParams.value.startDate || '');
+    params.append('end', dateParams.value.endDate || '');
     params.append('grain', 'daily');
 
     const res = await fetch(`/api/reports/${currentTab.reportId}/live?${params.toString()}`);
@@ -185,19 +147,13 @@ const getCumulativeTotal = (key: string) => {
 // Get Sparkline Data for Table Row (Daily Trend)
 const getSparklineData = (row: any, metricKey?: string) => {
   if (!row._daily || !row._daily.length) return [];
-  // Use the metric defined in the header or default to first metric
-  // The header passed the metric key? 
-  // Wait, in the template we iterate headers. The sparkline header has `metric` prop.
-  // But wait, the header structure I defined on server: 
-  // { key: '_sparkline', label: '...', type: 'sparkline', metric: 'spend' }
-  
   if (metricKey) {
       return row._daily.map((d: any) => d[metricKey] || 0);
   }
   return [];
 };
 
-watch([() => activeTab.value, () => selectedAccount?.value, selectedDateRange], () => {
+watch([() => activeTab.value, () => selectedAccount?.value, dateParams], () => {
   loadReport();
 }, { immediate: true });
 
@@ -206,43 +162,17 @@ watch([() => activeTab.value, () => selectedAccount?.value, selectedDateRange], 
 <template>
   <div class="h-full flex flex-col bg-slate-50">
     <!-- Header -->
-    <div class="bg-white border-b border-slate-200 pt-6 px-4 md:px-8 sticky top-0 z-30 shadow-sm">
+    <div class="bg-white border-b border-slate-200 pt-6 px-4 md:px-8 sticky top-0 z-10 shadow-sm">
       <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
         <div>
           <h1 class="text-2xl font-bold text-slate-900 flex items-center">
             <Layout class="w-8 h-8 mr-3 text-indigo-600" />
             Platform Overviews
           </h1>
-          <p class="text-slate-500 text-sm mt-1">Live performance data from {{ selectedDateRange }}.</p>
+          <p class="text-slate-500 text-sm mt-1">Unified performance metrics for your channels.</p>
         </div>
         
         <div class="flex items-center gap-3 flex-wrap">
-          <!-- Date Picker -->
-          <div class="relative group z-40">
-            <button class="flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-sm">
-              <Calendar class="w-4 h-4 mr-2 text-slate-500" />
-              {{ selectedDateRange }}
-              <ChevronDown class="w-4 h-4 ml-2" />
-            </button>
-            <div class="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 hidden group-hover:block z-50">
-              <button
-                v-for="range in Object.values(DateRanges)"
-                :key="range"
-                class="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 first:rounded-t-lg last:rounded-b-lg"
-                @click="selectedDateRange = range"
-              >
-                {{ range }}
-              </button>
-            </div>
-          </div>
-
-          <div v-if="selectedAccount" class="flex items-center px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-lg text-sm font-medium text-indigo-700 shadow-sm">
-            <Wallet class="w-4 h-4 mr-3 text-indigo-500" />
-            <div class="text-left leading-tight">
-              <p class="text-[10px] uppercase text-indigo-400 font-bold tracking-wide">Active Account</p>
-              <p class="text-sm font-bold text-indigo-900">{{ selectedAccount.name }}</p>
-            </div>
-          </div>
           <button @click="loadReport" class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors" title="Refresh">
             <RefreshCw :class="{'animate-spin': loading}" class="w-5 h-5" />
           </button>

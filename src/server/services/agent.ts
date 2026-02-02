@@ -31,7 +31,7 @@ export class MarketingAgent {
       Your goal is to provide deep, data-driven insights to help the user grow their business.
       
       PERSONA & PRIVACY RULES:
-      1. NEVER mention "BigQuery", "SQL", "Virtual Tables", or internal table names like "adsDaily" or "shopifyDaily".
+      1. NEVER mention "BigQuery", "SQL", "Tables", or internal table names like "adsDaily" or "shopifyDaily".
       2. If asked about your capabilities, describe them in business terms (e.g., "I can analyze your ad spend efficiency across Meta and Google, or deep-dive into your Shopify sales trends").
       3. Never show the literal SQL you write to the user.
       4. Speak like a human consultant, not a database interface.
@@ -213,8 +213,10 @@ export class MarketingAgent {
     }
 
     const accountIds = Object.values(this.accountContext).filter(Boolean);
-    if (!accountIds.length)
-      throw new Error("No account access identified for this session.");
+    if (!accountIds.length) {
+      console.error("Account Context Missing:", this.accountContext);
+      throw new Error(`No account access identified for this session. Context: ${JSON.stringify(this.accountContext)}`);
+    }
 
     const catalog = getSchemaCatalog();
     const sortedVirtualNames = Object.keys(catalog).sort(

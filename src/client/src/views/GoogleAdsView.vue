@@ -29,6 +29,7 @@ import {
   Info,
   ExternalLink
 } from 'lucide-vue-next';
+import { useDateRange } from '../composables/useDateRange';
 
 const GoogleAdsSubView = {
   OVERVIEW: 'OVERVIEW',
@@ -332,16 +333,14 @@ interface ConfirmationAction {
   onConfirm: () => void;
 }
 
-const dateOptions = ['Last 7 Days', 'Last 30 Days', 'Last 90 Days', 'Year to Date'];
-
 const activeTab = ref<GoogleAdsSubView>(GoogleAdsSubView.OVERVIEW);
 const report = ref<GoogleAdsFullReport | null>(null);
 const loading = ref(true);
-const dateRange = ref('Last 30 Days');
 const userGoal = ref<UserGoal>('ROAS');
 
 // Global Account State injected from layout
 const selectedAccount = inject<Ref<MaxAccount | null>>('selectedAccount');
+const { dateParams } = useDateRange();
 
 const wastedKeywordAggregateReports = ref<WastedKeywordAggregateReport[]>([]);
 const broadMatchDriftAggregateReports = ref<BroadMatchDriftAggregateReport[]>([]);
@@ -527,8 +526,16 @@ const loadWastedKeywordAggregateReports = async (googleAdsId?: string) => {
 
   try {
     // Wasted spend is a combination of two monitors
-    const fetch1 = fetch(`/api/monitors/anomalies?googleAdsId=${encodeURIComponent(targetAccountId)}&monitorId=wasted_spend_click_monitor`).then(r => r.json());
-    const fetch2 = fetch(`/api/monitors/anomalies?googleAdsId=${encodeURIComponent(targetAccountId)}&monitorId=wasted_spend_conversion_monitor`).then(r => r.json());
+    const params = new URLSearchParams();
+    params.append('googleAdsId', targetAccountId);
+    if (dateParams.value.startDate) params.append('startDate', dateParams.value.startDate);
+    if (dateParams.value.endDate) params.append('endDate', dateParams.value.endDate);
+
+    params.set('monitorId', 'wasted_spend_click_monitor');
+    const fetch1 = fetch(`/api/monitors/anomalies?${params.toString()}`).then(r => r.json());
+    
+    params.set('monitorId', 'wasted_spend_conversion_monitor');
+    const fetch2 = fetch(`/api/monitors/anomalies?${params.toString()}`).then(r => r.json());
     
     const [data1, data2] = await Promise.all([fetch1, fetch2]);
     const data = [...(Array.isArray(data1) ? data1 : []), ...(Array.isArray(data2) ? data2 : [])];
@@ -552,8 +559,14 @@ const loadBroadMatchDriftAggregateReports = async (googleAdsId?: string) => {
   broadMatchDriftAggregateReportsError.value = null;
 
   try {
+    const params = new URLSearchParams();
+    params.append('googleAdsId', targetAccountId);
+    params.append('monitorId', 'broad_match_drift_monitor');
+    if (dateParams.value.startDate) params.append('startDate', dateParams.value.startDate);
+    if (dateParams.value.endDate) params.append('endDate', dateParams.value.endDate);
+
     const response = await fetch(
-      `/api/monitors/anomalies?googleAdsId=${encodeURIComponent(targetAccountId)}&monitorId=broad_match_drift_monitor`
+      `/api/monitors/anomalies?${params.toString()}`
     );
     if (!response.ok) {
       throw new Error(`Failed to fetch broad match drift anomalies: ${response.status}`);
@@ -578,8 +591,16 @@ const loadLowPerformingKeywordAggregateReports = async (googleAdsId?: string) =>
   lowPerformingKeywordAggregateReportsError.value = null;
 
   try {
-    const fetch1 = fetch(`/api/monitors/anomalies?googleAdsId=${encodeURIComponent(targetAccountId)}&monitorId=low_roas_keyword_monitor`).then(r => r.json());
-    const fetch2 = fetch(`/api/monitors/anomalies?googleAdsId=${encodeURIComponent(targetAccountId)}&monitorId=high_cpa_keyword_monitor`).then(r => r.json());
+    const params = new URLSearchParams();
+    params.append('googleAdsId', targetAccountId);
+    if (dateParams.value.startDate) params.append('startDate', dateParams.value.startDate);
+    if (dateParams.value.endDate) params.append('endDate', dateParams.value.endDate);
+
+    params.set('monitorId', 'low_roas_keyword_monitor');
+    const fetch1 = fetch(`/api/monitors/anomalies?${params.toString()}`).then(r => r.json());
+    
+    params.set('monitorId', 'high_cpa_keyword_monitor');
+    const fetch2 = fetch(`/api/monitors/anomalies?${params.toString()}`).then(r => r.json());
     
     const [data1, data2] = await Promise.all([fetch1, fetch2]);
     const results1 = (Array.isArray(data1) ? data1 : []).map(r => ({ ...r, issue: 'Low ROAS' }));
@@ -902,8 +923,8 @@ watch(
     }
   }
 );
-watch(() => selectedAccount?.value, (account, prevAccount) => {
-  if (account?.googleAdsId && account.googleAdsId !== prevAccount?.googleAdsId) {
+watch([() => selectedAccount?.value, dateParams], ([account, prevAccount]) => {
+  if (account?.googleAdsId) {
     loadReport(account.googleAdsId);
     if (activeTab.value === GoogleAdsSubView.KEYWORD_INTEL) {
       loadWastedKeywordAggregateReports(account.googleAdsId);
@@ -915,9 +936,6 @@ watch(() => selectedAccount?.value, (account, prevAccount) => {
     }
   }
 }, { immediate: true });
-watch(dateRange, () => {
-  loadReport(selectedAccount?.value?.googleAdsId);
-});
 </script>
 
 <template>
@@ -941,7 +959,7 @@ watch(dateRange, () => {
 
     <template v-else>
       <div
-        class="bg-white border-b border-slate-200 pt-6 pb-0 px-4 md:px-8 sticky top-0 z-30 shadow-sm"
+        class="bg-white border-b border-slate-200 pt-6 pb-0 px-4 md:px-8 sticky top-0 z-10 shadow-sm"
       >
         <div
           class="flex flex-col xl:flex-row xl:items-center justify-between mb-6 gap-4"
@@ -955,30 +973,6 @@ watch(dateRange, () => {
               />
               Google Ads Suite
             </h1>
-            <div class="mt-2 flex items-center gap-3">
-              <div
-                v-if="selectedAccount"
-                class="flex items-center px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-lg text-sm font-medium text-indigo-700 shadow-sm"
-              >
-                <Wallet class="w-4 h-4 mr-3 text-indigo-500" />
-                <div class="text-left leading-tight">
-                  <p
-                    class="text-[10px] uppercase text-indigo-400 font-bold tracking-wide"
-                  >
-                    Active Account
-                  </p>
-                  <p class="text-sm font-bold text-indigo-900">
-                    {{ selectedAccount.name }}
-                  </p>
-                </div>
-              </div>
-              <div
-                v-else
-                class="px-4 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-500 italic"
-              >
-                No account selected in sidebar
-              </div>
-            </div>
           </div>
           <div class="flex flex-wrap items-center gap-3" v-if="false">
             <div
@@ -1000,27 +994,6 @@ watch(dateRange, () => {
               </button>
             </div>
 
-            <div class="relative group">
-              <button
-                class="flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                <Calendar class="w-4 h-4 mr-2 text-slate-500" />
-                {{ dateRange }}
-                <ChevronDown class="w-4 h-4 ml-2" />
-              </button>
-              <div
-                class="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-slate-200 hidden group-hover:block z-50"
-              >
-                <button
-                  v-for="d in dateOptions"
-                  :key="d"
-                  class="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 first:rounded-t-lg last:rounded-b-lg"
-                  @click="dateRange = d"
-                >
-                  {{ d }}
-                </button>
-              </div>
-            </div>
             <button
               class="text-xs font-semibold text-slate-500 hover:text-indigo-600 flex items-center bg-slate-100 px-3 py-2 rounded-lg transition-colors"
               @click="loadReport(selectedAccount?.id)"

@@ -20,6 +20,7 @@ import {
   ShoppingBag,
   RefreshCw
 } from 'lucide-vue-next';
+import { useDateRange } from '../composables/useDateRange';
 
 const router = useRouter();
 const ApexChart = VueApexCharts;
@@ -49,8 +50,7 @@ interface SpendSegment {
 
 // Global Account State injected from layout
 const selectedAccount = inject<Ref<MaxAccount | null>>('selectedAccount');
-
-const timeRange = ref<'lifetime' | 'ytd' | '90d'>('90d');
+const { dateParams } = useDateRange();
 
 // Real Data State
 const scorecard = ref<any>(null);
@@ -81,7 +81,9 @@ const loadAll = async () => {
   if (acc.instagramId) params.append('instagramId', acc.instagramId);
   if (acc.facebookPageId) params.append('facebookPageId', acc.facebookPageId);
   if (acc.gscId) params.append('gscId', acc.gscId);
-  params.append('days', '30');
+  
+  if (dateParams.value.startDate) params.append('startDate', dateParams.value.startDate);
+  if (dateParams.value.endDate) params.append('endDate', dateParams.value.endDate);
 
   try {
     const [scoreRes, anomalyRes] = await Promise.all([
@@ -111,7 +113,10 @@ const loadSpendMix = async () => {
   if (acc.instagramId) params.append('instagramId', acc.instagramId);
   if (acc.facebookPageId) params.append('facebookPageId', acc.facebookPageId);
   if (acc.gscId) params.append('gscId', acc.gscId);
-  params.append('days', timeRange.value === 'ytd' ? '30' : '90');
+  
+  if (dateParams.value.startDate) params.append('start', dateParams.value.startDate);
+  if (dateParams.value.endDate) params.append('end', dateParams.value.endDate);
+  params.append('grain', 'total');
 
   try {
     const res = await fetch(`/api/reports/adsSpendBreakdown/live?${params.toString()}`).then(r => r.json());
@@ -128,17 +133,13 @@ onMounted(() => {
   loadSpendMix();
 });
 
-watch(selectedAccount, () => {
+watch([selectedAccount, dateParams], () => {
   loadAll();
   loadSpendMix();
 });
 
-watch(timeRange, () => {
-  loadSpendMix();
-});
-
 const googleSegments = computed(() => {
-  if (!spendMix.value) return [];
+  if (!spendMix.value || !spendMix.value.rows) return [];
   const total = spendMix.value.rows.reduce((acc: number, r: any) => acc + r.spend, 0);
   return spendMix.value.rows
     .filter((r: any) => r.platform === 'google')
@@ -154,7 +155,7 @@ const googleSegments = computed(() => {
 });
 
 const metaSegments = computed(() => {
-  if (!spendMix.value) return [];
+  if (!spendMix.value || !spendMix.value.rows) return [];
   const total = spendMix.value.rows.reduce((acc: number, r: any) => acc + r.spend, 0);
   return spendMix.value.rows
     .filter((r: any) => r.platform === 'facebook')
@@ -170,7 +171,7 @@ const metaSegments = computed(() => {
 });
 
 const grandTotal = computed(() => {
-  if (!spendMix.value) return 0;
+  if (!spendMix.value || !spendMix.value.rows) return 0;
   return spendMix.value.rows.reduce((acc: number, r: any) => acc + r.spend, 0);
 });
 
@@ -357,10 +358,6 @@ const platformHealth = computed(() => {
               Marketing Mix
             </h3>
             <p class="text-sm text-slate-400">Holistic allocation across search and social channels.</p>
-          </div>
-          <div class="flex bg-stone-100 p-1 rounded-xl">
-            <button @click="timeRange = '90d'" class="px-4 py-1.5 rounded-lg text-xs font-bold transition-all" :class="timeRange === '90d' ? 'bg-white shadow-sm' : 'text-slate-500'">90 Days</button>
-            <button @click="timeRange = 'ytd'" class="px-4 py-1.5 rounded-lg text-xs font-bold transition-all" :class="timeRange === 'ytd' ? 'bg-white shadow-sm' : 'text-slate-500'">30 Days</button>
           </div>
         </div>
 

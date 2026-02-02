@@ -2,20 +2,16 @@
 import { ref, computed, watch, inject, type Ref } from 'vue';
 import {
   Sparkles,
-  Calendar,
   RefreshCw,
   Wallet,
-  ChevronDown,
-  BarChart3,
-  ExternalLink,
   Target,
   Facebook,
   Instagram,
-  MousePointer2,
   TrendingUp,
   Image as ImageIcon,
   AlertTriangle
 } from 'lucide-vue-next';
+import { useDateRange } from '../composables/useDateRange';
 
 interface MaxAccount {
   id: string;
@@ -29,15 +25,8 @@ interface MaxAccount {
 }
 
 const selectedAccount = inject<Ref<MaxAccount | null>>('selectedAccount');
+const { dateParams } = useDateRange();
 
-const DateRanges = {
-  LAST_30_DAYS: 'Last 30 Days',
-  LAST_90_DAYS: 'Last 90 Days',
-  THIS_MONTH: 'This Month',
-  LAST_MONTH: 'Last Month'
-} as const;
-
-const selectedDateRange = ref<string>(DateRanges.LAST_30_DAYS);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const creatives = ref<any[]>([]);
@@ -53,32 +42,6 @@ const fatigueMap = computed(() => {
   return map;
 });
 
-const getDateParams = () => {
-  const now = new Date();
-  let start = new Date();
-  let end = new Date();
-
-  if (selectedDateRange.value === DateRanges.THIS_MONTH) {
-    start = new Date(now.getFullYear(), now.getMonth(), 1);
-    end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  } else if (selectedDateRange.value === DateRanges.LAST_MONTH) {
-    start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    end = new Date(now.getFullYear(), now.getMonth(), 0);
-  } else if (selectedDateRange.value === DateRanges.LAST_30_DAYS) {
-    start.setDate(now.getDate() - 30);
-  } else if (selectedDateRange.value === DateRanges.LAST_90_DAYS) {
-    start.setDate(now.getDate() - 90);
-  }
-
-  const today = new Date();
-  if (end > today) end = today;
-
-  return {
-    start: start.toISOString().split('T')[0],
-    end: end.toISOString().split('T')[0]
-  };
-};
-
 const loadAnomalies = async () => {
   if (!selectedAccount?.value) return;
   const acc = selectedAccount.value;
@@ -86,6 +49,8 @@ const loadAnomalies = async () => {
   const accountIds = [acc.id, acc.googleAdsId, acc.facebookAdsId].filter(Boolean) as string[];
   accountIds.forEach(id => params.append('accountId', id));
   params.append('monitorId', 'creative_fatigue_monitor');
+  if (dateParams.value.startDate) params.append('startDate', dateParams.value.startDate);
+  if (dateParams.value.endDate) params.append('endDate', dateParams.value.endDate);
 
   try {
     const res = await fetch(`/api/monitors/anomalies?${params.toString()}`);
@@ -107,7 +72,6 @@ const loadCreatives = async () => {
   try {
     // Load both in parallel
     await Promise.all([loadAnomalies(), (async () => {
-      const dates = getDateParams();
       const params = new URLSearchParams();
       const acc = selectedAccount.value;
       
@@ -115,8 +79,8 @@ const loadCreatives = async () => {
       if (acc.googleAdsId) params.append('googleAdsId', acc.googleAdsId);
       if (acc.facebookAdsId) params.append('facebookAdsId', acc.facebookAdsId);
       
-      params.append('start', dates.start);
-      params.append('end', dates.end);
+      params.append('start', dateParams.value.startDate || '');
+      params.append('end', dateParams.value.endDate || '');
       params.append('grain', 'total');
 
       const res = await fetch(`/api/reports/creativePerformanceReport/live?${params.toString()}`);
@@ -145,7 +109,7 @@ const getPlatformIcon = (platform: string) => {
   return Sparkles;
 };
 
-watch([() => selectedAccount?.value, selectedDateRange], () => {
+watch([() => selectedAccount?.value, dateParams], () => {
   loadCreatives();
 }, { immediate: true });
 
@@ -154,7 +118,7 @@ watch([() => selectedAccount?.value, selectedDateRange], () => {
 <template>
   <div class="h-full flex flex-col bg-slate-50">
     <!-- Header -->
-    <div class="bg-white border-b border-slate-200 pt-6 px-8 pb-6 sticky top-0 z-30 shadow-sm">
+    <div class="bg-white border-b border-slate-200 pt-6 px-8 pb-6 sticky top-0 z-10 shadow-sm">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-3">
@@ -165,31 +129,6 @@ watch([() => selectedAccount?.value, selectedDateRange], () => {
         </div>
         
         <div class="flex items-center gap-3 flex-wrap">
-          <div class="relative group z-40">
-            <button class="flex items-center px-4 py-2 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 shadow-sm transition-all">
-              <Calendar class="w-4 h-4 mr-2 text-slate-500" />
-              {{ selectedDateRange }}
-              <ChevronDown class="w-4 h-4 ml-2" />
-            </button>
-            <div class="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 hidden group-hover:block z-50 overflow-hidden">
-              <button
-                v-for="range in Object.values(DateRanges)"
-                :key="range"
-                class="block w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 font-medium transition-colors"
-                @click="selectedDateRange = range"
-              >
-                {{ range }}
-              </button>
-            </div>
-          </div>
-
-          <div v-if="selectedAccount" class="flex items-center px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-xl text-sm font-medium text-indigo-700 shadow-sm">
-            <Wallet class="w-4 h-4 mr-3 text-indigo-500" />
-            <div class="text-left leading-tight">
-              <p class="text-[10px] uppercase text-indigo-400 font-bold tracking-wide">Active Account</p>
-              <p class="text-sm font-bold text-indigo-900">{{ selectedAccount.name }}</p>
-            </div>
-          </div>
           <button @click="loadCreatives" class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 rounded-xl transition-colors" title="Refresh">
             <RefreshCw :class="{'animate-spin': loading}" class="w-5 h-5" />
           </button>

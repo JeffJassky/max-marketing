@@ -18,15 +18,21 @@ export class Monitor {
   /**
    * Fetches anomalies for this specific monitor.
    */
-  async getAnomalies(accountIds: string | string[], limit: number = 100) {
+  async getAnomalies(accountIds: string | string[], limit: number = 100, startDate?: string, endDate?: string) {
     const bq = createBigQueryClient();
     const tableName = snakeCase(this.id);
     const ids = Array.isArray(accountIds) ? accountIds : [accountIds];
+
+    let dateFilter = "";
+    if (startDate && endDate) {
+      dateFilter = "AND detected_at >= @startDate AND detected_at <= @endDate";
+    }
 
     const query = `
       SELECT *, '${tableName}' as source_table
       FROM \`anomalies.${tableName}\`
       WHERE account_id IN UNNEST(@accountIds)
+      ${dateFilter}
       ORDER BY detected_at DESC
       LIMIT @limit
     `;
@@ -36,7 +42,7 @@ export class Monitor {
     try {
       const [rows] = await bq.query({
         query,
-        params: { accountIds: ids, limit }
+        params: { accountIds: ids, limit, startDate, endDate }
       });
 
       return rows.map(row => ({
@@ -57,9 +63,9 @@ export class Monitor {
   /**
    * Static helper to fetch and combine anomalies from multiple monitors.
    */
-  static async getUnifiedAnomalies(monitors: Monitor[], accountIds: string | string[], limit: number = 100) {
+  static async getUnifiedAnomalies(monitors: Monitor[], accountIds: string | string[], limit: number = 100, startDate?: string, endDate?: string) {
       const promises = monitors.map(m => 
-          m.getAnomalies(accountIds, limit)
+          m.getAnomalies(accountIds, limit, startDate, endDate)
               .catch(err => {
                   console.warn(`Failed to fetch from monitor ${m.id}:`, err.message);
                   return [];

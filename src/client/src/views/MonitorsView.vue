@@ -23,6 +23,7 @@ import {
   Info,
   Tag
 } from 'lucide-vue-next';
+import { useDateRange } from '../composables/useDateRange';
 
 interface MaxAccount {
   id: string;
@@ -51,6 +52,7 @@ const selectedAnomaly = ref<Anomaly | null>(null);
 
 // Global Account State injected from layout
 const selectedAccount = inject<Ref<MaxAccount | null>>('selectedAccount');
+const { dateParams } = useDateRange();
 
 const fetchAnomalies = async () => {
   if (!selectedAccount?.value) return;
@@ -64,6 +66,9 @@ const fetchAnomalies = async () => {
     if (selectedAccount.value.googleAdsId) params.append('googleAdsId', selectedAccount.value.googleAdsId);
     if (selectedAccount.value.facebookAdsId) params.append('facebookAdsId', selectedAccount.value.facebookAdsId);
     if (selectedAccount.value.ga4Id) params.append('ga4Id', selectedAccount.value.ga4Id);
+    
+    if (dateParams.value.startDate) params.append('startDate', dateParams.value.startDate);
+    if (dateParams.value.endDate) params.append('endDate', dateParams.value.endDate);
 
     if (params.toString() === '') {
         loading.value = false;
@@ -89,7 +94,7 @@ onMounted(() => {
   }
 });
 
-watch(() => selectedAccount?.value, () => {
+watch([() => selectedAccount?.value, dateParams], () => {
   fetchAnomalies();
 }, { immediate: true });
 
@@ -193,10 +198,6 @@ const getDisplayFields = (anomaly: Anomaly) => {
             <p class="text-slate-500 mt-1 text-lg">
               Automated insights and anomaly detection across your ad platforms.
             </p>
-          </div>
-          <div v-if="selectedAccount" class="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-slate-200 shadow-sm">
-            <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-            <span class="text-sm font-bold text-slate-700">{{ selectedAccount.name }}</span>
           </div>
         </div>
 

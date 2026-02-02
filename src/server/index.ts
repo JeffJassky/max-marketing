@@ -46,6 +46,12 @@ app.use(express.urlencoded({ limit: "10mb", extended: true }));
 app.post("/api/chat", async (req: Request, res: Response) => {
   const { messages, context } = req.body;
   
+  console.log("Chat Request Body:", JSON.stringify({ 
+    messageCount: messages?.length, 
+    contextKeys: context ? Object.keys(context) : null,
+    contextValues: context ? Object.values(context) : null
+  }, null, 2));
+  
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: "Messages array is required" });
   }
@@ -292,7 +298,7 @@ app.delete("/api/accounts/:id", async (req: Request, res: Response) => {
 });
 
 app.get("/api/monitors/anomalies", async (req: Request, res: Response) => {
-  const { accountId, googleAdsId, facebookAdsId, ga4Id, monitorId } = req.query;
+  const { accountId, googleAdsId, facebookAdsId, ga4Id, monitorId, startDate, endDate } = req.query;
 
   const accountIds: string[] = [];
   if (accountId) accountIds.push(String(accountId));
@@ -308,13 +314,16 @@ app.get("/api/monitors/anomalies", async (req: Request, res: Response) => {
       .json({ error: "At least one account ID is required" });
   }
 
+  const startStr = startDate ? String(startDate) : undefined;
+  const endStr = endDate ? String(endDate) : undefined;
+
   try {
     if (monitorId) {
       // Find the specific monitor instance
       const monitor = coreMonitors.find((m) => m.id === monitorId);
       if (!monitor) return res.status(404).json({ error: "Monitor not found" });
 
-      const rows = await monitor.getAnomalies(uniqueIds, 50);
+      const rows = await monitor.getAnomalies(uniqueIds, 50, startStr, endStr);
       return res.json(rows);
     }
 
@@ -322,7 +331,9 @@ app.get("/api/monitors/anomalies", async (req: Request, res: Response) => {
     const flat = await Monitor.getUnifiedAnomalies(
       coreMonitors,
       uniqueIds,
-      10
+      10,
+      startStr,
+      endStr
     );
     res.json(flat);
   } catch (error) {
@@ -721,7 +732,7 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
 });
 
 app.get("/api/executive/summary", async (req: Request, res: Response) => {
-  const { accountId, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId, days = "30" } = req.query;
+  const { accountId, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId, days, startDate, endDate } = req.query;
 
   const adsAccountIds: string[] = [];
   if (googleAdsId) adsAccountIds.push(String(googleAdsId));
@@ -737,7 +748,50 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
     return res.status(400).json({ error: "At least one platform ID is required" });
   }
 
-  const lookback = parseInt(String(days));
+  // Determine date range
+  let startStr: string;
+  let endStr: string;
+  let prevStartStr: string;
+  let prevEndStr: string;
+
+  if (startDate && endDate) {
+    startStr = String(startDate);
+    endStr = String(endDate);
+    
+    // Calculate previous period based on duration
+    const start = new Date(startStr);
+    const end = new Date(endStr);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // inclusive
+    
+    const prevEnd = new Date(start);
+    prevEnd.setDate(prevEnd.getDate() - 1);
+    
+    const prevStart = new Date(prevEnd);
+    prevStart.setDate(prevStart.getDate() - diffDays + 1);
+    
+    prevStartStr = prevStart.toISOString().split('T')[0];
+    prevEndStr = prevEnd.toISOString().split('T')[0];
+  } else {
+    // Legacy / Default 'days' logic
+    const lookback = parseInt(String(days || "30"));
+    const now = new Date();
+    
+    endStr = now.toISOString().split('T')[0];
+    
+    const start = new Date(now);
+    start.setDate(start.getDate() - lookback);
+    startStr = start.toISOString().split('T')[0];
+
+    const prevEnd = new Date(start);
+    prevEnd.setDate(prevEnd.getDate() - 1);
+    
+    const prevStart = new Date(prevEnd);
+    prevStart.setDate(prevStart.getDate() - lookback);
+    
+    prevStartStr = prevStart.toISOString().split('T')[0];
+    prevEndStr = prevEnd.toISOString().split('T')[0];
+  }
 
   try {
     const bq = createBigQueryClient();
@@ -751,7 +805,7 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
           SUM(conversions_value) as conversions_value
         FROM \`entities.ads_daily\`
         WHERE account_id IN UNNEST(@accountIds)
-        AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL @days DAY)
+        AND date >= @startDate AND date <= @endDate
       ),
       prev_period AS (
         SELECT 
@@ -760,8 +814,7 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
           SUM(conversions_value) as conversions_value
         FROM \`entities.ads_daily\`
         WHERE account_id IN UNNEST(@accountIds)
-        AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL (@days * 2) DAY)
-        AND date < DATE_SUB(CURRENT_DATE(), INTERVAL @days DAY)
+        AND date >= @prevStartDate AND date <= @prevEndDate
       )
       SELECT 
         COALESCE(c.spend, 0) as current_spend,
@@ -782,7 +835,7 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
           SUM(CASE WHEN customer_type = 'new' THEN orders ELSE 0 END) as new_customers
         FROM \`entities.shopify_daily\`
         WHERE account_id IN UNNEST(@accountIds)
-        AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL @days DAY)
+        AND date >= @startDate AND date <= @endDate
       ),
       prev_period AS (
         SELECT 
@@ -791,8 +844,7 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
           SUM(CASE WHEN customer_type = 'new' THEN orders ELSE 0 END) as new_customers
         FROM \`entities.shopify_daily\`
         WHERE account_id IN UNNEST(@accountIds)
-        AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL (@days * 2) DAY)
-        AND date < DATE_SUB(CURRENT_DATE(), INTERVAL @days DAY)
+        AND date >= @prevStartDate AND date <= @prevEndDate
       )
       SELECT 
         COALESCE(c.revenue, 0) as current_revenue,
@@ -804,12 +856,25 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
       FROM current_period c, prev_period p
     `;
 
+    const params = {
+      accountIds: uniqueAdsIds,
+      startDate: startStr,
+      endDate: endStr,
+      prevStartDate: prevStartStr,
+      prevEndDate: prevEndStr
+    };
+
+    const shopifyParams = {
+      ...params,
+      accountIds: uniqueShopifyIds
+    };
+
     const spendPromise = uniqueAdsIds.length > 0
-      ? bq.query({ query: spendQuery, params: { accountIds: uniqueAdsIds, days: lookback } })
+      ? bq.query({ query: spendQuery, params })
       : Promise.resolve([[{ current_spend: 0, prev_spend: 0 }]] as any);
 
     const revPromise = uniqueShopifyIds.length > 0
-      ? bq.query({ query: revenueQuery, params: { accountIds: uniqueShopifyIds, days: lookback } })
+      ? bq.query({ query: revenueQuery, params: shopifyParams })
       : Promise.resolve([[{ current_revenue: 0, prev_revenue: 0, current_new_rev: 0, prev_new_rev: 0 }]] as any);
 
     const [[spendRows], [revRows]] = await Promise.all([spendPromise, revPromise]);
@@ -858,7 +923,7 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
           newCustomers: currentNewCustomers
         }
       },
-      period: `${lookback}d`
+      period: startDate ? `${startStr} to ${endStr}` : `${days}d`
     });
   } catch (error) {
     console.error("Error fetching executive summary:", error);
