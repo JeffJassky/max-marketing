@@ -13,7 +13,7 @@ export const googleAdsCampaignPerformance = new AggregateReport({
     dateDimension: "date",
   },
   output: {
-    grain: ["account_id", "platform", "campaign_id", "campaign_name"],
+    grain: ["account_id", "campaign_id", "campaign_name"],
     metrics: {
       spend: { aggregation: "sum" },
       impressions: { aggregation: "sum" },

@@ -12,6 +12,7 @@ import {
   ChevronDown,
 } from 'lucide-vue-next';
 import { useMonthlySelection } from '../composables/useMonthlySelection';
+import QuestionsPanel from '../components/QuestionsPanel.vue';
 
 interface MaxAccount {
   id: string;
@@ -52,6 +53,7 @@ const { selectedMonth, loadMonths } = useMonthlySelection();
 
 const loading = ref(false);
 const superlatives = ref<Superlative[]>([]);
+const questions = ref<any[]>([]);
 const error = ref<string | null>(null);
 
 const loadSuperlatives = async () => {
@@ -78,7 +80,9 @@ const loadSuperlatives = async () => {
     const res = await fetch(`/api/reports/superlatives?${params.toString()}`);
     if (!res.ok) throw new Error('Failed to fetch superlatives');
 
-    superlatives.value = await res.json();
+    const data = await res.json();
+    superlatives.value = data.superlatives || [];
+    questions.value = data.questions || [];
   } catch (err: any) {
     console.error(err);
     error.value = err.message || 'Failed to load data';
@@ -420,6 +424,16 @@ watch([() => selectedAccount?.value, selectedMonth], () => {
           </div>
         </div>
       </div>
+
+      <!-- Questions Panel -->
+      <QuestionsPanel
+        v-if="!loading && questions.length > 0"
+        :questions="questions"
+        :loading="loading"
+        title="Questions About Your Charts"
+        class="mt-16"
+        @ask="(q) => console.log('Ask question:', q)"
+      />
     </section>
   </div>
 </template>

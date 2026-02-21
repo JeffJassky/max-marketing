@@ -47,6 +47,22 @@ export const ga4Daily = new Entity({
       aggregation: "sum",
       sourceField: "conversions",
     },
+    // Added for GA4 Overview spec compliance
+    active_users: {
+      type: z.number(),
+      aggregation: "sum",
+      sourceField: "active_users",
+    },
+    event_count: {
+      type: z.number(),
+      aggregation: "sum",
+      sourceField: "event_count",
+    },
+    user_engagement_duration: {
+      type: z.number(),
+      aggregation: "sum",
+      sourceField: "user_engagement_duration",
+    },
   },
   superlatives: [
     {

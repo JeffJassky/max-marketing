@@ -9,7 +9,8 @@
       "Bash(curl:*)",
       "Bash(source .env)",
       "Bash(bq show:*)",
-      "Bash(bq query:*)"
+      "Bash(bq query:*)",
+      "Bash(yarn cli:*)"
     ]
   }
 }

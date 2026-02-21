@@ -9,10 +9,15 @@ import {
   Facebook,
   RefreshCw,
   Wallet,
-  Search
+  Search,
+  Info,
+  ChevronUp,
+  ChevronDown,
+  ExternalLink
 } from 'lucide-vue-next';
 import Sparkline from '../components/Sparkline.vue';
 import { useDateRange } from '../composables/useDateRange';
+import { computed } from 'vue';
 
 interface MaxAccount {
   id: string;
@@ -34,7 +39,8 @@ const PlatformTab = {
   META: 'META',
   GA4: 'GA4',
   SHOPIFY: 'SHOPIFY',
-  SOCIAL: 'SOCIAL',
+  INSTAGRAM: 'INSTAGRAM',
+  FACEBOOK_ORGANIC: 'FACEBOOK_ORGANIC',
   GSC: 'GSC'
 } as const;
 
@@ -45,9 +51,92 @@ const tabs = [
   { id: PlatformTab.META, label: 'Meta Ads', icon: Facebook, reportId: 'metaAdsCampaignPerformance' },
   { id: PlatformTab.GA4, label: 'Google Analytics', icon: Globe, reportId: 'ga4AcquisitionPerformance' },
   { id: PlatformTab.SHOPIFY, label: 'Shopify', icon: ShoppingBag, reportId: 'shopifySourcePerformance' },
-  { id: PlatformTab.SOCIAL, label: 'Social', icon: Instagram, reportId: 'socialPlatformPerformance' },
+  { id: PlatformTab.INSTAGRAM, label: 'Instagram', icon: Instagram, reportId: 'instagramPostPerformance' },
+  { id: PlatformTab.FACEBOOK_ORGANIC, label: 'Facebook', icon: Facebook, reportId: 'facebookPostPerformance' },
   { id: PlatformTab.GSC, label: 'Search Console', icon: Search, reportId: 'gscQueryPerformance' }
 ];
+
+// Tooltip descriptions by platform and metric (aligned with spec)
+const metricTooltips: Record<PlatformTab, Record<string, string>> = {
+  [PlatformTab.GOOGLE]: {
+    // Spec: Overview: Google Ads - Row 1: Performance Cards
+    spend: "Total amount billed by Google for your search, display, and video ads. This represents your raw investment into capturing search intent.",
+    impressions: "Visibility count. This shows how many times your brand appeared in front of potential customers, regardless of whether they clicked.",
+    clicks: "Total traffic generated. This measures the number of users who found your ad compelling enough to take the first step toward your site.",
+    conversions: "Success count. This tracks the total number of users who completed a high-value action, such as a purchase, after clicking your Google ad.",
+    conversions_value: "Total revenue attributed to Google Ads conversions. This is the monetary value of all successful actions driven by your campaigns.",
+    roas: "Return on Ad Spend. For every dollar spent, this shows how much revenue was generated. Higher is better.",
+    cpa: "Cost Per Acquisition. The average cost to acquire one conversion. Lower is typically better.",
+    ctr: "Click-Through Rate. The percentage of impressions that resulted in a click. Indicates ad relevance and appeal."
+  },
+  [PlatformTab.META]: {
+    // Spec: Overview: Meta Ads - Row 1: Performance Cards
+    spend: "Total ad spend on Meta platforms. This covers everything from boosted posts to high-conversion Instagram Story ads.",
+    impressions: "Total exposure. This measures the scale of your 'interruption' marketing, showing how many times your creative appeared in user feeds.",
+    clicks: "Engagement volume. This represents the number of users who stopped scrolling and clicked to learn more about your brand.",
+    conversions: "Total results. These are the specific outcomes—like sales or leads—that Meta identifies as coming directly from your social ads.",
+    conversions_value: "Total revenue from conversions attributed to Meta Ads. Represents the business value driven by your social campaigns.",
+    roas: "Return on Ad Spend for Meta. Shows revenue generated per dollar spent on Facebook and Instagram ads.",
+    cpa: "Cost Per Acquisition on Meta. Average spend required to generate one conversion.",
+    ctr: "Click-Through Rate. Percentage of people who clicked after seeing your ad. Reflects creative and targeting effectiveness.",
+    reach: "Unique users who saw your ad at least once. Indicates the breadth of your audience exposure."
+  },
+  [PlatformTab.GA4]: {
+    // Spec: Overview: Google Analytics (GA4) - Row 1: Site Engagement Cards
+    sessions: "Total visits to your site. A session starts when a user arrives and ends after 30 minutes of inactivity.",
+    engaged_sessions: "Sessions where users spent 10+ seconds, had 2+ page views, or completed a conversion. Quality engagement indicator.",
+    conversions: "The total number of high-value actions taken on your site. This includes purchases and other 'milestone' actions like adding an item to the cart.",
+    revenue: "Total purchase revenue tracked by Google Analytics. May differ from Shopify due to attribution methodology.",
+    engagement_rate: "This measures traffic quality. A high engagement rate means your visitors are actually interacting with your content rather than leaving immediately.",
+    conversion_rate: "The percentage of sessions that resulted in a conversion. Higher rates indicate more effective traffic and site experience.",
+    // Spec-required metrics
+    avg_engagement_time: "The average time a user spends actively looking at your site. For high-ticket items, longer times often indicate higher purchase intent.",
+    events_per_user: "This shows how 'busy' your users are. More events per user generally mean they are exploring multiple products or reading deep into your content.",
+    active_users: "The number of distinct users who visited your site during this period.",
+    event_count: "Total number of events triggered across all users and sessions.",
+    user_engagement_duration: "The total amount of time your website was actively in users' foreground across all sessions."
+  },
+  [PlatformTab.SHOPIFY]: {
+    // Shopify performance metrics
+    revenue: "Total gross sales from your Shopify store. The source of truth for actual business revenue.",
+    orders: "Total number of completed orders. Direct measure of purchase volume.",
+    tax: "Total tax collected on orders. Useful for financial reconciliation.",
+    discounts: "Total value of discounts applied. Helps track promotion effectiveness.",
+    refunds: "Total refund amounts processed. Monitor for potential product or service issues.",
+    aov: "Average Order Value. Revenue divided by orders. Higher AOV often indicates successful upselling."
+  },
+  [PlatformTab.INSTAGRAM]: {
+    // Social media organic performance
+    impressions: "Total times your organic posts were displayed to users across social platforms.",
+    reach: "Unique accounts that saw your content. Measures audience breadth.",
+    engagement: "Total interactions including likes, comments, shares, and saves.",
+    followers: "Total follower count across connected social accounts.",
+    engagement_rate: "Engagement divided by reach. Indicates how compelling your content is to your audience.",
+    posts: "Number of posts published during this period."
+  },
+  [PlatformTab.FACEBOOK_ORGANIC]: {
+    // Social media organic performance
+    impressions: "Total times your organic posts were displayed to users across social platforms.",
+    reach: "Unique accounts that saw your content. Measures audience breadth.",
+    engagement: "Total interactions including likes, comments, shares, and saves.",
+    followers: "Total follower count across connected social accounts.",
+    engagement_rate: "Engagement divided by reach. Indicates how compelling your content is to your audience.",
+    posts: "Number of posts published during this period."
+  },
+  [PlatformTab.GSC]: {
+    // Spec: Overview: Search Console - Row 1: Organic Health Cards
+    clicks: "Total organic traffic. This is the volume of visitors coming to your site for free from Google search results.",
+    impressions: "Organic visibility. This measures how often Google shows your brand to people searching for related keywords.",
+    ctr: "Search relevance. A higher CTR means your website's title and description are highly relevant to what people are searching for.",
+    position: "Search rank. This is your average 'seat' on the Google results page. The closer this number is to 1, the higher you appear at the top of the page."
+  }
+};
+
+// Get tooltip for a metric based on active platform
+const getMetricTooltip = (metricKey: string): string => {
+  const platformTooltips = metricTooltips[activeTab.value];
+  return platformTooltips?.[metricKey] || `${metricKey.replace(/_/g, ' ')} for the selected period.`;
+};
 
 const activeTab = ref<PlatformTab>(PlatformTab.GOOGLE);
 const loading = ref(false);
@@ -69,6 +158,40 @@ interface ReportData {
 
 const reportData = ref<ReportData>({ headers: [], rows: [], totals: {}, dailyTotals: {} });
 
+// Sorting State
+const sortKey = ref<string | null>(null);
+const sortOrder = ref<'asc' | 'desc'>('desc');
+
+const handleSort = (key: string) => {
+  if (sortKey.value === key) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortKey.value = key;
+    sortOrder.value = 'desc';
+  }
+};
+
+const sortedRows = computed(() => {
+  if (!sortKey.value) return reportData.value.rows;
+
+  return [...reportData.value.rows].sort((a, b) => {
+    let aVal = a[sortKey.value!];
+    let bVal = b[sortKey.value!];
+
+    // Handle nulls/undefined
+    if (aVal === null || aVal === undefined) return sortOrder.value === 'asc' ? -1 : 1;
+    if (bVal === null || bVal === undefined) return sortOrder.value === 'asc' ? 1 : -1;
+
+    if (typeof aVal === 'string' && typeof bVal === 'string') {
+      return sortOrder.value === 'asc' 
+        ? aVal.localeCompare(bVal) 
+        : bVal.localeCompare(aVal);
+    }
+
+    return sortOrder.value === 'asc' ? aVal - bVal : bVal - aVal;
+  });
+});
+
 const loadReport = async () => {
   if (!selectedAccount?.value) return;
 
@@ -77,6 +200,9 @@ const loadReport = async () => {
 
   loading.value = true;
   error.value = null;
+  // Reset sorting when tab changes
+  sortKey.value = null;
+  sortOrder.value = 'desc';
   reportData.value = { headers: [], rows: [], totals: {}, dailyTotals: {} };
 
   try {
@@ -216,23 +342,28 @@ watch([() => activeTab.value, () => selectedAccount?.value, dateParams], () => {
         <!-- Summary Cards (Top Row) -->
         <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
            <!-- Pick top 4 numeric metrics -->
-           <div 
-            v-for="header in reportData.headers.filter(h => h.type === 'metric' || h.type === 'rate').slice(0, 4)" 
+           <div
+            v-for="header in reportData.headers.filter(h => h.type === 'metric' || h.type === 'rate').slice(0, 4)"
             :key="header.key"
-            class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm"
+            class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm group/tooltip relative"
           >
-            <p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">{{ header.label }}</p>
+            <div class="flex justify-between items-start mb-1">
+              <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">{{ header.label }}</p>
+              <Info class="w-4 h-4 text-slate-300 group-hover/tooltip:text-indigo-400 transition-colors cursor-help" />
+            </div>
             <p class="text-2xl font-bold text-slate-900">
                {{ formatValue(header.key, reportData.totals[header.key]) }}
             </p>
             <!-- Cumulative Sparkline for Total -->
             <div class="mt-2 h-8 w-full">
-               <Sparkline 
+               <Sparkline
                 :data="getCumulativeTotal(header.key)"
-                :height="30"
-                :width="200"
                 color="#6366f1"
                />
+            </div>
+            <!-- Tooltip -->
+            <div class="absolute top-full left-2 right-2 mt-2 bg-slate-900 text-white text-xs p-3 rounded-xl opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+              {{ getMetricTooltip(header.key) }}
             </div>
           </div>
         </div>
@@ -250,23 +381,79 @@ watch([() => activeTab.value, () => selectedAccount?.value, dateParams], () => {
                   <th 
                     v-for="header in reportData.headers" 
                     :key="header.key"
-                    class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap"
+                    @click="header.type !== 'sparkline' && handleSort(header.key)"
+                    class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap group select-none"
+                    :class="{'cursor-pointer hover:text-indigo-600': header.type !== 'sparkline'}"
                   >
-                    {{ header.label }}
+                    <div class="flex items-center gap-1">
+                      {{ header.label }}
+                      <template v-if="header.type !== 'sparkline'">
+                        <div class="w-4 h-4 flex items-center justify-center">
+                          <template v-if="sortKey === header.key">
+                            <ChevronUp v-if="sortOrder === 'asc'" class="w-3 h-3 text-indigo-600" />
+                            <ChevronDown v-else class="w-3 h-3 text-indigo-600" />
+                          </template>
+                          <ChevronDown v-else class="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </template>
+                    </div>
                   </th>
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-slate-50">
-                <tr v-for="(row, idx) in reportData.rows" :key="idx" class="hover:bg-slate-50 transition-colors">
+                <tr v-for="(row, idx) in sortedRows" :key="idx" class="hover:bg-slate-50 transition-colors">
                   <td 
                     v-for="header in reportData.headers" 
                     :key="header.key"
-                    class="px-6 py-4 whitespace-nowrap text-sm text-slate-700"
-                    :class="{'font-mono': header.type !== 'dimension' && header.type !== 'sparkline', 'font-medium': header.type === 'dimension'}"
+                    class="px-6 py-4 text-sm text-slate-700"
+                    :class="{
+                      'font-mono': header.type !== 'dimension' && header.type !== 'sparkline', 
+                      'font-medium': header.type === 'dimension',
+                      'whitespace-nowrap': header.key !== 'caption' && header.type !== 'sparkline',
+                      'min-w-[300px] max-w-md': header.key === 'caption'
+                    }"
                   >
                     <template v-if="header.type === 'sparkline'">
-                      <Sparkline :data="getSparklineData(row, header.metric)" :width="100" :height="24" color="#818cf8" />
+                      <Sparkline :data="getSparklineData(row, header.metric)" color="#818cf8" />
                     </template>
+                    
+                    <template v-else-if="header.key === 'thumbnail_url' && row[header.key]">
+                      <a 
+                        v-if="row.permalink" 
+                        :href="row.permalink" 
+                        target="_blank" 
+                        class="block w-24 h-24 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 flex-shrink-0 shadow-sm hover:ring-2 hover:ring-indigo-500 hover:ring-offset-2 transition-all group/thumb"
+                        title="Click to view original post"
+                      >
+                        <img :src="row[header.key]" class="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform duration-500" alt="Post thumbnail" />
+                      </a>
+                      <div v-else class="w-24 h-24 rounded-xl bg-slate-100 overflow-hidden border border-slate-200 flex-shrink-0 shadow-sm">
+                        <img :src="row[header.key]" class="w-full h-full object-cover" alt="Post thumbnail" />
+                      </div>
+                    </template>
+
+                    <template v-else-if="header.key === 'caption'">
+                      <div class="group/caption relative">
+                        <p class="line-clamp-3 text-xs leading-relaxed text-slate-600 group-hover/caption:text-slate-900 transition-colors">
+                          {{ row[header.key] || 'No caption' }}
+                        </p>
+                        <!-- Tooltip for long captions -->
+                        <div v-if="row[header.key] && row[header.key].length > 100" 
+                             class="absolute z-[60] bottom-full left-0 mb-2 w-72 p-3 bg-slate-900 text-white text-xs rounded-xl opacity-0 group-hover/caption:opacity-100 pointer-events-none transition-all duration-200 shadow-2xl scale-95 group-hover/caption:scale-100 origin-bottom-left whitespace-pre-wrap">
+                          <div class="font-medium mb-1 text-slate-400 uppercase tracking-wider text-[10px]">Full Caption</div>
+                          {{ row[header.key] }}
+                          <div class="absolute top-full left-6 -mt-1 border-4 border-transparent border-t-slate-900"></div>
+                        </div>
+                      </div>
+                    </template>
+
+                    <template v-else-if="header.key === 'permalink' && row[header.key]">
+                      <a :href="row[header.key]" target="_blank" class="inline-flex items-center px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors text-xs font-medium group/link">
+                        View Post
+                        <ExternalLink class="w-3 h-3 ml-1.5 opacity-60 group-hover/link:opacity-100 transition-opacity" />
+                      </a>
+                    </template>
+
                     <template v-else>
                       {{ formatValue(header.key, row[header.key]) }}
                     </template>

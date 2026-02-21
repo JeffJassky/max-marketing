@@ -27,5 +27,10 @@ export const ga4PagePerformance = new BronzeImport({
     screen_page_views: z.number(),
     sessions: z.number(),
     conversions: z.number(),
+    // Added for GA4 Overview spec compliance
+    active_users: z.number(),
+    event_count: z.number(),
+    user_engagement_duration: z.number(),
+    average_session_duration: z.number(),
   },
 });

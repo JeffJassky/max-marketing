@@ -1,3 +1,5 @@
+import { Agent } from 'undici'
+
 import {
 	WindsorEndpoint,
 	EndpointMetrics,
@@ -14,6 +16,15 @@ import {
 } from './const.js'
 
 import { windsorEndpoints } from './endpoints.js'
+
+/** Windsor request timeout in milliseconds */
+const WINDSOR_REQUEST_TIMEOUT_MS = 600000 // 10 minutes
+
+/** Custom fetch agent with extended timeouts for slow Windsor responses */
+const windsorAgent = new Agent({
+	headersTimeout: WINDSOR_REQUEST_TIMEOUT_MS,
+	bodyTimeout: WINDSOR_REQUEST_TIMEOUT_MS,
+})
 
 const ensureApiKey = (): string => {
 	const apiKey = process.env.WINDSOR_API_KEY
@@ -101,17 +112,24 @@ export async function windsorRequest<E extends WindsorEndpoint>(
 
 	// Add timeout to prevent hanging - Windsor can be slow
 	const controller = new AbortController()
-	const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 minute timeout
+	const timeoutId = setTimeout(() => controller.abort(), WINDSOR_REQUEST_TIMEOUT_MS)
 
 	let response: Response
 	try {
 		response = await runtimeFetch(`${url}?${params.toString()}`, {
 			signal: controller.signal,
+			// @ts-expect-error - dispatcher is a valid undici option for Node's native fetch
+			dispatcher: windsorAgent,
 		})
 	} catch (fetchError: any) {
 		clearTimeout(timeoutId)
+		const timeoutMinutes = WINDSOR_REQUEST_TIMEOUT_MS / 60000
 		if (fetchError.name === 'AbortError') {
-			throw new Error('Windsor request timed out after 2 minutes')
+			throw new Error(`Windsor request timed out after ${timeoutMinutes} minutes. Adjust WINDSOR_REQUEST_TIMEOUT_MS in windsor.ts if needed.`)
+		}
+		// Check for undici timeout errors (headers or body timeout)
+		if (fetchError.cause?.code === 'UND_ERR_HEADERS_TIMEOUT' || fetchError.cause?.code === 'UND_ERR_BODY_TIMEOUT') {
+			throw new Error(`Windsor request timed out after ${timeoutMinutes} minutes (${fetchError.cause.code}). Adjust WINDSOR_REQUEST_TIMEOUT_MS in windsor.ts if needed.`)
 		}
 		// Log more details about the fetch error
 		console.error('Windsor fetch error details:', {

@@ -38,6 +38,12 @@ import { prompt as editorPrompt } from "../shared/data/llm/editor.prompt";
 import { generateStructuredContent, generateContent } from "../shared/vendors/google/gemini";
 import { coreMonitors, allAggregateReports } from "./registry";
 import { MarketingAgent } from "./services/agent";
+import {
+  generateQuestions,
+  generateQuestionsForSource,
+  formatQuestionsForResponse,
+  QuestionDataContext,
+} from "../shared/data/questions";
 
 const app = express();
 app.use(express.json({ limit: "10mb" }));
@@ -324,7 +330,15 @@ app.get("/api/monitors/anomalies", async (req: Request, res: Response) => {
       if (!monitor) return res.status(404).json({ error: "Monitor not found" });
 
       const rows = await monitor.getAnomalies(uniqueIds, 50, startStr, endStr);
-      return res.json(rows);
+
+      // Generate relevant questions based on monitor data
+      const questionContext: QuestionDataContext = { anomalies: rows };
+      const relevantQuestions = generateQuestionsForSource("monitors", questionContext);
+
+      return res.json({
+        anomalies: rows,
+        questions: formatQuestionsForResponse(relevantQuestions),
+      });
     }
 
     // Unified feed
@@ -335,7 +349,15 @@ app.get("/api/monitors/anomalies", async (req: Request, res: Response) => {
       startStr,
       endStr
     );
-    res.json(flat);
+
+    // Generate relevant questions based on anomalies data
+    const questionContext: QuestionDataContext = { anomalies: flat };
+    const relevantQuestions = generateQuestionsForSource("monitors", questionContext);
+
+    res.json({
+      anomalies: flat,
+      questions: formatQuestionsForResponse(relevantQuestions),
+    });
   } catch (error) {
     console.error("Error fetching monitor anomalies:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -593,8 +615,31 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
       const allDates = getDatesInRange(startDate, endDate);
       const sample = rows[0];
       const excluded = ['account_id', 'date', 'partition', 'cluster'];
-      const dimensions = Object.keys(sample).filter(k => !excluded.includes(k) && typeof sample[k] === 'string');
-      const metrics = Object.keys(sample).filter(k => typeof sample[k] === 'number');
+      
+      // Robust dimension/metric detection
+      const allKeys = Object.keys(sample);
+      const dimensions = allKeys.filter(k => {
+        if (excluded.includes(k)) return false;
+        // Check first 10 rows for a string value if the first is null
+        for (let i = 0; i < Math.min(rows.length, 10); i++) {
+          if (rows[i][k] !== null && rows[i][k] !== undefined) {
+            return typeof rows[i][k] === 'string';
+          }
+        }
+        return false;
+      });
+      const metrics = allKeys.filter(k => {
+        if (excluded.includes(k)) return false;
+        if (dimensions.includes(k)) return false;
+        return typeof sample[k] === 'number';
+      });
+
+      // Ensure thumbnail_url is the first dimension if present
+      const thumbIdx = dimensions.indexOf('thumbnail_url');
+      if (thumbIdx > -1) {
+        dimensions.splice(thumbIdx, 1);
+        dimensions.unshift('thumbnail_url');
+      }
 
       const groups: Record<string, any> = {};
 
@@ -671,6 +716,13 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
       const formatLabel = (key: string) => key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
       
       const getSparklineMetric = (row: any) => {
+        // Exclude specific trends as requested by user
+        if (reportId === 'googleAdsCampaignPerformance' || reportId === 'metaAdsCampaignPerformance') return ''; // Remove Spend Trend
+        if (reportId === 'ga4AcquisitionPerformance') return ''; // Remove Revenue Trend
+        if (reportId === 'gscQueryPerformance') return ''; // Remove Impression Trend
+        if (reportId === 'socialPlatformPerformance' || reportId === 'instagramPostPerformance' || reportId === 'facebookPostPerformance') return ''; // Remove Impressions Trend
+        if (reportId === 'shopifySourcePerformance') return ''; // Remove Revenue Trend
+
         if (row._daily[0]?.spend !== undefined) return 'spend';
         if (row._daily[0]?.revenue !== undefined) return 'revenue';
         if (row._daily[0]?.impressions !== undefined) return 'impressions';
@@ -682,7 +734,7 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
 
       const headers = [
         ...dimensions.map(d => ({ key: d, label: formatLabel(d), type: 'dimension' })),
-        { key: '_sparkline', label: `${formatLabel(sparklineMetric)} Trend`, type: 'sparkline', metric: sparklineMetric },
+        ...(sparklineMetric ? [{ key: '_sparkline', label: `${formatLabel(sparklineMetric)} Trend`, type: 'sparkline', metric: sparklineMetric }] : []),
         ...metrics.filter(m => !m.includes('rate') && !m.includes('roas') && !m.includes('ctr') && !m.includes('aov') && !m.includes('cpa')).map(m => ({ key: m, label: formatLabel(m), type: 'metric' })),
         ...metrics.filter(m => m.includes('rate') || m.includes('roas') || m.includes('ctr') || m.includes('aov') || m.includes('cpa')).map(m => ({ key: m, label: formatLabel(m), type: 'rate' }))
       ];
@@ -826,34 +878,50 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
       FROM current_period c, prev_period p
     `;
 
-    // SQL for Revenue (Shopify)
+    // SQL for Revenue (Shopify) - Uses imports table for accurate unique customer counts
+    // Per spec: True CAC = Total Ad Spend / New Customers Acquired (unique customers, not orders)
     const revenueQuery = `
       WITH current_period AS (
-        SELECT 
+        SELECT
           SUM(revenue) as revenue,
-          SUM(CASE WHEN customer_type = 'new' THEN revenue ELSE 0 END) as new_rev,
-          SUM(CASE WHEN customer_type = 'new' THEN orders ELSE 0 END) as new_customers
+          SUM(CASE WHEN customer_type = 'new' THEN revenue ELSE 0 END) as new_rev
         FROM \`entities.shopify_daily\`
         WHERE account_id IN UNNEST(@accountIds)
         AND date >= @startDate AND date <= @endDate
       ),
       prev_period AS (
-        SELECT 
+        SELECT
           SUM(revenue) as revenue,
-          SUM(CASE WHEN customer_type = 'new' THEN revenue ELSE 0 END) as new_rev,
-          SUM(CASE WHEN customer_type = 'new' THEN orders ELSE 0 END) as new_customers
+          SUM(CASE WHEN customer_type = 'new' THEN revenue ELSE 0 END) as new_rev
         FROM \`entities.shopify_daily\`
         WHERE account_id IN UNNEST(@accountIds)
         AND date >= @prevStartDate AND date <= @prevEndDate
+      ),
+      -- Count unique NEW customers from raw orders (first-time purchasers)
+      current_new_customers AS (
+        SELECT COUNT(DISTINCT customer_id) as new_customers
+        FROM \`imports.shopify_orders\`
+        WHERE account_id IN UNNEST(@accountIds)
+        AND date >= @startDate AND date <= @endDate
+        AND (order_customer_number_of_orders = 1 OR order_customer_number_of_orders IS NULL)
+        AND LOWER(COALESCE(customer_is_returning, 'false')) != 'true'
+      ),
+      prev_new_customers AS (
+        SELECT COUNT(DISTINCT customer_id) as new_customers
+        FROM \`imports.shopify_orders\`
+        WHERE account_id IN UNNEST(@accountIds)
+        AND date >= @prevStartDate AND date <= @prevEndDate
+        AND (order_customer_number_of_orders = 1 OR order_customer_number_of_orders IS NULL)
+        AND LOWER(COALESCE(customer_is_returning, 'false')) != 'true'
       )
-      SELECT 
+      SELECT
         COALESCE(c.revenue, 0) as current_revenue,
         COALESCE(p.revenue, 0) as prev_revenue,
         COALESCE(c.new_rev, 0) as current_new_rev,
         COALESCE(p.new_rev, 0) as prev_new_rev,
-        COALESCE(c.new_customers, 0) as current_new_customers,
-        COALESCE(p.new_customers, 0) as prev_new_customers
-      FROM current_period c, prev_period p
+        COALESCE(cnc.new_customers, 0) as current_new_customers,
+        COALESCE(pnc.new_customers, 0) as prev_new_customers
+      FROM current_period c, prev_period p, current_new_customers cnc, prev_new_customers pnc
     `;
 
     const params = {
@@ -909,17 +977,22 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
     const platformCac = currentConversions > 0 ? currentSpend / currentConversions : 0;
     const platformRoas = currentSpend > 0 ? currentConvValue / currentSpend : 0;
 
+    // Efficiency Gap per spec: Holistic MER - Platform Reported ROAS Average
+    // Positive = platforms under-reporting, Negative = platforms over-claiming
+    const efficiencyGap = currentMer - platformRoas;
+
     res.json({
       scorecard: {
         mer: { value: currentMer, change: merChange },
         spend: { value: currentSpend, change: spendChange },
         revenue: { value: currentRev, change: revChange },
         acquisition: { value: acquisitionPct, change: acquisitionChange, newRevenue: currentNewRev },
-        tcac: { 
-          value: currentTcac, 
-          change: tcacChange, 
-          platformCac, 
+        tcac: {
+          value: currentTcac,
+          change: tcacChange,
+          platformCac,
           platformRoas,
+          efficiencyGap,
           newCustomers: currentNewCustomers
         }
       },
@@ -996,6 +1069,60 @@ app.get("/api/reports/superlatives/months", async (_req: Request, res: Response)
   }
 });
 
+// ─── Question Endpoints ───────────────────────────────────────────────────────
+
+// Homepage questions - aggregates data from multiple sources and returns 8 balanced questions
+// NOTE: This must be defined BEFORE the :questionId route to avoid matching "homepage" as an ID
+app.get("/api/questions/homepage", async (req: Request, res: Response) => {
+  const { accountId, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId, gscId, month } = req.query;
+
+  const accountIds: string[] = [];
+  if (accountId) accountIds.push(String(accountId));
+  if (googleAdsId) accountIds.push(String(googleAdsId));
+  if (facebookAdsId) accountIds.push(String(facebookAdsId));
+  if (ga4Id) accountIds.push(String(ga4Id));
+  if (shopifyId) accountIds.push(String(shopifyId));
+  if (instagramId) accountIds.push(String(instagramId));
+  if (facebookPageId) accountIds.push(String(facebookPageId));
+  if (gscId) accountIds.push(String(gscId));
+
+  const uniqueIds = Array.from(new Set(accountIds));
+
+  if (uniqueIds.length === 0) {
+    return res.status(400).json({ error: "At least one account ID is required" });
+  }
+
+  try {
+    const bq = createBigQueryClient();
+
+    // Fetch data from multiple sources in parallel
+    const [superlatives, anomalies] = await Promise.all([
+      fetchSuperlatives(bq, uniqueIds, month as string).catch(() => []),
+      Monitor.getUnifiedAnomalies(coreMonitors, uniqueIds, 50).catch(() => []),
+    ]);
+
+    // Build the question context
+    const questionContext: QuestionDataContext = {
+      superlatives,
+      anomalies,
+    };
+
+    // Generate questions from the data
+    const generatedQuestions = generateQuestions(questionContext);
+
+    res.json({
+      questions: formatQuestionsForResponse(generatedQuestions),
+      meta: {
+        superlativesCount: superlatives.length,
+        anomaliesCount: anomalies.length,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching homepage questions:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 app.get("/api/reports/superlatives", async (req: Request, res: Response) => {
   const { accountId, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId, gscId, month } = req.query;
 
@@ -1018,7 +1145,15 @@ app.get("/api/reports/superlatives", async (req: Request, res: Response) => {
   try {
     const bq = createBigQueryClient();
     const rows = await fetchSuperlatives(bq, uniqueIds, month as string);
-    res.json(rows);
+
+    // Generate relevant questions based on superlatives data
+    const questionContext: QuestionDataContext = { superlatives: rows };
+    const relevantQuestions = generateQuestionsForSource("superlatives", questionContext);
+
+    res.json({
+      superlatives: rows,
+      questions: formatQuestionsForResponse(relevantQuestions),
+    });
   } catch (error) {
     console.error("Error fetching superlatives:", error);
     res.status(500).json({ error: "Internal server error" });

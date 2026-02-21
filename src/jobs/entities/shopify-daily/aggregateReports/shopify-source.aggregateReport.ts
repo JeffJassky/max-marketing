@@ -13,7 +13,7 @@ export const shopifySourcePerformance = new AggregateReport({
     dateDimension: "date",
   },
   output: {
-    grain: ["account_id", "source", "customer_type"],
+    grain: ["account_id", "customer_type"],
     metrics: {
       orders: { aggregation: "sum" },
       revenue: { aggregation: "sum" },

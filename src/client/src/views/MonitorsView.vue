@@ -24,6 +24,7 @@ import {
   Tag
 } from 'lucide-vue-next';
 import { useDateRange } from '../composables/useDateRange';
+import QuestionsPanel from '../components/QuestionsPanel.vue';
 
 interface MaxAccount {
   id: string;
@@ -46,6 +47,7 @@ interface Anomaly {
 }
 
 const anomalies = ref<Anomaly[]>([]);
+const questions = ref<any[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const selectedAnomaly = ref<Anomaly | null>(null);
@@ -77,8 +79,9 @@ const fetchAnomalies = async () => {
 
     const response = await fetch(`/api/monitors/anomalies?${params.toString()}`);
     if (!response.ok) throw new Error('Failed to fetch anomalies');
-    const results = await response.json();
-    anomalies.value = results; 
+    const data = await response.json();
+    anomalies.value = data.anomalies || [];
+    questions.value = data.questions || []; 
 
   } catch (e) {
     console.error(e);
@@ -223,7 +226,17 @@ const getDisplayFields = (anomaly: Anomaly) => {
           <p class="text-slate-500 text-lg mt-2 max-w-md mx-auto">No anomalies detected in the current lookback period. Your accounts are performing within expected statistical ranges.</p>
         </div>
 
-        <div v-else class="space-y-12">
+        <!-- Questions Panel -->
+        <QuestionsPanel
+          v-if="!loading && questions.length > 0"
+          :questions="questions"
+          :loading="loading"
+          title="Questions About Your Monitors"
+          class="mb-12"
+          @ask="(q) => console.log('Ask question:', q)"
+        />
+
+        <div v-if="anomalies.length > 0" class="space-y-12">
           <div v-for="(groupAnomalies, category) in groupedAnomalies" :key="category" class="space-y-6">
             <div class="flex items-center gap-4">
               <h2 class="text-xl font-bold text-slate-800 whitespace-nowrap">{{ category }}</h2>

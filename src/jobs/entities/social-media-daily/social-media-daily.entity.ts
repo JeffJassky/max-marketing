@@ -39,7 +39,7 @@ export const socialMediaDaily = new Entity({
       type: z.string(),
       sources: {
         instagramMedia: { sourceField: "media_type" },
-        facebookOrganicPosts: { expression: "CAST(NULL AS STRING)" },
+        facebookOrganicPosts: { expression: "'POST'" },
       },
     },
     caption: {
@@ -53,7 +53,7 @@ export const socialMediaDaily = new Entity({
       type: z.string(),
       sources: {
         instagramMedia: { sourceField: "media_permalink" },
-        facebookOrganicPosts: { expression: "CAST(NULL AS STRING)" },
+        facebookOrganicPosts: { expression: "CONCAT('https://facebook.com/', post_id)" },
       },
     },
     thumbnail_url: {
@@ -69,7 +69,7 @@ export const socialMediaDaily = new Entity({
       type: z.number(),
       aggregation: "sum",
       sources: {
-        instagramMedia: { sourceField: "impressions" },
+        instagramMedia: { expression: "SUM(COALESCE(impressions, media_reach, media_views))" },
         facebookOrganicPosts: { sourceField: "post_impressions" },
       },
     },

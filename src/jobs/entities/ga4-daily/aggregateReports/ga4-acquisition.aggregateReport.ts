@@ -19,6 +19,10 @@ export const ga4AcquisitionPerformance = new AggregateReport({
       engaged_sessions: { aggregation: "sum" },
       conversions: { aggregation: "sum" },
       revenue: { aggregation: "sum" },
+      // Added for GA4 Overview spec compliance
+      active_users: { aggregation: "sum" },
+      event_count: { aggregation: "sum" },
+      user_engagement_duration: { aggregation: "sum" },
     },
     derivedFields: {
       engagement_rate: {
@@ -27,6 +31,16 @@ export const ga4AcquisitionPerformance = new AggregateReport({
       },
       conversion_rate: {
         expression: "SAFE_DIVIDE(conversions, sessions)",
+        type: z.number(),
+      },
+      // Spec: Average Engagement Time = Total Engagement Time / Active Users
+      avg_engagement_time: {
+        expression: "SAFE_DIVIDE(user_engagement_duration, active_users)",
+        type: z.number(),
+      },
+      // Spec: Event Count per User = Total Event Count / Total Users
+      events_per_user: {
+        expression: "SAFE_DIVIDE(event_count, active_users)",
         type: z.number(),
       },
     },

@@ -20,6 +20,8 @@ import { metaAdsCampaignPerformance } from "../jobs/entities/ads-daily/aggregate
 import { ga4AcquisitionPerformance } from "../jobs/entities/ga4-daily/aggregateReports/ga4-acquisition.aggregateReport";
 import { shopifySourcePerformance } from "../jobs/entities/shopify-daily/aggregateReports/shopify-source.aggregateReport";
 import { socialPlatformPerformance } from "../jobs/entities/social-media-daily/aggregateReports/social-platform.aggregateReport";
+import { instagramPostPerformance } from "../jobs/entities/social-media-daily/aggregateReports/instagram-post-performance.aggregateReport";
+import { facebookPostPerformance } from "../jobs/entities/social-media-daily/aggregateReports/facebook-post-performance.aggregateReport";
 import { creativePerformanceReport } from "../jobs/entities/creative-daily/aggregateReports/creative-performance.aggregateReport";
 import { gscQueryPerformance } from "../jobs/entities/gsc-daily/aggregateReports/gsc-query-performance.aggregateReport";
 import { gscPagePerformance } from "../jobs/entities/gsc-daily/aggregateReports/gsc-page-performance.aggregateReport";
@@ -67,6 +69,8 @@ export const allAggregateReports = [
   ga4AcquisitionPerformance,
   shopifySourcePerformance,
   socialPlatformPerformance,
+  instagramPostPerformance,
+  facebookPostPerformance,
   creativePerformanceReport,
   gscQueryPerformance,
   gscPagePerformance,
@@ -91,6 +95,7 @@ export const allImports = [
   ga4PageImport,
   gscImport,
 ];
+
 
 export const getSchemaCatalog = () => {
   const catalog: Record<string, { 

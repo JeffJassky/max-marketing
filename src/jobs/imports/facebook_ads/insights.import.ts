@@ -31,7 +31,7 @@ export const facebookAdsInsights = new BronzeImport({
     reach: z.number().optional(),
     frequency: z.number().optional(),
     clicks: z.number(),
-    actions: z.number(), // Total actions (proxy for conversions if not specific)
+    actions: z.array(z.object({ action_type: z.string(), value: z.string() })).optional(),
     action_values: z.array(z.object({ action_type: z.string(), value: z.string() })).optional(), // Often complex structure
   },
 });

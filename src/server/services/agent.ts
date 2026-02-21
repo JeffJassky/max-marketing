@@ -1,14 +1,10 @@
 import { getGeminiClient } from "../../shared/vendors/google/gemini";
-import { createBigQueryClient } from "../../shared/vendors/google/bigquery/bigquery";
-import { buildReportQuery } from "../../shared/data/queryBuilder";
 import {
-  coreMonitors,
-  allAggregateReports,
-  getSchemaCatalog,
-  allEntities,
-  allImports,
-} from "../registry";
-import { Monitor } from "../../shared/data/monitor";
+  createBigQueryClient,
+  upsertPartitionedClusteredTable,
+  BigQueryRow,
+} from "../../shared/vendors/google/bigquery/bigquery";
+import { getSchemaCatalog, allEntities, allImports } from "../registry";
 import { SchemaType } from "@google/generative-ai";
 
 export interface ChatMessage {
@@ -18,6 +14,12 @@ export interface ChatMessage {
 
 export class MarketingAgent {
   private bq = createBigQueryClient();
+  private _failedQueriesThisTurn: {
+    virtualSql: string;
+    secureSql?: string;
+    error: string;
+    stack?: string;
+  }[] = [];
 
   constructor(private accountContext: Record<string, string>) {}
 
@@ -48,9 +50,10 @@ export class MarketingAgent {
       - Always perform a query using 'execute_sql' before making definitive claims about performance.
       - KEY FORMULAS:
         * Holistic MER = Total Shopify Revenue / Total Ad Spend (Google + Meta).
-        * True CAC (tCAC) = Total Ad Spend / Shopify New Customers (where customer_type = 'new').
+        * True CAC (tCAC) = Total Ad Spend / COUNT(DISTINCT unique new customers from Shopify). New customers are those with order_customer_number_of_orders = 1 and customer_is_returning != 'true'.
         * Platform ROAS = conversions_value / spend (from adsDaily).
         * Platform CAC = spend / conversions (from adsDaily).
+        * Efficiency Gap = Holistic MER - Platform ROAS. A negative value means platforms are over-claiming credit.
       
       CATALOG:
       ${JSON.stringify(catalog, null, 2)}
@@ -124,6 +127,8 @@ export class MarketingAgent {
     let iterations = 0;
 
     while (iterations < MAX_ITERATIONS) {
+      this._failedQueriesThisTurn = []; // Reset for this iteration
+
       const parts = response.candidates?.[0]?.content?.parts || [];
       const toolCalls = parts.filter((p) => p.functionCall);
 
@@ -141,7 +146,38 @@ export class MarketingAgent {
           let output: any = null;
           try {
             if (name === "execute_sql") {
-              output = await this.executeSecureSql((args as any).sql);
+              const virtualSql = (args as any).sql;
+              try {
+                const queryResult = await this.executeSecureSql(virtualSql);
+                output = queryResult.rows;
+
+                if (this._failedQueriesThisTurn.length > 0) {
+                  await this.logSuccessfulQuery({
+                    virtualSql,
+                    secureSql: queryResult.secureSql,
+                    history,
+                    failedAttempts: this._failedQueriesThisTurn,
+                  });
+                  this._failedQueriesThisTurn = []; // Clear after logging
+                }
+              } catch (e: any) {
+                // Store failed query details temporarily
+                this._failedQueriesThisTurn.push({
+                  virtualSql,
+                  secureSql: e.secureSql,
+                  error: e.message,
+                  stack: e.stack,
+                });
+                // Log failed SQL with context
+                await this.logFailedQuery({
+                  virtualSql,
+                  secureSql: e.secureSql,
+                  error: e.message,
+                  stack: e.stack,
+                  history,
+                });
+                throw e; // Re-throw to be caught by outer catch
+              }
             } else if (name === "get_distinct_values") {
               output = await this.getDistinctValues(
                 (args as any).entityId,
@@ -198,7 +234,9 @@ export class MarketingAgent {
    * The Secure SQL Proxy.
    * Transforms AI-generated "Virtual SQL" into multi-tenant "Secure BigQuery SQL".
    */
-  private async executeSecureSql(virtualSql: string) {
+  private async executeSecureSql(
+    virtualSql: string,
+  ): Promise<{ rows: BigQueryRow[]; secureSql: string }> {
     const normalized = virtualSql.toLowerCase().trim();
     if (!normalized.startsWith("select") && !normalized.startsWith("with")) {
       throw new Error("Only SELECT queries are allowed.");
@@ -215,7 +253,11 @@ export class MarketingAgent {
     const accountIds = Object.values(this.accountContext).filter(Boolean);
     if (!accountIds.length) {
       console.error("Account Context Missing:", this.accountContext);
-      throw new Error(`No account access identified for this session. Context: ${JSON.stringify(this.accountContext)}`);
+      throw new Error(
+        `No account access identified for this session. Context: ${JSON.stringify(
+          this.accountContext,
+        )}`,
+      );
     }
 
     const catalog = getSchemaCatalog();
@@ -255,12 +297,16 @@ export class MarketingAgent {
 
     console.log(`[Agent][BigQuery SQL]: ${secureSql.replace(/\n/g, " ")}`);
 
-    const [rows] = await this.bq.query({
-      query: secureSql,
-      params: { accountIds },
-    });
-
-    return rows;
+    try {
+      const [rows] = await this.bq.query({
+        query: secureSql,
+        params: { accountIds },
+      });
+      return { rows, secureSql };
+    } catch (e: any) {
+      e.secureSql = secureSql;
+      throw e;
+    }
   }
 
   private async getDistinctValues(entityId: string, dimension: string) {
@@ -288,5 +334,77 @@ export class MarketingAgent {
     });
 
     return rows.map((r: any) => r[dimension]);
+  }
+
+  private async logFailedQuery(params: {
+    virtualSql: string;
+    secureSql?: string;
+    error: string;
+    stack?: string;
+    history: ChatMessage[];
+  }) {
+    try {
+      const userMessage = params.history[params.history.length - 1]?.text || "";
+      const row = {
+        timestamp: new Date(),
+        user_message: userMessage,
+        virtual_sql: params.virtualSql,
+        secure_sql: params.secureSql,
+        error_message: params.error,
+        error_stack: params.stack,
+        chat_history: JSON.stringify(params.history),
+        account_context: JSON.stringify(this.accountContext),
+      };
+
+      await upsertPartitionedClusteredTable([row], {
+        datasetId: "monitoring",
+        tableId: "failed_queries",
+        partitionField: "timestamp",
+        clusteringFields: ["error_message"],
+      });
+      console.log("[Agent] Successfully logged failed query to BigQuery.");
+    } catch (logError: any) {
+      console.error(
+        "[Agent] Failed to log query error to BigQuery:",
+        logError.message,
+      );
+    }
+  }
+
+  private async logSuccessfulQuery(params: {
+    virtualSql: string;
+    secureSql?: string;
+    history: ChatMessage[];
+    failedAttempts: {
+      virtualSql: string;
+      secureSql?: string;
+      error: string;
+      stack?: string;
+    }[];
+  }) {
+    try {
+      const userMessage = params.history[params.history.length - 1]?.text || "";
+      const row = {
+        timestamp: new Date(),
+        user_message: userMessage,
+        virtual_sql: params.virtualSql,
+        secure_sql: params.secureSql,
+        chat_history: JSON.stringify(params.history),
+        account_context: JSON.stringify(this.accountContext),
+        failed_attempts: JSON.stringify(params.failedAttempts),
+      };
+
+      await upsertPartitionedClusteredTable([row], {
+        datasetId: "monitoring",
+        tableId: "successful_queries",
+        partitionField: "timestamp",
+      });
+      console.log("[Agent] Successfully logged successful query to BigQuery.");
+    } catch (logError: any) {
+      console.error(
+        "[Agent] Failed to log successful query to BigQuery:",
+        logError.message,
+      );
+    }
   }
 }

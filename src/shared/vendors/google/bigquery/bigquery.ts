@@ -217,7 +217,11 @@ function shouldPromoteToFloat(
 	baseType: TableField['type'],
 	incomingType: TableField['type']
 ): boolean {
-	const involvesInteger = baseType === 'INT64' || incomingType === 'INT64'
+	const involvesInteger =
+		baseType === 'INT64' ||
+		incomingType === 'INT64' ||
+		baseType === 'INTEGER' ||
+		incomingType === 'INTEGER'
 	const involvesFloat = baseType === 'FLOAT64' || incomingType === 'FLOAT64'
 	return involvesInteger && involvesFloat
 }
@@ -253,7 +257,7 @@ function inferField(name: string, value: unknown): TableField {
 
 	let type: TableField['type'] = 'STRING'
 	if (typeof value === 'number') {
-		type = Number.isInteger(value) ? 'INT64' : 'FLOAT64'
+		type = 'FLOAT64'
 	} else if (typeof value === 'boolean') {
 		type = 'BOOL'
 	} else if (isRFC3339Timestamp(value)) {

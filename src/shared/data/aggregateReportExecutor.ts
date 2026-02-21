@@ -147,7 +147,9 @@ export class AggregateReportExecutor {
       .from(qb.raw(`\`${table}\``))
       .select(qb.raw(baseSelects.join(", ")));
 
+    // ---------------------------------------
     // WINDOW WHERE CLAUSE
+    // ---------------------------------------
     if (windowStartSQL) {
       queryBuilder.whereRaw(`${dateField} >= ${windowStartSQL}`);
     }
@@ -161,16 +163,42 @@ export class AggregateReportExecutor {
     }
 
     // ---------------------------------------
+    // REPORT PREDICATE (Split into WHERE and HAVING)
+    // ---------------------------------------
+    const predicate = def.predicate as string | undefined;
+    const whereParts: string[] = [];
+    const havingParts: string[] = [];
+
+    if (predicate) {
+      const parts = predicate.split(/\s+AND\s+|\s+and\s+/i);
+      const entityMetrics = Object.keys(entity.definition.metrics);
+      const reportMetrics = Object.keys(def.output.metrics);
+      const allMetrics = new Set([...entityMetrics, ...reportMetrics]);
+
+      parts.forEach(part => {
+        const containsMetric = Array.from(allMetrics).some(m => part.includes(m));
+        if (containsMetric) {
+          havingParts.push(predicateToSql(part, metricAliasMap));
+        } else {
+          whereParts.push(predicateToSql(part)); // No alias mapping for WHERE
+        }
+      });
+    }
+
+    whereParts.forEach(part => {
+      if (part) queryBuilder.whereRaw(part);
+    });
+
+    // ---------------------------------------
     // GROUP BY
     // ---------------------------------------
     queryBuilder.groupBy(groupByFields.map((dim) => qb.raw(dim)));
 
     // ---------------------------------------
-    // HAVING (TRANSLATED PREDICATE)
+    // HAVING (METRIC FILTERS)
     // ---------------------------------------
-    const having = predicateToSql(def.predicate, metricAliasMap);
-    if (having && having.trim().length > 0) {
-      queryBuilder.havingRaw(having);
+    if (havingParts.length > 0) {
+      queryBuilder.havingRaw(havingParts.join(" AND "));
     }
 
     const baseQuery = queryBuilder.toQuery();

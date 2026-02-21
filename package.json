@@ -17,7 +17,8 @@
     "build:client": "yarn workspace maxed-marketing-client build",
     "preview:client": "yarn workspace maxed-marketing-client preview",
     "tsc": "tsc",
-    "cli": "npx tsx src/cli/index.ts"
+    "cli": "npx tsx src/cli/index.ts",
+    "analyze-errors": "npx tsx src/cli/analyze-agent-errors.ts"
   },
   "dependencies": {
     "@google-cloud/bigquery": "^8.1.1",
@@ -36,12 +37,13 @@
     "knex": "^3.1.0",
     "lodash": "^4.17.21",
     "node-sql-parser": "^5.4.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "undici": "^7.22.0",
     "verror": "^1.10.1",
     "vite": "^7.2.6",
     "vue-chartjs": "^5.3.3",
-    "zod": "^4.1.13",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

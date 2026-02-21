@@ -3,7 +3,8 @@ import { z } from "zod";
 
 export const shopifyOrders = new BronzeImport({
   id: "shopifyOrders",
-  description: "Shopify orders data including revenue, tax, shipping, and discounts.",
+  description:
+    "Shopify orders data including revenue, tax, shipping, and discounts.",
   platform: "shopify",
   endpoint: "shopify",
   version: 1,
@@ -15,6 +16,7 @@ export const shopifyOrders = new BronzeImport({
   uniquenessKey: ["date", "account_id", "order_id"],
   dimensions: {
     date: z.string(),
+
     account_id: z.string(),
     account_name: z.string(),
     order_id: z.string(),

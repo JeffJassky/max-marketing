@@ -2,16 +2,16 @@
 import { computed, ref, onMounted, watch, inject, type Ref } from 'vue';
 import VueApexCharts from 'vue3-apexcharts';
 import { useRouter } from 'vue-router';
-import { 
-  TrendingUp, 
-  ArrowUpRight, 
-  ArrowRight, 
-  LayoutGrid, 
-  Sparkles, 
-  Target, 
-  Zap, 
-  Wallet, 
-  BarChart3, 
+import {
+  TrendingUp,
+  ArrowUpRight,
+  ArrowRight,
+  LayoutGrid,
+  Sparkles,
+  Target,
+  Zap,
+  Wallet,
+  BarChart3,
   AlertCircle,
   Clock,
   TrendingDown,
@@ -21,6 +21,7 @@ import {
   RefreshCw
 } from 'lucide-vue-next';
 import { useDateRange } from '../composables/useDateRange';
+import QuestionsPanel from '../components/QuestionsPanel.vue';
 
 const router = useRouter();
 const ApexChart = VueApexCharts;
@@ -55,9 +56,11 @@ const { dateParams } = useDateRange();
 // Real Data State
 const scorecard = ref<any>(null);
 const anomalies = ref<any[]>([]);
+const questions = ref<any[]>([]);
 const spendMix = ref<any>(null);
 const loading = ref(true);
 const spendDataLoading = ref(false);
+const questionsLoading = ref(false);
 
 const formatCurrency = (val: number, decimals = 0) => {
   return new Intl.NumberFormat('en-US', { 
@@ -90,13 +93,41 @@ const loadAll = async () => {
       fetch(`/api/executive/summary?${params.toString()}`).then(r => r.json()),
       fetch(`/api/monitors/anomalies?${params.toString()}`).then(r => r.json())
     ]);
-    
+
     scorecard.value = scoreRes;
-    anomalies.value = anomalyRes;
+    // Handle new response format { anomalies, questions }
+    anomalies.value = anomalyRes.anomalies || [];
   } catch (e) {
     console.error('Failed to load dashboard data', e);
   } finally {
     loading.value = false;
+  }
+
+  // Load homepage questions separately
+  loadQuestions();
+};
+
+const loadQuestions = async () => {
+  if (!selectedAccount?.value) return;
+  questionsLoading.value = true;
+
+  const acc = selectedAccount.value;
+  const params = new URLSearchParams();
+  if (acc.googleAdsId) params.append('googleAdsId', acc.googleAdsId);
+  if (acc.facebookAdsId) params.append('facebookAdsId', acc.facebookAdsId);
+  if (acc.ga4Id) params.append('ga4Id', acc.ga4Id);
+  if (acc.shopifyId) params.append('shopifyId', acc.shopifyId);
+  if (acc.instagramId) params.append('instagramId', acc.instagramId);
+  if (acc.facebookPageId) params.append('facebookPageId', acc.facebookPageId);
+  if (acc.gscId) params.append('gscId', acc.gscId);
+
+  try {
+    const res = await fetch(`/api/questions/homepage?${params.toString()}`).then(r => r.json());
+    questions.value = res.questions || [];
+  } catch (e) {
+    console.error('Failed to load questions', e);
+  } finally {
+    questionsLoading.value = false;
   }
 };
 
@@ -206,7 +237,7 @@ const platformHealth = computed(() => {
             {{ selectedAccount ? `Ready to win, ${selectedAccount.name}?` : 'Welcome to Maxed' }}
           </h1>
           <p class="text-slate-500 mt-1 max-w-2xl" v-if="scorecard">
-            Holistic MER is currently 
+            Holistic MER is currently
             <span class="font-bold text-indigo-600">{{ scorecard.scorecard.mer.value.toFixed(2) }}x</span>.
             We found <span class="font-bold text-slate-800">{{ anomalies.length }} optimization opportunities</span> for you today.
           </p>
@@ -214,9 +245,20 @@ const platformHealth = computed(() => {
         <div class="text-[10px] text-indigo-400 font-mono">DASHBOARD_V1_LIVE</div>
       </div>
 
+      <!-- Questions Panel -->
+      <QuestionsPanel
+        v-if="questions.length > 0 || questionsLoading"
+        :questions="questions"
+        :loading="questionsLoading"
+        title="Questions to Explore"
+        class="mb-8"
+        @ask="(q) => console.log('Ask question:', q)"
+      />
+
       <!-- Executive Scorecard -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" v-if="scorecard">
-        <div class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm">
+        <!-- Holistic MER -->
+        <div class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm group/tooltip relative">
           <div class="flex justify-between items-start mb-4">
             <span class="text-slate-500 text-sm font-medium uppercase tracking-wider">Holistic MER</span>
             <TrendingUp class="w-5 h-5 text-indigo-500" />
@@ -227,9 +269,14 @@ const platformHealth = computed(() => {
             <span class="font-bold">{{ Math.abs(scorecard.scorecard.mer.change).toFixed(1) }}%</span>
             <span class="text-slate-400 font-normal ml-1">vs prev. period</span>
           </div>
+          <!-- Tooltip -->
+          <div class="absolute top-full left-4 right-4 mt-2 bg-slate-900 text-white text-xs p-3 rounded-xl opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
+            This is your 'Marketing Efficiency Ratio.' It shows your total store revenue relative to your total ad spend. A higher number means your marketing is working more efficiently to drive overall business growth.
+          </div>
         </div>
 
-        <div class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm">
+        <!-- Total Ad Spend -->
+        <div class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm group/tooltip relative">
           <div class="flex justify-between items-start mb-4">
             <span class="text-slate-500 text-sm font-medium uppercase tracking-wider">Total Ad Spend</span>
             <Wallet class="w-5 h-5 text-red-400" />
@@ -239,9 +286,14 @@ const platformHealth = computed(() => {
             <span class="font-bold">{{ scorecard.scorecard.spend.change.toFixed(1) }}%</span>
             <span class="text-slate-400 font-normal ml-1">spend velocity</span>
           </div>
+          <!-- Tooltip -->
+          <div class="absolute top-full left-4 right-4 mt-2 bg-slate-900 text-white text-xs p-3 rounded-xl opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
+            The total amount you've invested in advertising across all platforms (like Meta and Google) during this timeframe.
+          </div>
         </div>
 
-        <div class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm">
+        <!-- Store Revenue -->
+        <div class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm group/tooltip relative">
           <div class="flex justify-between items-start mb-4">
             <span class="text-slate-500 text-sm font-medium uppercase tracking-wider">Store Revenue</span>
             <ShoppingBag class="w-5 h-5 text-green-500" />
@@ -252,9 +304,14 @@ const platformHealth = computed(() => {
             <span class="font-bold">{{ Math.abs(scorecard.scorecard.revenue.change).toFixed(1) }}%</span>
             <span class="text-slate-400 font-normal ml-1">growth</span>
           </div>
+          <!-- Tooltip -->
+          <div class="absolute top-full left-4 right-4 mt-2 bg-slate-900 text-white text-xs p-3 rounded-xl opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
+            Your total gross sales recorded in Shopify. This includes all orders, whether they came from an ad, an email, or someone coming to your site directly.
+          </div>
         </div>
 
-        <div class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm">
+        <!-- Acquisition Health -->
+        <div class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm group/tooltip relative">
           <div class="flex justify-between items-start mb-4">
             <span class="text-slate-500 text-sm font-medium uppercase tracking-wider">Acquisition Health</span>
             <Sparkles class="w-5 h-5 text-amber-500" />
@@ -265,12 +322,17 @@ const platformHealth = computed(() => {
             <span class="font-bold">{{ Math.abs(scorecard.scorecard.acquisition.change).toFixed(1) }}%</span>
             <span class="text-slate-400 font-normal ml-1">new customer rev.</span>
           </div>
+          <!-- Tooltip -->
+          <div class="absolute top-full left-4 right-4 mt-2 bg-slate-900 text-white text-xs p-3 rounded-xl opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
+            This tracks your success in finding new customers. A high percentage means you are effectively growing your audience; a lower percentage means you are primarily relying on repeat buyers.
+          </div>
         </div>
       </div>
 
       <!-- Attribution & Efficiency -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8" v-if="scorecard && scorecard.scorecard.tcac">
-        <div class="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm">
+        <!-- True CAC -->
+        <div class="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm group/tooltip relative">
           <div class="flex justify-between items-start mb-6">
             <div>
               <h3 class="text-xl font-bold text-slate-800">True CAC</h3>
@@ -280,7 +342,11 @@ const platformHealth = computed(() => {
               <Target :size="24" />
             </div>
           </div>
-          
+          <!-- Tooltip -->
+          <div class="absolute top-full left-4 right-4 mt-2 bg-slate-900 text-white text-xs p-3 rounded-xl opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
+            The 'Attribution Reality Check.' This is exactly what you paid in ads to get one new customer into your store, using your actual customer data rather than platform guesses.
+          </div>
+
           <div class="flex items-end gap-4 mb-8">
             <div class="text-5xl font-black text-slate-900 leading-none">
               {{ formatCurrency(scorecard.scorecard.tcac.value, 2) }}
@@ -302,16 +368,16 @@ const platformHealth = computed(() => {
               </div>
             </div>
             <p class="text-[10px] text-center text-slate-400 px-4 italic">
-              Platforms over-claim credit by 
+              Platforms over-claim credit by
               <span class="font-bold text-red-400">
                 {{ scorecard.scorecard.tcac.platformCac > 0 ? (((scorecard.scorecard.tcac.value / scorecard.scorecard.tcac.platformCac) - 1) * 100).toFixed(0) : '0' }}%
-              </span> 
+              </span>
               on average compared to your Shopify new customer file.
             </p>
           </div>
         </div>
 
-        <div class="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm">
+        <div class="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm group/tooltip relative">
           <div class="flex justify-between items-start mb-6">
             <div>
               <h3 class="text-xl font-bold text-slate-800">Efficiency Gap</h3>
@@ -321,14 +387,18 @@ const platformHealth = computed(() => {
               <Zap :size="24" />
             </div>
           </div>
+          <!-- Tooltip -->
+          <div class="absolute top-full left-4 right-4 mt-2 bg-slate-900 text-white text-xs p-3 rounded-xl opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
+            This highlights the difference between what platforms like Meta claim they are doing versus the actual profit you see in your bank account. It helps identify if platforms are 'over-claiming' credit for the same sale.
+          </div>
 
           <div class="grid grid-cols-2 gap-8 mb-8">
             <div>
-              <div class="text-[10px] text-slate-400 uppercase font-black mb-1">Blended ROAS</div>
+              <div class="text-[10px] text-slate-400 uppercase font-black mb-1">Blended ROAS (MER)</div>
               <div class="text-3xl font-black text-slate-900">{{ scorecard.scorecard.mer.value.toFixed(2) }}x</div>
             </div>
             <div>
-              <div class="text-[10px] text-slate-400 uppercase font-black mb-1">Platform Avg</div>
+              <div class="text-[10px] text-slate-400 uppercase font-black mb-1">Platform Reported</div>
               <div class="text-3xl font-black text-slate-400 line-through decoration-red-400/50">
                 {{ scorecard.scorecard.tcac.platformRoas.toFixed(2) }}x
               </div>
@@ -336,21 +406,22 @@ const platformHealth = computed(() => {
           </div>
 
           <div class="relative pt-4">
-            <div class="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-              <div 
-                class="h-full bg-indigo-500 rounded-full transition-all duration-1000" 
-                :style="{ width: `${scorecard.scorecard.tcac.platformRoas > 0 ? Math.min(100, (scorecard.scorecard.mer.value / scorecard.scorecard.tcac.platformRoas) * 100) : 0}%` }" 
-              />
-            </div>
-            <div class="mt-2 text-[10px] font-bold text-indigo-600 uppercase tracking-widest text-center">
-              {{ scorecard.scorecard.tcac.platformRoas > 0 ? (scorecard.scorecard.mer.value / scorecard.scorecard.tcac.platformRoas * 100).toFixed(0) : '0' }}% Attribution Efficiency
+            <!-- Efficiency Gap value (MER - Platform ROAS) -->
+            <div class="text-center mb-4">
+              <div class="text-4xl font-black" :class="(scorecard.scorecard.tcac.efficiencyGap ?? (scorecard.scorecard.mer.value - scorecard.scorecard.tcac.platformRoas)) >= 0 ? 'text-green-600' : 'text-red-500'">
+                {{ (scorecard.scorecard.tcac.efficiencyGap ?? (scorecard.scorecard.mer.value - scorecard.scorecard.tcac.platformRoas)) >= 0 ? '+' : '' }}{{ (scorecard.scorecard.tcac.efficiencyGap ?? (scorecard.scorecard.mer.value - scorecard.scorecard.tcac.platformRoas)).toFixed(2) }}x
+              </div>
+              <div class="text-[10px] text-slate-400 uppercase font-black mt-1">
+                {{ (scorecard.scorecard.tcac.efficiencyGap ?? (scorecard.scorecard.mer.value - scorecard.scorecard.tcac.platformRoas)) < 0 ? 'Platforms over-claiming by' : 'Platforms under-reporting by' }}
+                {{ Math.abs(scorecard.scorecard.tcac.efficiencyGap ?? (scorecard.scorecard.mer.value - scorecard.scorecard.tcac.platformRoas)).toFixed(2) }}x
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Spend Breakdown -->
-      <div class="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm mb-8">
+      <div class="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm mb-8 group/tooltip relative">
         <div class="flex justify-between items-center mb-8">
           <div>
             <h3 class="text-xl font-bold text-slate-800 flex items-center gap-2">
@@ -358,6 +429,10 @@ const platformHealth = computed(() => {
               Marketing Mix
             </h3>
             <p class="text-sm text-slate-400">Holistic allocation across search and social channels.</p>
+          </div>
+          <!-- Tooltip -->
+          <div class="absolute top-20 left-4 right-4 bg-slate-900 text-white text-xs p-3 rounded-xl opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
+            A bird's-eye view of where your money is going. This helps you ensure you aren't over-investing in one area (like Social) while neglecting another (like Search).
           </div>
         </div>
 

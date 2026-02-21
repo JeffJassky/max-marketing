@@ -8,9 +8,8 @@ const props = defineProps<{
   color?: string;
 }>();
 
-const width = props.width || 100;
-const height = props.height || 30;
-const color = props.color || '#6366f1'; // indigo-500
+const VIEWBOX_WIDTH = 100;
+const VIEWBOX_HEIGHT = 30;
 
 const points = computed(() => {
   const data = props.data;
@@ -18,31 +17,35 @@ const points = computed(() => {
 
   const max = Math.max(...data);
   const min = Math.min(...data);
-  const range = max - min || 1;
+  const range = (max - min) || 1;
 
-  // X step
-  const stepX = width / (data.length - 1);
+  // X step normalized to viewBox width
+  const stepX = VIEWBOX_WIDTH / (data.length - 1);
 
   return data.map((val, index) => {
     const x = index * stepX;
     // Invert Y (SVG 0 is top)
     const normalizedY = (val - min) / range;
-    const y = height - (normalizedY * height);
+    const y = VIEWBOX_HEIGHT - (normalizedY * VIEWBOX_HEIGHT);
     return `${x},${y}`;
   }).join(' ');
 });
 
 const fillPath = computed(() => {
   if (!points.value) return '';
-  return `${points.value} ${width},${height} 0,${height}`;
+  return `M 0,${VIEWBOX_HEIGHT} ${points.value.split(' ').map((p, i) => (i === 0 ? 'L ' + p : p)).join(' ')} L ${VIEWBOX_WIDTH},${VIEWBOX_HEIGHT} Z`;
 });
 </script>
 
 <template>
-  <svg :width="width" :height="height" class="overflow-visible">
+  <svg 
+    :viewBox="`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`" 
+    preserveAspectRatio="none" 
+    class="w-full h-full overflow-visible"
+  >
     <!-- Area Fill -->
     <path
-      :d="`M ${fillPath} Z`"
+      :d="fillPath"
       :fill="color"
       fill-opacity="0.1"
       stroke="none"

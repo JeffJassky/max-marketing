@@ -93,16 +93,37 @@ export function buildReportQuery(
 
   // Account IDs
   if (options.accountIds.length > 0) {
-    // knex whereIn with array binding can be tricky with BigQuery parameter syntax
-    // We'll use raw SQL for UNNEST compatibility which is preferred in this project's style
-    // BUT buildReportQuery is generating a string to be executed by BQ client.
-    // The BQ client supports parameterized queries.
-    // However, to keep this builder producing a pure SQL string (or close to it),
-    // we might inject values or use placeholders.
-    // Let's use the BigQuery UNNEST syntax for array params: account_id IN UNNEST(@accountIds)
-    // The caller is responsible for passing the params object.
     queryBuilder.whereRaw(`account_id IN UNNEST(@accountIds)`);
   }
+
+  // Report Predicate (Split into WHERE and HAVING)
+  // We'll do a simple split by ' AND ' for now, but a more robust way would be to parse the AST.
+  // Given the project constraints, let's try a slightly smarter split if jsep is available or just use a simple heuristic.
+  const predicate = def.predicate as string | undefined;
+  const whereParts: string[] = [];
+  const havingParts: string[] = [];
+
+  if (predicate) {
+    // Simple heuristic: if it contains a metric name from the entity, it's HAVING.
+    // Otherwise, it's WHERE.
+    const parts = predicate.split(/\s+AND\s+|\s+and\s+/i);
+    const entityMetrics = Object.keys(entity.definition.metrics);
+    const reportMetrics = Object.keys(def.output.metrics);
+    const allMetrics = new Set([...entityMetrics, ...reportMetrics]);
+
+    parts.forEach(part => {
+      const containsMetric = Array.from(allMetrics).some(m => part.includes(m));
+      if (containsMetric) {
+        havingParts.push(predicateToSql(part, metricAliasMap));
+      } else {
+        whereParts.push(predicateToSql(part)); // No alias mapping for WHERE
+      }
+    });
+  }
+
+  whereParts.forEach(part => {
+    if (part) queryBuilder.whereRaw(part);
+  });
 
   // --------------------------------------- 
   // GROUP BY
@@ -110,16 +131,10 @@ export function buildReportQuery(
   queryBuilder.groupBy(groupByFields.map((dim) => qb.raw(String(dim))));
 
   // --------------------------------------- 
-  // HAVING (REPORT PREDICATE)
+  // HAVING (METRIC FILTERS)
   // --------------------------------------- 
-  // Note: We need to check if the predicate uses dimensions (move to WHERE) or metrics (HAVING).
-  // Current 'predicateToSql' assumes having. 
-  // For now, we stick to the existing logic which puts it in HAVING.
-  // Caveat: If predicate filters on dimensions not in group by, it will fail (as seen before).
-  // Ideally, report predicates should only filter on metrics or grouped dimensions.
-  const having = predicateToSql(def.predicate, metricAliasMap);
-  if (having && having.trim().length > 0) {
-    queryBuilder.havingRaw(having);
+  if (havingParts.length > 0) {
+    queryBuilder.havingRaw(havingParts.join(" AND "));
   }
 
   const baseQuery = queryBuilder.toQuery();
