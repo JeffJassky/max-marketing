@@ -15,10 +15,10 @@ export const ga4AcquisitionPerformance = new AggregateReport({
   output: {
     grain: ["account_id", "channel_group"],
     metrics: {
-      sessions: { aggregation: "sum" },
-      engaged_sessions: { aggregation: "sum" },
-      conversions: { aggregation: "sum" },
       revenue: { aggregation: "sum" },
+      sessions: { aggregation: "sum" },
+      conversions: { aggregation: "sum" },
+      engaged_sessions: { aggregation: "sum" },
       // Added for GA4 Overview spec compliance
       active_users: { aggregation: "sum" },
       event_count: { aggregation: "sum" },

@@ -16,10 +16,10 @@ export const googleAdsCampaignPerformance = new AggregateReport({
     grain: ["account_id", "campaign_id", "campaign_name"],
     metrics: {
       spend: { aggregation: "sum" },
+      conversions_value: { aggregation: "sum" },
       impressions: { aggregation: "sum" },
       clicks: { aggregation: "sum" },
       conversions: { aggregation: "sum" },
-      conversions_value: { aggregation: "sum" },
     },
     derivedFields: {
       roas: {

@@ -23,6 +23,7 @@ import { socialPlatformPerformance } from "../jobs/entities/social-media-daily/a
 import { instagramPostPerformance } from "../jobs/entities/social-media-daily/aggregateReports/instagram-post-performance.aggregateReport";
 import { facebookPostPerformance } from "../jobs/entities/social-media-daily/aggregateReports/facebook-post-performance.aggregateReport";
 import { creativePerformanceReport } from "../jobs/entities/creative-daily/aggregateReports/creative-performance.aggregateReport";
+import { brandVoiceCreativePerformance } from "../jobs/entities/creative-daily/aggregateReports/brand-voice-creative.aggregateReport";
 import { gscQueryPerformance } from "../jobs/entities/gsc-daily/aggregateReports/gsc-query-performance.aggregateReport";
 import { gscPagePerformance } from "../jobs/entities/gsc-daily/aggregateReports/gsc-page-performance.aggregateReport";
 
@@ -72,6 +73,7 @@ export const allAggregateReports = [
   instagramPostPerformance,
   facebookPostPerformance,
   creativePerformanceReport,
+  brandVoiceCreativePerformance,
   gscQueryPerformance,
   gscPagePerformance,
 ];

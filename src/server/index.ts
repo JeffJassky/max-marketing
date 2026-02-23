@@ -30,6 +30,7 @@ import { ga4AcquisitionPerformance } from "../jobs/entities/ga4-daily/aggregateR
 import { shopifySourcePerformance } from "../jobs/entities/shopify-daily/aggregateReports/shopify-source.aggregateReport";
 import { socialPlatformPerformance } from "../jobs/entities/social-media-daily/aggregateReports/social-platform.aggregateReport";
 import { creativePerformanceReport } from "../jobs/entities/creative-daily/aggregateReports/creative-performance.aggregateReport";
+import { brandVoiceCreativePerformance } from "../jobs/entities/creative-daily/aggregateReports/brand-voice-creative.aggregateReport";
 import { clientAccountModel } from "./models/ClientAccount";
 import { buildReportQuery } from "../shared/data/queryBuilder";
 import { AllAwards } from "../shared/data/awards/library";
@@ -713,7 +714,10 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
       processedRows.sort((a, b) => (b[sortKey] || 0) - (a[sortKey] || 0));
 
       // Headers
-      const formatLabel = (key: string) => key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      const labelOverrides: Record<string, string> = {
+        conversions_value: 'Purchase Revenue',
+      };
+      const formatLabel = (key: string) => labelOverrides[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
       
       const getSparklineMetric = (row: any) => {
         // Exclude specific trends as requested by user
@@ -1065,6 +1069,78 @@ app.get("/api/reports/superlatives/months", async (_req: Request, res: Response)
     res.json(rows);
   } catch (error) {
     console.error("Error fetching superlative months:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// --- Brand Voice Endpoints ---
+
+app.get("/api/brand-voice/summary", async (req: Request, res: Response) => {
+  const { accountId, googleAdsId, facebookAdsId, start, end } = req.query;
+
+  const accountIds: string[] = [];
+  if (accountId) accountIds.push(String(accountId));
+  if (googleAdsId) accountIds.push(String(googleAdsId));
+  if (facebookAdsId) accountIds.push(String(facebookAdsId));
+
+  const uniqueIds = Array.from(new Set(accountIds));
+  if (uniqueIds.length === 0) {
+    return res.status(400).json({ error: "At least one account ID is required" });
+  }
+
+  try {
+    const bq = createBigQueryClient();
+    
+    // Fetch creative text and performance for hook analysis
+    const report = brandVoiceCreativePerformance;
+    const sql = buildReportQuery(report, {
+      startDate: (start as string) || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      endDate: (end as string) || new Date().toISOString().split('T')[0],
+      accountIds: uniqueIds,
+      timeGrain: 'total'
+    });
+
+    const [rows] = await bq.query({
+      query: sql,
+      params: { accountIds: uniqueIds },
+    });
+
+    // Hook Analysis (Mocked AI categorization)
+    const hookTypes = ['Educational', 'Provocative', 'Benefit-Driven', 'Question', 'Storytelling'];
+    const hooks = rows.map(row => {
+      const headline = row.title || '';
+      // Simple hash-based stable assignment for demo
+      const typeIndex = Math.abs(headline.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a }, 0)) % hookTypes.length;
+      return {
+        type: hookTypes[typeIndex],
+        engagement_rate: row.engagement_rate || 0,
+        spend: row.spend || 0
+      };
+    });
+
+    const hookPerformance = hookTypes.map(type => {
+      const matches = hooks.filter(h => h.type === type);
+      const avgEngagement = matches.length > 0 ? matches.reduce((sum, h) => sum + h.engagement_rate, 0) / matches.length : 0;
+      return { type, avgEngagement };
+    }).sort((a, b) => b.avgEngagement - a.avgEngagement);
+
+    res.json({
+      strategicAlignment: {
+        consistencyScore: { value: 85, label: "LLM placeholder value" },
+        sentimentPulse: { positive: 0.65, neutral: 0.25, negative: 0.1, label: "LLM placeholder value" },
+        redFlags: { count: 3, flaggedWords: ["cheap", "guaranteed", "bargain"], label: "LLM placeholder value" }
+      },
+      creativeResonance: {
+        hookAnalysis: hookPerformance,
+        visualSynergy: { value: 78, label: "LLM placeholder value" }
+      },
+      competitiveFuture: {
+        competitorBenchmark: { value: 72, label: "LLM placeholder value" },
+        predictedResonance: { value: 0, label: "LLM placeholder value (AI Sandbox Ready)" }
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching brand voice summary:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });

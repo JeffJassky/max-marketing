@@ -103,6 +103,14 @@ export const creativeDaily = new Entity({
         },
       },
     },
+    engagement: {
+      type: z.number(),
+      aggregation: "sum",
+      sources: {
+        facebookAdsCreative: { sourceField: "actions_total" },
+        googleAdsCreative: { sourceField: "clicks" },
+      },
+    },
   },
   superlatives: [
     {

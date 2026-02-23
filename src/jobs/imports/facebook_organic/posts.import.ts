@@ -21,6 +21,7 @@ export const facebookOrganicPosts = new BronzeImport({
     post_message: z.string().optional(),
     post_description: z.string().optional(),
     post_picture: z.string().optional(),
+    full_picture: z.string().optional(),
     post_created_time: z.string().optional(),
   },
   metrics: {

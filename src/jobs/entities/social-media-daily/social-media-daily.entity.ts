@@ -59,8 +59,8 @@ export const socialMediaDaily = new Entity({
     thumbnail_url: {
       type: z.string(),
       sources: {
-        instagramMedia: { sourceField: "media_thumbnail_url" },
-        facebookOrganicPosts: { sourceField: "post_picture" },
+        instagramMedia: { expression: "COALESCE(media_thumbnail_url, media_url)" },
+        facebookOrganicPosts: { expression: "COALESCE(full_picture, post_picture)" },
       },
     },
   },
