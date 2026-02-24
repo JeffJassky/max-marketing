@@ -36,7 +36,10 @@ import { buildReportQuery } from "../shared/data/queryBuilder";
 import { AllAwards } from "../shared/data/awards/library";
 import { prompt as analystPrompt } from "../shared/data/llm/analyst-reporter.prompt";
 import { prompt as editorPrompt } from "../shared/data/llm/editor.prompt";
-import { generateStructuredContent, generateContent } from "../shared/vendors/google/gemini";
+import {
+  generateStructuredContent,
+  generateContent,
+} from "../shared/vendors/google/gemini";
 import { coreMonitors, allAggregateReports } from "./registry";
 import { MarketingAgent } from "./services/agent";
 import {
@@ -52,13 +55,20 @@ app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 app.post("/api/chat", async (req: Request, res: Response) => {
   const { messages, context } = req.body;
-  
-  console.log("Chat Request Body:", JSON.stringify({ 
-    messageCount: messages?.length, 
-    contextKeys: context ? Object.keys(context) : null,
-    contextValues: context ? Object.values(context) : null
-  }, null, 2));
-  
+
+  console.log(
+    "Chat Request Body:",
+    JSON.stringify(
+      {
+        messageCount: messages?.length,
+        contextKeys: context ? Object.keys(context) : null,
+        contextValues: context ? Object.values(context) : null,
+      },
+      null,
+      2,
+    ),
+  );
+
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: "Messages array is required" });
   }
@@ -69,18 +79,25 @@ app.post("/api/chat", async (req: Request, res: Response) => {
     res.json({ text: response });
   } catch (error) {
     console.error("Error in chat agent:", error);
-    res.status(500).json({ error: "The marketing agent encountered an error." });
+    res
+      .status(500)
+      .json({ error: "The marketing agent encountered an error." });
   }
 });
 
 // --- Data Fetching Helpers ---
 
-const fetchSuperlatives = async (bq: any, accountIds: string[], month?: string) => {
+const fetchSuperlatives = async (
+  bq: any,
+  accountIds: string[],
+  month?: string,
+) => {
   let monthFilter = "";
   if (month) {
     monthFilter = "AND period_label = @month";
   } else {
-    monthFilter = "AND period_label = (SELECT MAX(period_label) FROM `reports.superlatives_monthly`)";
+    monthFilter =
+      "AND period_label = (SELECT MAX(period_label) FROM `reports.superlatives_monthly`)";
   }
 
   const query = `
@@ -117,9 +134,14 @@ const fetchSuperlatives = async (bq: any, accountIds: string[], month?: string) 
   });
 };
 
-const fetchOverviews = async (bq: any, accountIds: string[], start: string, end: string) => {
+const fetchOverviews = async (
+  bq: any,
+  accountIds: string[],
+  start: string,
+  end: string,
+) => {
   const results: Record<string, any> = {};
-  
+
   const promises = allAggregateReports.map(async (report) => {
     try {
       // Use 'total' grain for summary context
@@ -127,31 +149,34 @@ const fetchOverviews = async (bq: any, accountIds: string[], start: string, end:
         startDate: start,
         endDate: end,
         accountIds: accountIds,
-        timeGrain: 'total'
+        timeGrain: "total",
       });
-      
+
       const [rows] = await bq.query({
         query: sql,
         params: { accountIds },
       });
-      
-      results[report.id] = { rows }; 
+
+      results[report.id] = { rows };
     } catch (e) {
-      console.warn(`Failed to fetch overview for ${report.id} in generation context`, e);
+      console.warn(
+        `Failed to fetch overview for ${report.id} in generation context`,
+        e,
+      );
     }
   });
-  
+
   await Promise.all(promises);
   return results;
 };
 
 const getDatesForMonth = (periodLabel: string) => {
   if (!periodLabel) return null;
-  const parts = periodLabel.split('-').map(Number);
+  const parts = periodLabel.split("-").map(Number);
   if (parts.length !== 2) return null;
   const [year, month] = parts;
-  const start = new Date(year, month - 1, 1).toISOString().split('T')[0];
-  const end = new Date(year, month, 0).toISOString().split('T')[0];
+  const start = new Date(year, month - 1, 1).toISOString().split("T")[0];
+  const end = new Date(year, month, 0).toISOString().split("T")[0];
   return { start, end };
 };
 
@@ -229,7 +254,15 @@ app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
       GROUP BY account_id
     `;
 
-    const [googleRowsPromise, facebookRowsPromise, ga4RowsPromise, shopifyRowsPromise, instagramRowsPromise, facebookOrganicRowsPromise, gscRowsPromise] = [
+    const [
+      googleRowsPromise,
+      facebookRowsPromise,
+      ga4RowsPromise,
+      shopifyRowsPromise,
+      instagramRowsPromise,
+      facebookOrganicRowsPromise,
+      gscRowsPromise,
+    ] = [
       bq.query(googleQuery),
       bq.query(facebookQuery),
       bq.query(ga4Query),
@@ -239,7 +272,15 @@ app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
       bq.query(gscQuery),
     ];
 
-    const [[googleRows], [facebookRows], [ga4Rows], [shopifyRows], [instagramRows], [facebookOrganicRows], [gscRows]] = await Promise.all([
+    const [
+      [googleRows],
+      [facebookRows],
+      [ga4Rows],
+      [shopifyRows],
+      [instagramRows],
+      [facebookOrganicRows],
+      [gscRows],
+    ] = await Promise.all([
       googleRowsPromise,
       facebookRowsPromise,
       ga4RowsPromise,
@@ -305,7 +346,15 @@ app.delete("/api/accounts/:id", async (req: Request, res: Response) => {
 });
 
 app.get("/api/monitors/anomalies", async (req: Request, res: Response) => {
-  const { accountId, googleAdsId, facebookAdsId, ga4Id, monitorId, startDate, endDate } = req.query;
+  const {
+    accountId,
+    googleAdsId,
+    facebookAdsId,
+    ga4Id,
+    monitorId,
+    startDate,
+    endDate,
+  } = req.query;
 
   const accountIds: string[] = [];
   if (accountId) accountIds.push(String(accountId));
@@ -334,7 +383,10 @@ app.get("/api/monitors/anomalies", async (req: Request, res: Response) => {
 
       // Generate relevant questions based on monitor data
       const questionContext: QuestionDataContext = { anomalies: rows };
-      const relevantQuestions = generateQuestionsForSource("monitors", questionContext);
+      const relevantQuestions = generateQuestionsForSource(
+        "monitors",
+        questionContext,
+      );
 
       return res.json({
         anomalies: rows,
@@ -348,12 +400,15 @@ app.get("/api/monitors/anomalies", async (req: Request, res: Response) => {
       uniqueIds,
       10,
       startStr,
-      endStr
+      endStr,
     );
 
     // Generate relevant questions based on anomalies data
     const questionContext: QuestionDataContext = { anomalies: flat };
-    const relevantQuestions = generateQuestionsForSource("monitors", questionContext);
+    const relevantQuestions = generateQuestionsForSource(
+      "monitors",
+      questionContext,
+    );
 
     res.json({
       anomalies: flat,
@@ -379,14 +434,14 @@ app.get(
     try {
       const rows = await Monitor.getUnifiedAnomalies(
         [wastedSpendClickMonitor, wastedSpendConversionMonitor],
-        String(accountId)
+        String(accountId),
       );
       res.json(rows);
     } catch (error) {
       console.error("Error fetching wasted spend:", error);
       res.json([]);
     }
-  }
+  },
 );
 
 app.get(
@@ -403,7 +458,7 @@ app.get(
       console.error("Error fetching drift:", error);
       res.json([]);
     }
-  }
+  },
 );
 
 app.get(
@@ -416,7 +471,7 @@ app.get(
     try {
       const rows = await Monitor.getUnifiedAnomalies(
         [lowROASMonitor, highCPAMonitor],
-        String(accountId)
+        String(accountId),
       );
 
       const labeled = rows.map((r) => ({
@@ -429,7 +484,7 @@ app.get(
       console.error("Error fetching low performance:", error);
       res.json([]);
     }
-  }
+  },
 );
 
 app.get(
@@ -446,49 +501,62 @@ app.get(
       console.warn("Error fetching pmax breakdown:", error);
       res.json([]);
     }
-  }
+  },
 );
 
 // --- Aggregate Report Endpoints ---
 
-app.get("/api/aggregateReports/:reportId", async (req: Request, res: Response) => {
-  const { reportId } = req.params;
-  const { accountId, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId, gscId } = req.query;
+app.get(
+  "/api/aggregateReports/:reportId",
+  async (req: Request, res: Response) => {
+    const { reportId } = req.params;
+    const {
+      accountId,
+      googleAdsId,
+      facebookAdsId,
+      ga4Id,
+      shopifyId,
+      instagramId,
+      facebookPageId,
+      gscId,
+    } = req.query;
 
-  const report = allAggregateReports.find((r) => r.id === reportId);
-  if (!report) {
-    // If not found in the list, it might be a specific endpoint handled below, 
-    // so we call next() to let other routes handle it? 
-    // But Express routing doesn't work like that if params capture it.
-    // However, explicit routes like /api/aggregateReports/pmax-spend-breakdown defined BEFORE or AFTER?
-    // If defined BEFORE, they take precedence. If defined AFTER, this one takes precedence.
-    // I should check if pmax-spend-breakdown is in allAggregateReports. Yes it is.
-    // So this generic handler can handle it too.
-    return res.status(404).json({ error: "Report not found" });
-  }
+    const report = allAggregateReports.find((r) => r.id === reportId);
+    if (!report) {
+      // If not found in the list, it might be a specific endpoint handled below,
+      // so we call next() to let other routes handle it?
+      // But Express routing doesn't work like that if params capture it.
+      // However, explicit routes like /api/aggregateReports/pmax-spend-breakdown defined BEFORE or AFTER?
+      // If defined BEFORE, they take precedence. If defined AFTER, this one takes precedence.
+      // I should check if pmax-spend-breakdown is in allAggregateReports. Yes it is.
+      // So this generic handler can handle it too.
+      return res.status(404).json({ error: "Report not found" });
+    }
 
-  const accountIds: string[] = [];
-  if (accountId) accountIds.push(String(accountId));
-  if (googleAdsId) accountIds.push(String(googleAdsId));
-  if (facebookAdsId) accountIds.push(String(facebookAdsId));
-  if (ga4Id) accountIds.push(String(ga4Id));
-  if (shopifyId) accountIds.push(String(shopifyId));
-  if (instagramId) accountIds.push(String(instagramId));
-  if (facebookPageId) accountIds.push(String(facebookPageId));
-  if (gscId) accountIds.push(String(gscId));
+    const accountIds: string[] = [];
+    if (accountId) accountIds.push(String(accountId));
+    if (googleAdsId) accountIds.push(String(googleAdsId));
+    if (facebookAdsId) accountIds.push(String(facebookAdsId));
+    if (ga4Id) accountIds.push(String(ga4Id));
+    if (shopifyId) accountIds.push(String(shopifyId));
+    if (instagramId) accountIds.push(String(instagramId));
+    if (facebookPageId) accountIds.push(String(facebookPageId));
+    if (gscId) accountIds.push(String(gscId));
 
-  const uniqueIds = Array.from(new Set(accountIds));
+    const uniqueIds = Array.from(new Set(accountIds));
 
-  if (uniqueIds.length === 0) {
-    return res.status(400).json({ error: "At least one account ID is required" });
-  }
+    if (uniqueIds.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "At least one account ID is required" });
+    }
 
-  try {
-    const bq = createBigQueryClient();
-    const tableFqn = `reports.${report.tableName}`; // Assuming 'reports' dataset
+    try {
+      const bq = createBigQueryClient();
+      const tableFqn = `reports.${report.tableName}`; // Assuming 'reports' dataset
 
-    // Basic query - can be enhanced with sorting/filtering from query params if needed
-    const query = `
+      // Basic query - can be enhanced with sorting/filtering from query params if needed
+      const query = `
       SELECT *
       FROM \`${tableFqn}\`
       WHERE account_id IN UNNEST(@accountIds)
@@ -497,20 +565,20 @@ app.get("/api/aggregateReports/:reportId", async (req: Request, res: Response) =
       LIMIT 1000
     `;
 
-    const [rows] = await bq.query({
-      query,
-      params: { accountIds: uniqueIds },
-    });
-    
-    // De-duplicate if multiple snapshots exist (take latest per grain)
-    // Actually, simply taking the latest detected_at per grain would be better SQL,
-    // but for now, returning recent rows is okay. 
-    // To be precise, let's filter to the latest detected_at in SQL.
-    
-    const latestQuery = `
+      const [rows] = await bq.query({
+        query,
+        params: { accountIds: uniqueIds },
+      });
+
+      // De-duplicate if multiple snapshots exist (take latest per grain)
+      // Actually, simply taking the latest detected_at per grain would be better SQL,
+      // but for now, returning recent rows is okay.
+      // To be precise, let's filter to the latest detected_at in SQL.
+
+      const latestQuery = `
       SELECT * EXCEPT (rn)
       FROM (
-        SELECT *, ROW_NUMBER() OVER (PARTITION BY ${report.definition.output.grain.join(', ')} ORDER BY detected_at DESC) as rn
+        SELECT *, ROW_NUMBER() OVER (PARTITION BY ${report.definition.output.grain.join(", ")} ORDER BY detected_at DESC) as rn
         FROM \`${tableFqn}\`
         WHERE account_id IN UNNEST(@accountIds)
         AND detected_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
@@ -518,29 +586,30 @@ app.get("/api/aggregateReports/:reportId", async (req: Request, res: Response) =
       WHERE rn = 1
     `;
 
-    // Note: If grain columns are not unique enough, this might dedupe too aggressively?
-    // The grain defined in AggregateReport IS the uniqueness key.
-    
-    const [cleanRows] = await bq.query({
-      query: latestQuery,
-      params: { accountIds: uniqueIds },
-    });
+      // Note: If grain columns are not unique enough, this might dedupe too aggressively?
+      // The grain defined in AggregateReport IS the uniqueness key.
 
-    res.json(cleanRows);
-  } catch (error) {
-    console.error(`Error fetching report ${reportId}:`, error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+      const [cleanRows] = await bq.query({
+        query: latestQuery,
+        params: { accountIds: uniqueIds },
+      });
+
+      res.json(cleanRows);
+    } catch (error) {
+      console.error(`Error fetching report ${reportId}:`, error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
 
 // Helper to get all dates in range
 const getDatesInRange = (startDate: string, endDate: string) => {
   const dates: string[] = [];
   const current = new Date(startDate);
   const end = new Date(endDate);
-  
+
   while (current <= end) {
-    dates.push(current.toISOString().split('T')[0]);
+    dates.push(current.toISOString().split("T")[0]);
     current.setDate(current.getDate() + 1);
   }
   return dates;
@@ -552,7 +621,14 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
     start,
     end,
     grain,
-    accountId, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId, gscId
+    accountId,
+    googleAdsId,
+    facebookAdsId,
+    ga4Id,
+    shopifyId,
+    instagramId,
+    facebookPageId,
+    gscId,
   } = req.query;
 
   const report = allAggregateReports.find((r) => r.id === reportId);
@@ -573,34 +649,40 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
 
   const uniqueIds = Array.from(new Set(accountIds));
   if (uniqueIds.length === 0) {
-    return res.status(400).json({ error: "At least one account ID is required" });
+    return res
+      .status(400)
+      .json({ error: "At least one account ID is required" });
   }
 
   // Date Range Defaults (This Month)
   const now = new Date();
-  const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  const defaultEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+  const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    .toISOString()
+    .split("T")[0];
+  const defaultEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    .toISOString()
+    .split("T")[0];
 
   const startDate = (start as string) || defaultStart;
   const endDate = (end as string) || defaultEnd;
-  const timeGrain = (grain as string) === 'daily' ? 'daily' : 'total';
+  const timeGrain = (grain as string) === "daily" ? "daily" : "total";
 
   try {
     const bq = createBigQueryClient();
-    
+
     // Build SQL using shared builder
     const sql = buildReportQuery(report, {
       startDate,
       endDate,
       accountIds: uniqueIds,
       timeGrain,
-      limit: 500 // Limit rows to prevent browser crashes
+      limit: 500, // Limit rows to prevent browser crashes
     });
 
     console.log(`Executing live report query for ${reportId} (${timeGrain})`);
     console.log(`  Account IDs filter:`, uniqueIds);
     console.log(`  Date range: ${startDate} to ${endDate}`);
-    
+
     const [rows] = await bq.query({
       query: sql,
       params: { accountIds: uniqueIds },
@@ -608,78 +690,93 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
 
     console.log(`  Query returned ${rows.length} rows`);
 
-    if (timeGrain === 'daily') {
+    if (timeGrain === "daily") {
       if (rows.length === 0) {
         return res.json({ headers: [], rows: [], totals: {} });
       }
 
       const allDates = getDatesInRange(startDate, endDate);
       const sample = rows[0];
-      const excluded = ['account_id', 'date', 'partition', 'cluster'];
-      
+      const excluded = ["account_id", "date", "partition", "cluster"];
+
       // Robust dimension/metric detection
       const allKeys = Object.keys(sample);
-      const dimensions = allKeys.filter(k => {
+      const dimensions = allKeys.filter((k) => {
         if (excluded.includes(k)) return false;
         // Check first 10 rows for a string value if the first is null
         for (let i = 0; i < Math.min(rows.length, 10); i++) {
           if (rows[i][k] !== null && rows[i][k] !== undefined) {
-            return typeof rows[i][k] === 'string';
+            return typeof rows[i][k] === "string";
           }
         }
         return false;
       });
-      const metrics = allKeys.filter(k => {
+      const metrics = allKeys.filter((k) => {
         if (excluded.includes(k)) return false;
         if (dimensions.includes(k)) return false;
-        return typeof sample[k] === 'number';
+        return typeof sample[k] === "number";
       });
 
       // Ensure thumbnail_url is the first dimension if present
-      const thumbIdx = dimensions.indexOf('thumbnail_url');
+      const thumbIdx = dimensions.indexOf("thumbnail_url");
       if (thumbIdx > -1) {
         dimensions.splice(thumbIdx, 1);
-        dimensions.unshift('thumbnail_url');
+        dimensions.unshift("thumbnail_url");
       }
 
       const groups: Record<string, any> = {};
 
-      rows.forEach(row => {
-        const groupKey = dimensions.map(d => row[d]).join('||');
+      rows.forEach((row) => {
+        const groupKey = dimensions.map((d) => row[d]).join("||");
         if (!groups[groupKey]) {
           groups[groupKey] = {
             _key: groupKey,
             _dailyMap: {} as Record<string, any>,
             ...dimensions.reduce((acc, d) => ({ ...acc, [d]: row[d] }), {}),
-            ...metrics.reduce((acc, m) => ({ ...acc, [m]: 0 }), {})
+            ...metrics.reduce((acc, m) => ({ ...acc, [m]: 0 }), {}),
           };
         }
 
-        const dateStr = row.date && typeof row.date === 'object' && 'value' in row.date ? row.date.value : row.date;
+        const dateStr =
+          row.date && typeof row.date === "object" && "value" in row.date
+            ? row.date.value
+            : row.date;
         if (dateStr) {
           groups[groupKey]._dailyMap[dateStr] = row;
         }
 
         // Metrics that should be averaged, not summed
-        const avgMetrics = ['position', 'ctr', 'roas', 'cpa', 'aov', 'engagement_rate', 'bounce_rate'];
+        const avgMetrics = [
+          "position",
+          "ctr",
+          "roas",
+          "cpa",
+          "aov",
+          "engagement_rate",
+          "bounce_rate",
+        ];
 
-        metrics.forEach(m => {
+        metrics.forEach((m) => {
           if (avgMetrics.includes(m)) {
             // For averaged metrics, track sum and count separately
             if (!groups[groupKey]._avgSums) groups[groupKey]._avgSums = {};
             if (!groups[groupKey]._avgCounts) groups[groupKey]._avgCounts = {};
-            groups[groupKey]._avgSums[m] = (groups[groupKey]._avgSums[m] || 0) + (row[m] || 0);
-            groups[groupKey]._avgCounts[m] = (groups[groupKey]._avgCounts[m] || 0) + 1;
+            groups[groupKey]._avgSums[m] =
+              (groups[groupKey]._avgSums[m] || 0) + (row[m] || 0);
+            groups[groupKey]._avgCounts[m] =
+              (groups[groupKey]._avgCounts[m] || 0) + 1;
           } else {
-            groups[groupKey][m] += (row[m] || 0);
+            groups[groupKey][m] += row[m] || 0;
           }
         });
       });
 
-      const processedRows = Object.values(groups).map(row => {
-        row._daily = allDates.map(date => {
+      const processedRows = Object.values(groups).map((row) => {
+        row._daily = allDates.map((date) => {
           const entry = row._dailyMap[date];
-          return entry || metrics.reduce((acc, m) => ({ ...acc, [m]: 0 }), { date });
+          return (
+            entry || metrics.reduce((acc, m) => ({ ...acc, [m]: 0 }), { date })
+          );
         });
         delete row._dailyMap;
 
@@ -693,87 +790,202 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
         }
 
         // Recalculate derived rates from summed base metrics
-        if (row.spend !== undefined && row.revenue !== undefined && row.spend > 0) row.roas = row.revenue / row.spend;
-        if (row.conversions_value !== undefined && row.spend !== undefined && row.spend > 0) row.roas = row.conversions_value / row.spend;
-        if (row.clicks !== undefined && row.impressions !== undefined && row.impressions > 0) row.ctr = row.clicks / row.impressions;
-        if (row.spend !== undefined && row.conversions !== undefined && row.conversions > 0) row.cpa = row.spend / row.conversions;
-        if (row.revenue !== undefined && row.orders !== undefined && row.orders > 0) row.aov = row.revenue / row.orders;
-        if (row.engaged_sessions !== undefined && row.sessions !== undefined && row.sessions > 0) row.engagement_rate = row.engaged_sessions / row.sessions;
+        if (
+          row.spend !== undefined &&
+          row.revenue !== undefined &&
+          row.spend > 0
+        )
+          row.roas = row.revenue / row.spend;
+        if (
+          row.conversions_value !== undefined &&
+          row.spend !== undefined &&
+          row.spend > 0
+        )
+          row.roas = row.conversions_value / row.spend;
+        if (
+          row.clicks !== undefined &&
+          row.impressions !== undefined &&
+          row.impressions > 0
+        )
+          row.ctr = row.clicks / row.impressions;
+        if (
+          row.spend !== undefined &&
+          row.conversions !== undefined &&
+          row.conversions > 0
+        )
+          row.cpa = row.spend / row.conversions;
+        if (
+          row.revenue !== undefined &&
+          row.orders !== undefined &&
+          row.orders > 0
+        )
+          row.aov = row.revenue / row.orders;
+        if (
+          row.engaged_sessions !== undefined &&
+          row.sessions !== undefined &&
+          row.sessions > 0
+        )
+          row.engagement_rate = row.engaged_sessions / row.sessions;
 
         return row;
       });
 
       // Sort processed rows by most relevant metric (clicks > impressions > spend > revenue)
-      const sortKey = metrics.includes('clicks') ? 'clicks'
-        : metrics.includes('impressions') ? 'impressions'
-        : metrics.includes('spend') ? 'spend'
-        : metrics.includes('revenue') ? 'revenue'
-        : metrics.includes('sessions') ? 'sessions'
-        : metrics[0];
+      const sortKey = metrics.includes("clicks")
+        ? "clicks"
+        : metrics.includes("impressions")
+          ? "impressions"
+          : metrics.includes("spend")
+            ? "spend"
+            : metrics.includes("revenue")
+              ? "revenue"
+              : metrics.includes("sessions")
+                ? "sessions"
+                : metrics[0];
 
       processedRows.sort((a, b) => (b[sortKey] || 0) - (a[sortKey] || 0));
 
       // Headers
       const labelOverrides: Record<string, string> = {
-        conversions_value: 'Purchase Revenue',
+        conversions_value: "Purchase Revenue",
       };
-      const formatLabel = (key: string) => labelOverrides[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-      
+      const formatLabel = (key: string) =>
+        labelOverrides[key] ||
+        key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+
       const getSparklineMetric = (row: any) => {
         // Exclude specific trends as requested by user
-        if (reportId === 'googleAdsCampaignPerformance' || reportId === 'metaAdsCampaignPerformance') return ''; // Remove Spend Trend
-        if (reportId === 'ga4AcquisitionPerformance') return ''; // Remove Revenue Trend
-        if (reportId === 'gscQueryPerformance') return ''; // Remove Impression Trend
-        if (reportId === 'socialPlatformPerformance' || reportId === 'instagramPostPerformance' || reportId === 'facebookPostPerformance') return ''; // Remove Impressions Trend
-        if (reportId === 'shopifySourcePerformance') return ''; // Remove Revenue Trend
+        if (
+          reportId === "googleAdsCampaignPerformance" ||
+          reportId === "metaAdsCampaignPerformance"
+        )
+          return ""; // Remove Spend Trend
+        if (reportId === "ga4AcquisitionPerformance") return ""; // Remove Revenue Trend
+        if (reportId === "gscQueryPerformance") return ""; // Remove Impression Trend
+        if (
+          reportId === "socialPlatformPerformance" ||
+          reportId === "instagramPostPerformance" ||
+          reportId === "facebookPostPerformance"
+        )
+          return ""; // Remove Impressions Trend
+        if (reportId === "shopifySourcePerformance") return ""; // Remove Revenue Trend
 
-        if (row._daily[0]?.spend !== undefined) return 'spend';
-        if (row._daily[0]?.revenue !== undefined) return 'revenue';
-        if (row._daily[0]?.impressions !== undefined) return 'impressions';
-        if (row._daily[0]?.sessions !== undefined) return 'sessions';
-        return Object.keys(row).find(k => typeof row[k] === 'number' && k !== 'account_id') || '';
+        if (row._daily[0]?.spend !== undefined) return "spend";
+        if (row._daily[0]?.revenue !== undefined) return "revenue";
+        if (row._daily[0]?.impressions !== undefined) return "impressions";
+        if (row._daily[0]?.sessions !== undefined) return "sessions";
+        return (
+          Object.keys(row).find(
+            (k) => typeof row[k] === "number" && k !== "account_id",
+          ) || ""
+        );
       };
 
-      const sparklineMetric = processedRows.length ? getSparklineMetric(processedRows[0]) : '';
+      const sparklineMetric = processedRows.length
+        ? getSparklineMetric(processedRows[0])
+        : "";
 
       const headers = [
-        ...dimensions.map(d => ({ key: d, label: formatLabel(d), type: 'dimension' })),
-        ...(sparklineMetric ? [{ key: '_sparkline', label: `${formatLabel(sparklineMetric)} Trend`, type: 'sparkline', metric: sparklineMetric }] : []),
-        ...metrics.filter(m => !m.includes('rate') && !m.includes('roas') && !m.includes('ctr') && !m.includes('aov') && !m.includes('cpa')).map(m => ({ key: m, label: formatLabel(m), type: 'metric' })),
-        ...metrics.filter(m => m.includes('rate') || m.includes('roas') || m.includes('ctr') || m.includes('aov') || m.includes('cpa')).map(m => ({ key: m, label: formatLabel(m), type: 'rate' }))
+        ...dimensions.map((d) => ({
+          key: d,
+          label: formatLabel(d),
+          type: "dimension",
+        })),
+        ...(sparklineMetric
+          ? [
+              {
+                key: "_sparkline",
+                label: `${formatLabel(sparklineMetric)} Trend`,
+                type: "sparkline",
+                metric: sparklineMetric,
+              },
+            ]
+          : []),
+        ...metrics
+          .filter(
+            (m) =>
+              !m.includes("rate") &&
+              !m.includes("roas") &&
+              !m.includes("ctr") &&
+              !m.includes("aov") &&
+              !m.includes("cpa"),
+          )
+          .map((m) => ({ key: m, label: formatLabel(m), type: "metric" })),
+        ...metrics
+          .filter(
+            (m) =>
+              m.includes("rate") ||
+              m.includes("roas") ||
+              m.includes("ctr") ||
+              m.includes("aov") ||
+              m.includes("cpa"),
+          )
+          .map((m) => ({ key: m, label: formatLabel(m), type: "rate" })),
       ];
 
       // Totals
       const totals: Record<string, number> = {};
       const dailyTotals: Record<string, number[]> = {}; // metric -> [val, val, ...] (aligned with allDates)
-      const avgMetricsForTotals = ['position', 'ctr', 'roas', 'cpa', 'aov', 'engagement_rate', 'bounce_rate'];
+      const avgMetricsForTotals = [
+        "position",
+        "ctr",
+        "roas",
+        "cpa",
+        "aov",
+        "engagement_rate",
+        "bounce_rate",
+      ];
 
-      metrics.forEach(m => {
+      metrics.forEach((m) => {
         if (avgMetricsForTotals.includes(m)) {
           // Average these metrics instead of summing
-          const values = processedRows.map(r => r[m]).filter(v => v !== undefined && v !== null && v !== 0);
-          totals[m] = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+          const values = processedRows
+            .map((r) => r[m])
+            .filter((v) => v !== undefined && v !== null && v !== 0);
+          totals[m] =
+            values.length > 0
+              ? values.reduce((a, b) => a + b, 0) / values.length
+              : 0;
         } else {
           totals[m] = processedRows.reduce((acc, r) => acc + (r[m] || 0), 0);
         }
 
         // Aggregate daily values across all rows
         dailyTotals[m] = allDates.map((date, idx) => {
-            return processedRows.reduce((acc, row) => acc + (row._daily[idx]?.[m] || 0), 0);
+          return processedRows.reduce(
+            (acc, row) => acc + (row._daily[idx]?.[m] || 0),
+            0,
+          );
         });
       });
 
       // Recalculate derived totals from summed base metrics
-      if (totals.clicks !== undefined && totals.impressions !== undefined && totals.impressions > 0) {
+      if (
+        totals.clicks !== undefined &&
+        totals.impressions !== undefined &&
+        totals.impressions > 0
+      ) {
         totals.ctr = totals.clicks / totals.impressions;
       }
-      if (totals.spend !== undefined && totals.revenue !== undefined && totals.spend > 0) {
+      if (
+        totals.spend !== undefined &&
+        totals.revenue !== undefined &&
+        totals.spend > 0
+      ) {
         totals.roas = totals.revenue / totals.spend;
       }
-      if (totals.conversions_value !== undefined && totals.spend !== undefined && totals.spend > 0) {
+      if (
+        totals.conversions_value !== undefined &&
+        totals.spend !== undefined &&
+        totals.spend > 0
+      ) {
         totals.roas = totals.conversions_value / totals.spend;
       }
-      if (totals.spend !== undefined && totals.conversions !== undefined && totals.conversions > 0) {
+      if (
+        totals.spend !== undefined &&
+        totals.conversions !== undefined &&
+        totals.conversions > 0
+      ) {
         totals.cpa = totals.spend / totals.conversions;
       }
 
@@ -788,7 +1000,18 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
 });
 
 app.get("/api/executive/summary", async (req: Request, res: Response) => {
-  const { accountId, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId, days, startDate, endDate } = req.query;
+  const {
+    accountId,
+    googleAdsId,
+    facebookAdsId,
+    ga4Id,
+    shopifyId,
+    instagramId,
+    facebookPageId,
+    days,
+    startDate,
+    endDate,
+  } = req.query;
 
   const adsAccountIds: string[] = [];
   if (googleAdsId) adsAccountIds.push(String(googleAdsId));
@@ -801,7 +1024,9 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
   const uniqueShopifyIds = Array.from(new Set(shopifyAccountIds));
 
   if (uniqueAdsIds.length === 0 && uniqueShopifyIds.length === 0) {
-    return res.status(400).json({ error: "At least one platform ID is required" });
+    return res
+      .status(400)
+      .json({ error: "At least one platform ID is required" });
   }
 
   // Determine date range
@@ -813,40 +1038,40 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
   if (startDate && endDate) {
     startStr = String(startDate);
     endStr = String(endDate);
-    
+
     // Calculate previous period based on duration
     const start = new Date(startStr);
     const end = new Date(endStr);
     const diffTime = Math.abs(end.getTime() - start.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // inclusive
-    
+
     const prevEnd = new Date(start);
     prevEnd.setDate(prevEnd.getDate() - 1);
-    
+
     const prevStart = new Date(prevEnd);
     prevStart.setDate(prevStart.getDate() - diffDays + 1);
-    
-    prevStartStr = prevStart.toISOString().split('T')[0];
-    prevEndStr = prevEnd.toISOString().split('T')[0];
+
+    prevStartStr = prevStart.toISOString().split("T")[0];
+    prevEndStr = prevEnd.toISOString().split("T")[0];
   } else {
     // Legacy / Default 'days' logic
     const lookback = parseInt(String(days || "30"));
     const now = new Date();
-    
-    endStr = now.toISOString().split('T')[0];
-    
+
+    endStr = now.toISOString().split("T")[0];
+
     const start = new Date(now);
     start.setDate(start.getDate() - lookback);
-    startStr = start.toISOString().split('T')[0];
+    startStr = start.toISOString().split("T")[0];
 
     const prevEnd = new Date(start);
     prevEnd.setDate(prevEnd.getDate() - 1);
-    
+
     const prevStart = new Date(prevEnd);
     prevStart.setDate(prevStart.getDate() - lookback);
-    
-    prevStartStr = prevStart.toISOString().split('T')[0];
-    prevEndStr = prevEnd.toISOString().split('T')[0];
+
+    prevStartStr = prevStart.toISOString().split("T")[0];
+    prevEndStr = prevEnd.toISOString().split("T")[0];
   }
 
   try {
@@ -933,23 +1158,37 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
       startDate: startStr,
       endDate: endStr,
       prevStartDate: prevStartStr,
-      prevEndDate: prevEndStr
+      prevEndDate: prevEndStr,
     };
 
     const shopifyParams = {
       ...params,
-      accountIds: uniqueShopifyIds
+      accountIds: uniqueShopifyIds,
     };
 
-    const spendPromise = uniqueAdsIds.length > 0
-      ? bq.query({ query: spendQuery, params })
-      : Promise.resolve([[{ current_spend: 0, prev_spend: 0 }]] as any);
+    const spendPromise =
+      uniqueAdsIds.length > 0
+        ? bq.query({ query: spendQuery, params })
+        : Promise.resolve([[{ current_spend: 0, prev_spend: 0 }]] as any);
 
-    const revPromise = uniqueShopifyIds.length > 0
-      ? bq.query({ query: revenueQuery, params: shopifyParams })
-      : Promise.resolve([[{ current_revenue: 0, prev_revenue: 0, current_new_rev: 0, prev_new_rev: 0 }]] as any);
+    const revPromise =
+      uniqueShopifyIds.length > 0
+        ? bq.query({ query: revenueQuery, params: shopifyParams })
+        : Promise.resolve([
+            [
+              {
+                current_revenue: 0,
+                prev_revenue: 0,
+                current_new_rev: 0,
+                prev_new_rev: 0,
+              },
+            ],
+          ] as any);
 
-    const [[spendRows], [revRows]] = await Promise.all([spendPromise, revPromise]);
+    const [[spendRows], [revRows]] = await Promise.all([
+      spendPromise,
+      revPromise,
+    ]);
 
     const currentSpend = spendRows[0]?.current_spend || 0;
     const prevSpend = spendRows[0]?.prev_spend || 0;
@@ -966,19 +1205,26 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
     const currentMer = currentSpend > 0 ? currentRev / currentSpend : 0;
     const prevMer = prevSpend > 0 ? prevRev / prevSpend : 0;
 
-    const merChange = prevMer > 0 ? ((currentMer - prevMer) / prevMer) * 100 : 0;
-    const spendChange = prevSpend > 0 ? ((currentSpend - prevSpend) / prevSpend) * 100 : 0;
-    const revChange = prevRev > 0 ? ((currentRev - prevRev) / prevRev) * 100 : 0;
+    const merChange =
+      prevMer > 0 ? ((currentMer - prevMer) / prevMer) * 100 : 0;
+    const spendChange =
+      prevSpend > 0 ? ((currentSpend - prevSpend) / prevSpend) * 100 : 0;
+    const revChange =
+      prevRev > 0 ? ((currentRev - prevRev) / prevRev) * 100 : 0;
 
-    const acquisitionPct = currentRev > 0 ? (currentNewRev / currentRev) * 100 : 0;
+    const acquisitionPct =
+      currentRev > 0 ? (currentNewRev / currentRev) * 100 : 0;
     const prevAcquisitionPct = prevRev > 0 ? (prevNewRev / prevRev) * 100 : 0;
     const acquisitionChange = acquisitionPct - prevAcquisitionPct;
 
-    const currentTcac = currentNewCustomers > 0 ? currentSpend / currentNewCustomers : 0;
+    const currentTcac =
+      currentNewCustomers > 0 ? currentSpend / currentNewCustomers : 0;
     const prevTcac = prevNewCustomers > 0 ? prevSpend / prevNewCustomers : 0;
-    const tcacChange = prevTcac > 0 ? ((currentTcac - prevTcac) / prevTcac) * 100 : 0;
+    const tcacChange =
+      prevTcac > 0 ? ((currentTcac - prevTcac) / prevTcac) * 100 : 0;
 
-    const platformCac = currentConversions > 0 ? currentSpend / currentConversions : 0;
+    const platformCac =
+      currentConversions > 0 ? currentSpend / currentConversions : 0;
     const platformRoas = currentSpend > 0 ? currentConvValue / currentSpend : 0;
 
     // Efficiency Gap per spec: Holistic MER - Platform Reported ROAS Average
@@ -990,17 +1236,21 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
         mer: { value: currentMer, change: merChange },
         spend: { value: currentSpend, change: spendChange },
         revenue: { value: currentRev, change: revChange },
-        acquisition: { value: acquisitionPct, change: acquisitionChange, newRevenue: currentNewRev },
+        acquisition: {
+          value: acquisitionPct,
+          change: acquisitionChange,
+          newRevenue: currentNewRev,
+        },
         tcac: {
           value: currentTcac,
           change: tcacChange,
           platformCac,
           platformRoas,
           efficiencyGap,
-          newCustomers: currentNewCustomers
-        }
+          newCustomers: currentNewCustomers,
+        },
       },
-      period: startDate ? `${startStr} to ${endStr}` : `${days}d`
+      period: startDate ? `${startStr} to ${endStr}` : `${days}d`,
     });
   } catch (error) {
     console.error("Error fetching executive summary:", error);
@@ -1008,36 +1258,44 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
   }
 });
 
-app.get("/api/aggregateReports/pmax-spend-breakdown", async (req: Request, res: Response) => {
-  const { accountId } = req.query;
-  if (!accountId) return res.status(400).json({ error: "accountId required" });
-  try {
-    const rows = await pmaxSpendBreakdown.getData(String(accountId), 200);
-    res.json(rows);
-  } catch (error) {
-    console.error("Error fetching pmax breakdown report:", error);
-    res.json([]);
-  }
-});
+app.get(
+  "/api/aggregateReports/pmax-spend-breakdown",
+  async (req: Request, res: Response) => {
+    const { accountId } = req.query;
+    if (!accountId)
+      return res.status(400).json({ error: "accountId required" });
+    try {
+      const rows = await pmaxSpendBreakdown.getData(String(accountId), 200);
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching pmax breakdown report:", error);
+      res.json([]);
+    }
+  },
+);
 
-app.get("/api/aggregateReports/ads-spend-breakdown", async (req: Request, res: Response) => {
-  const { accountId, googleAdsId, facebookAdsId, ga4Id } = req.query;
+app.get(
+  "/api/aggregateReports/ads-spend-breakdown",
+  async (req: Request, res: Response) => {
+    const { accountId, googleAdsId, facebookAdsId, ga4Id } = req.query;
 
-  const accountIds: string[] = [];
-  if (accountId) accountIds.push(String(accountId));
-  if (googleAdsId) accountIds.push(String(googleAdsId));
-  if (facebookAdsId) accountIds.push(String(facebookAdsId));
-  if (ga4Id) accountIds.push(String(ga4Id));
+    const accountIds: string[] = [];
+    if (accountId) accountIds.push(String(accountId));
+    if (googleAdsId) accountIds.push(String(googleAdsId));
+    if (facebookAdsId) accountIds.push(String(facebookAdsId));
+    if (ga4Id) accountIds.push(String(ga4Id));
 
-  const uniqueIds = Array.from(new Set(accountIds));
+    const uniqueIds = Array.from(new Set(accountIds));
 
-  if (uniqueIds.length === 0) {
-    return res.status(400).json({ error: "At least one account ID is required" });
-  }
+    if (uniqueIds.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "At least one account ID is required" });
+    }
 
-  try {
-    const bq = createBigQueryClient();
-    const query = `
+    try {
+      const bq = createBigQueryClient();
+      const query = `
       SELECT *
       FROM \`reports.ads_spend_breakdown\`
       WHERE account_id IN UNNEST(@accountIds)
@@ -1045,33 +1303,40 @@ app.get("/api/aggregateReports/ads-spend-breakdown", async (req: Request, res: R
       ORDER BY spend DESC
     `;
 
-    const [rows] = await bq.query({
-      query,
-      params: { accountIds: uniqueIds },
-    });
+      const [rows] = await bq.query({
+        query,
+        params: { accountIds: uniqueIds },
+      });
 
-    res.json(rows);
-  } catch (error) {
-    console.error("Error fetching unified ads spend breakdown report:", error);
-    res.json([]);
-  }
-});
+      res.json(rows);
+    } catch (error) {
+      console.error(
+        "Error fetching unified ads spend breakdown report:",
+        error,
+      );
+      res.json([]);
+    }
+  },
+);
 
-app.get("/api/reports/superlatives/months", async (_req: Request, res: Response) => {
-  try {
-    const bq = createBigQueryClient();
-    const query = `
+app.get(
+  "/api/reports/superlatives/months",
+  async (_req: Request, res: Response) => {
+    try {
+      const bq = createBigQueryClient();
+      const query = `
       SELECT DISTINCT period_label, period_start
       FROM \`reports.superlatives_monthly\`
       ORDER BY period_start DESC
     `;
-    const [rows] = await bq.query(query);
-    res.json(rows);
-  } catch (error) {
-    console.error("Error fetching superlative months:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
+      const [rows] = await bq.query(query);
+      res.json(rows);
+    } catch (error) {
+      console.error("Error fetching superlative months:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+);
 
 // --- Brand Voice Endpoints ---
 
@@ -1085,19 +1350,25 @@ app.get("/api/brand-voice/summary", async (req: Request, res: Response) => {
 
   const uniqueIds = Array.from(new Set(accountIds));
   if (uniqueIds.length === 0) {
-    return res.status(400).json({ error: "At least one account ID is required" });
+    return res
+      .status(400)
+      .json({ error: "At least one account ID is required" });
   }
 
   try {
     const bq = createBigQueryClient();
-    
+
     // Fetch creative text and performance for hook analysis
     const report = brandVoiceCreativePerformance;
     const sql = buildReportQuery(report, {
-      startDate: (start as string) || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      endDate: (end as string) || new Date().toISOString().split('T')[0],
+      startDate:
+        (start as string) ||
+        new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0],
+      endDate: (end as string) || new Date().toISOString().split("T")[0],
       accountIds: uniqueIds,
-      timeGrain: 'total'
+      timeGrain: "total",
     });
 
     const [rows] = await bq.query({
@@ -1106,38 +1377,68 @@ app.get("/api/brand-voice/summary", async (req: Request, res: Response) => {
     });
 
     // Hook Analysis (Mocked AI categorization)
-    const hookTypes = ['Educational', 'Provocative', 'Benefit-Driven', 'Question', 'Storytelling'];
-    const hooks = rows.map(row => {
-      const headline = row.title || '';
+    const hookTypes = [
+      "Educational",
+      "Provocative",
+      "Benefit-Driven",
+      "Question",
+      "Storytelling",
+    ];
+    const hooks = rows.map((row) => {
+      const headline: String = row.title || "";
       // Simple hash-based stable assignment for demo
-      const typeIndex = Math.abs(headline.split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a }, 0)) % hookTypes.length;
+      const typeIndex =
+        Math.abs(
+          headline.split("").reduce((a, b) => {
+            a = (a << 5) - a + b.charCodeAt(0);
+            return a & a;
+          }, 0),
+        ) % hookTypes.length;
       return {
         type: hookTypes[typeIndex],
         engagement_rate: row.engagement_rate || 0,
-        spend: row.spend || 0
+        spend: row.spend || 0,
       };
     });
 
-    const hookPerformance = hookTypes.map(type => {
-      const matches = hooks.filter(h => h.type === type);
-      const avgEngagement = matches.length > 0 ? matches.reduce((sum, h) => sum + h.engagement_rate, 0) / matches.length : 0;
-      return { type, avgEngagement };
-    }).sort((a, b) => b.avgEngagement - a.avgEngagement);
+    const hookPerformance = hookTypes
+      .map((type) => {
+        const matches = hooks.filter((h) => h.type === type);
+        const avgEngagement =
+          matches.length > 0
+            ? matches.reduce((sum, h) => sum + h.engagement_rate, 0) /
+              matches.length
+            : 0;
+        return { type, avgEngagement };
+      })
+      .sort((a, b) => b.avgEngagement - a.avgEngagement);
 
     res.json({
       strategicAlignment: {
         consistencyScore: { value: 85, label: "LLM placeholder value" },
-        sentimentPulse: { positive: 0.65, neutral: 0.25, negative: 0.1, label: "LLM placeholder value" },
-        redFlags: { count: 3, flaggedWords: ["cheap", "guaranteed", "bargain"], label: "LLM placeholder value" }
+        sentimentPulse: {
+          positive: 0.65,
+          neutral: 0.25,
+          negative: 0.1,
+          label: "LLM placeholder value",
+        },
+        redFlags: {
+          count: 3,
+          flaggedWords: ["cheap", "guaranteed", "bargain"],
+          label: "LLM placeholder value",
+        },
       },
       creativeResonance: {
         hookAnalysis: hookPerformance,
-        visualSynergy: { value: 78, label: "LLM placeholder value" }
+        visualSynergy: { value: 78, label: "LLM placeholder value" },
       },
       competitiveFuture: {
         competitorBenchmark: { value: 72, label: "LLM placeholder value" },
-        predictedResonance: { value: 0, label: "LLM placeholder value (AI Sandbox Ready)" }
-      }
+        predictedResonance: {
+          value: 0,
+          label: "LLM placeholder value (AI Sandbox Ready)",
+        },
+      },
     });
   } catch (error) {
     console.error("Error fetching brand voice summary:", error);
@@ -1150,7 +1451,17 @@ app.get("/api/brand-voice/summary", async (req: Request, res: Response) => {
 // Homepage questions - aggregates data from multiple sources and returns 8 balanced questions
 // NOTE: This must be defined BEFORE the :questionId route to avoid matching "homepage" as an ID
 app.get("/api/questions/homepage", async (req: Request, res: Response) => {
-  const { accountId, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId, gscId, month } = req.query;
+  const {
+    accountId,
+    googleAdsId,
+    facebookAdsId,
+    ga4Id,
+    shopifyId,
+    instagramId,
+    facebookPageId,
+    gscId,
+    month,
+  } = req.query;
 
   const accountIds: string[] = [];
   if (accountId) accountIds.push(String(accountId));
@@ -1165,7 +1476,9 @@ app.get("/api/questions/homepage", async (req: Request, res: Response) => {
   const uniqueIds = Array.from(new Set(accountIds));
 
   if (uniqueIds.length === 0) {
-    return res.status(400).json({ error: "At least one account ID is required" });
+    return res
+      .status(400)
+      .json({ error: "At least one account ID is required" });
   }
 
   try {
@@ -1200,7 +1513,17 @@ app.get("/api/questions/homepage", async (req: Request, res: Response) => {
 });
 
 app.get("/api/reports/superlatives", async (req: Request, res: Response) => {
-  const { accountId, googleAdsId, facebookAdsId, ga4Id, shopifyId, instagramId, facebookPageId, gscId, month } = req.query;
+  const {
+    accountId,
+    googleAdsId,
+    facebookAdsId,
+    ga4Id,
+    shopifyId,
+    instagramId,
+    facebookPageId,
+    gscId,
+    month,
+  } = req.query;
 
   const accountIds: string[] = [];
   if (accountId) accountIds.push(String(accountId));
@@ -1215,7 +1538,9 @@ app.get("/api/reports/superlatives", async (req: Request, res: Response) => {
   const uniqueIds = Array.from(new Set(accountIds));
 
   if (uniqueIds.length === 0) {
-    return res.status(400).json({ error: "At least one account ID is required" });
+    return res
+      .status(400)
+      .json({ error: "At least one account ID is required" });
   }
 
   try {
@@ -1224,7 +1549,10 @@ app.get("/api/reports/superlatives", async (req: Request, res: Response) => {
 
     // Generate relevant questions based on superlatives data
     const questionContext: QuestionDataContext = { superlatives: rows };
-    const relevantQuestions = generateQuestionsForSource("superlatives", questionContext);
+    const relevantQuestions = generateQuestionsForSource(
+      "superlatives",
+      questionContext,
+    );
 
     res.json({
       superlatives: rows,
@@ -1236,30 +1564,43 @@ app.get("/api/reports/superlatives", async (req: Request, res: Response) => {
   }
 });
 
-app.post("/api/reports/generate-talking-points", async (req: Request, res: Response) => {
-  let { superlatives, overviews, accountIds, month } = req.body;
+app.post(
+  "/api/reports/generate-talking-points",
+  async (req: Request, res: Response) => {
+    let { superlatives, overviews, accountIds, month } = req.body;
 
-  try {
-    // If data is missing but context is provided, fetch it server-side
-    if ((!superlatives?.length && !overviews) && (accountIds?.length && month)) {
-      console.log(`Fetching context data server-side for month: ${month}`);
-      const bq = createBigQueryClient();
-      
-      // Fetch Superlatives
-      superlatives = await fetchSuperlatives(bq, accountIds, month);
-      
-      // Fetch Overviews
-      const dateRange = getDatesForMonth(month);
-      if (dateRange) {
-        overviews = await fetchOverviews(bq, accountIds, dateRange.start, dateRange.end);
+    try {
+      // If data is missing but context is provided, fetch it server-side
+      if (!superlatives?.length && !overviews && accountIds?.length && month) {
+        console.log(`Fetching context data server-side for month: ${month}`);
+        const bq = createBigQueryClient();
+
+        // Fetch Superlatives
+        superlatives = await fetchSuperlatives(bq, accountIds, month);
+
+        // Fetch Overviews
+        const dateRange = getDatesForMonth(month);
+        if (dateRange) {
+          overviews = await fetchOverviews(
+            bq,
+            accountIds,
+            dateRange.start,
+            dateRange.end,
+          );
+        }
       }
-    }
 
-    if ((!superlatives || !Array.isArray(superlatives)) && (!overviews || Object.keys(overviews || {}).length === 0)) {
-      return res.status(400).json({ error: "Superlatives/Overviews data OR accountIds/month context is required" });
-    }
+      if (
+        (!superlatives || !Array.isArray(superlatives)) &&
+        (!overviews || Object.keys(overviews || {}).length === 0)
+      ) {
+        return res.status(400).json({
+          error:
+            "Superlatives/Overviews data OR accountIds/month context is required",
+        });
+      }
 
-    const systemInstruction = `${analystPrompt}\n\nIMPORTANT: You MUST return exactly 15 talking points in the following JSON format:
+      const systemInstruction = `${analystPrompt}\n\nIMPORTANT: You MUST return exactly 15 talking points in the following JSON format:
     {
       "talking_points": [
         {
@@ -1273,33 +1614,38 @@ app.post("/api/reports/generate-talking-points", async (req: Request, res: Respo
       ]
     }`;
 
-    let prompt = `Here is the data for this month:`;
-    
-    if (superlatives && Array.isArray(superlatives) && superlatives.length > 0) {
-      prompt += `\n\n=== SUPERLATIVES (HALL OF FAME) ===\n${JSON.stringify(superlatives)}`;
-    }
+      let prompt = `Here is the data for this month:`;
 
-    if (overviews && Object.keys(overviews).length > 0) {
-      prompt += `\n\n=== PLATFORM OVERVIEWS (AGGREGATE PERFORMANCE) ===\n${JSON.stringify(overviews)}`;
-    }
-    
-    const result = await generateStructuredContent<{
-      talking_points: Array<{
-        title: string;
-        victory: string;
-        proof: string;
-        impact: string;
-        insights: string;
-        referenced_superlative_index: number;
-      }>;
-    }>(`${systemInstruction}\n\n${prompt}`);
+      if (
+        superlatives &&
+        Array.isArray(superlatives) &&
+        superlatives.length > 0
+      ) {
+        prompt += `\n\n=== SUPERLATIVES (HALL OF FAME) ===\n${JSON.stringify(superlatives)}`;
+      }
 
-    res.json(result.talking_points);
-  } catch (error) {
-    console.error("Error generating talking points:", error);
-    res.status(500).json({ error: "Failed to generate talking points" });
-  }
-});
+      if (overviews && Object.keys(overviews).length > 0) {
+        prompt += `\n\n=== PLATFORM OVERVIEWS (AGGREGATE PERFORMANCE) ===\n${JSON.stringify(overviews)}`;
+      }
+
+      const result = await generateStructuredContent<{
+        talking_points: Array<{
+          title: string;
+          victory: string;
+          proof: string;
+          impact: string;
+          insights: string;
+          referenced_superlative_index: number;
+        }>;
+      }>(`${systemInstruction}\n\n${prompt}`);
+
+      res.json(result.talking_points);
+    } catch (error) {
+      console.error("Error generating talking points:", error);
+      res.status(500).json({ error: "Failed to generate talking points" });
+    }
+  },
+);
 
 app.post("/api/reports/generate-draft", async (req: Request, res: Response) => {
   const { talkingPoints } = req.body;
@@ -1309,8 +1655,10 @@ app.post("/api/reports/generate-draft", async (req: Request, res: Response) => {
 
   try {
     const prompt = `Here are the curated talking points to include in the report:\n${JSON.stringify(talkingPoints)}`;
-    
-    const result = await generateStructuredContent<any>(`${editorPrompt}\n\n${prompt}`);
+
+    const result = await generateStructuredContent<any>(
+      `${editorPrompt}\n\n${prompt}`,
+    );
     res.json(result);
   } catch (error) {
     console.error("Error generating draft:", error);
