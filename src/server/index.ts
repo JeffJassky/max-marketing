@@ -42,6 +42,7 @@ import {
 } from "../shared/vendors/google/gemini";
 import { coreMonitors, allAggregateReports } from "./registry";
 import { MarketingAgent } from "./services/agent";
+import { evaluateSQLExpression } from "../shared/data/expressionEvaluator";
 import {
   generateQuestions,
   generateQuestionsForSource,
@@ -631,6 +632,7 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
     gscId,
   } = req.query;
 
+  // Find the report definition
   const report = allAggregateReports.find((r) => r.id === reportId);
   if (!report) {
     return res.status(404).json({ error: "Report not found" });
@@ -699,30 +701,23 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
       const sample = rows[0];
       const excluded = ["account_id", "date", "partition", "cluster"];
 
-      // Robust dimension/metric detection
+      // Get dimensions from report definition (grain + includeDimensions) to preserve order
+      const reportDimensions = [
+        ...report.definition.output.grain,
+        ...((report.definition.output as any).includeDimensions || []),
+      ];
+      const dimensionSet = new Set(reportDimensions);
+
+      // Detect metrics from query results (all numeric columns not in dimensions)
       const allKeys = Object.keys(sample);
-      const dimensions = allKeys.filter((k) => {
-        if (excluded.includes(k)) return false;
-        // Check first 10 rows for a string value if the first is null
-        for (let i = 0; i < Math.min(rows.length, 10); i++) {
-          if (rows[i][k] !== null && rows[i][k] !== undefined) {
-            return typeof rows[i][k] === "string";
-          }
-        }
-        return false;
-      });
       const metrics = allKeys.filter((k) => {
         if (excluded.includes(k)) return false;
-        if (dimensions.includes(k)) return false;
+        if (dimensionSet.has(k)) return false;
         return typeof sample[k] === "number";
       });
 
-      // Ensure thumbnail_url is the first dimension if present
-      const thumbIdx = dimensions.indexOf("thumbnail_url");
-      if (thumbIdx > -1) {
-        dimensions.splice(thumbIdx, 1);
-        dimensions.unshift("thumbnail_url");
-      }
+      // Use declared dimensions in their report-defined order
+      const dimensions = reportDimensions.filter((d) => d in sample);
 
       const groups: Record<string, any> = {};
 
@@ -745,27 +740,14 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
           groups[groupKey]._dailyMap[dateStr] = row;
         }
 
-        // Metrics that should be averaged, not summed
-        const avgMetrics = [
-          "position",
-          "ctr",
-          "roas",
-          "cpa",
-          "aov",
-          "engagement_rate",
-          "bounce_rate",
-        ];
+        // Derived metrics (rates, ratios) are recalculated, not summed
+        const derivedFieldKeys = report.definition.output.derivedFields
+          ? Object.keys(report.definition.output.derivedFields)
+          : [];
 
         metrics.forEach((m) => {
-          if (avgMetrics.includes(m)) {
-            // For averaged metrics, track sum and count separately
-            if (!groups[groupKey]._avgSums) groups[groupKey]._avgSums = {};
-            if (!groups[groupKey]._avgCounts) groups[groupKey]._avgCounts = {};
-            groups[groupKey]._avgSums[m] =
-              (groups[groupKey]._avgSums[m] || 0) + (row[m] || 0);
-            groups[groupKey]._avgCounts[m] =
-              (groups[groupKey]._avgCounts[m] || 0) + 1;
-          } else {
+          if (!derivedFieldKeys.includes(m)) {
+            // Base metrics are always summed
             groups[groupKey][m] += row[m] || 0;
           }
         });
@@ -780,175 +762,85 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
         });
         delete row._dailyMap;
 
-        // Calculate averages for metrics that shouldn't be summed
-        if (row._avgSums && row._avgCounts) {
-          for (const m of Object.keys(row._avgSums)) {
-            row[m] = row._avgSums[m] / row._avgCounts[m];
-          }
-          delete row._avgSums;
-          delete row._avgCounts;
-        }
-
-        // Recalculate derived rates from summed base metrics
-        if (
-          row.spend !== undefined &&
-          row.revenue !== undefined &&
-          row.spend > 0
-        )
-          row.roas = row.revenue / row.spend;
-        if (
-          row.conversions_value !== undefined &&
-          row.spend !== undefined &&
-          row.spend > 0
-        )
-          row.roas = row.conversions_value / row.spend;
-        if (
-          row.clicks !== undefined &&
-          row.impressions !== undefined &&
-          row.impressions > 0
-        )
-          row.ctr = row.clicks / row.impressions;
-        if (
-          row.spend !== undefined &&
-          row.conversions !== undefined &&
-          row.conversions > 0
-        )
-          row.cpa = row.spend / row.conversions;
-        if (
-          row.revenue !== undefined &&
-          row.orders !== undefined &&
-          row.orders > 0
-        )
-          row.aov = row.revenue / row.orders;
-        if (
-          row.engaged_sessions !== undefined &&
-          row.sessions !== undefined &&
-          row.sessions > 0
-        )
-          row.engagement_rate = row.engaged_sessions / row.sessions;
+        // Re-derive all derived fields from summed base metrics using their expressions
+        const derivedFields = report.definition.output.derivedFields || {};
+        Object.entries(derivedFields).forEach(([fieldKey, fieldDef]: [string, any]) => {
+          row[fieldKey] = evaluateSQLExpression(fieldDef.expression, row);
+        });
 
         return row;
       });
 
-      // Sort processed rows by most relevant metric (clicks > impressions > spend > revenue)
-      const sortKey = metrics.includes("clicks")
-        ? "clicks"
-        : metrics.includes("impressions")
-          ? "impressions"
-          : metrics.includes("spend")
-            ? "spend"
-            : metrics.includes("revenue")
-              ? "revenue"
-              : metrics.includes("sessions")
-                ? "sessions"
-                : metrics[0];
+      // Sort processed rows using report's orderBy configuration
+      if (report.definition.orderBy) {
+        const { field, direction } = report.definition.orderBy;
+        const multiplier = direction === "desc" ? -1 : 1;
+        processedRows.sort(
+          (a, b) =>
+            multiplier * ((b[field] || 0) - (a[field] || 0))
+        );
+      }
 
-      processedRows.sort((a, b) => (b[sortKey] || 0) - (a[sortKey] || 0));
-
-      // Headers
-      const labelOverrides: Record<string, string> = {
-        conversions_value: "Purchase Revenue",
-      };
+      // Helper to format label from key
       const formatLabel = (key: string) =>
-        labelOverrides[key] ||
         key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
 
-      const getSparklineMetric = (row: any) => {
-        // Exclude specific trends as requested by user
-        if (
-          reportId === "googleAdsCampaignPerformance" ||
-          reportId === "metaAdsCampaignPerformance"
-        )
-          return ""; // Remove Spend Trend
-        if (reportId === "ga4AcquisitionPerformance") return ""; // Remove Revenue Trend
-        if (reportId === "gscQueryPerformance") return ""; // Remove Impression Trend
-        if (
-          reportId === "socialPlatformPerformance" ||
-          reportId === "instagramPostPerformance" ||
-          reportId === "facebookPostPerformance"
-        )
-          return ""; // Remove Impressions Trend
-        if (reportId === "shopifySourcePerformance") return ""; // Remove Revenue Trend
-
-        if (row._daily[0]?.spend !== undefined) return "spend";
-        if (row._daily[0]?.revenue !== undefined) return "revenue";
-        if (row._daily[0]?.impressions !== undefined) return "impressions";
-        if (row._daily[0]?.sessions !== undefined) return "sessions";
-        return (
-          Object.keys(row).find(
-            (k) => typeof row[k] === "number" && k !== "account_id",
-          ) || ""
-        );
-      };
-
-      const sparklineMetric = processedRows.length
-        ? getSparklineMetric(processedRows[0])
-        : "";
-
+      // Build headers with display metadata from report
       const headers = [
         ...dimensions.map((d) => ({
           key: d,
           label: formatLabel(d),
-          type: "dimension",
+          type: "dimension" as const,
         })),
-        ...(sparklineMetric
-          ? [
-              {
-                key: "_sparkline",
-                label: `${formatLabel(sparklineMetric)} Trend`,
-                type: "sparkline",
-                metric: sparklineMetric,
-              },
-            ]
-          : []),
         ...metrics
-          .filter(
-            (m) =>
-              !m.includes("rate") &&
-              !m.includes("roas") &&
-              !m.includes("ctr") &&
-              !m.includes("aov") &&
-              !m.includes("cpa"),
-          )
-          .map((m) => ({ key: m, label: formatLabel(m), type: "metric" })),
+          .filter((m) => {
+            const derivedConfig = (report.definition.output.derivedFields as any)?.[m];
+            const isDerived = !!derivedConfig;
+            return !isDerived;
+          })
+          .map((m) => {
+            const metricConfig = (report.definition.output.metrics as any)[m];
+            const label = metricConfig.display?.label || formatLabel(m);
+            const tooltip = metricConfig.display?.description;
+            const format = metricConfig.display?.format;
+            return {
+              key: m,
+              label,
+              type: "metric" as const,
+              format,
+              tooltip,
+            };
+          }),
         ...metrics
-          .filter(
-            (m) =>
-              m.includes("rate") ||
-              m.includes("roas") ||
-              m.includes("ctr") ||
-              m.includes("aov") ||
-              m.includes("cpa"),
-          )
-          .map((m) => ({ key: m, label: formatLabel(m), type: "rate" })),
+          .filter((m) => {
+            const derivedConfig = (report.definition.output.derivedFields as any)?.[m];
+            return !!derivedConfig;
+          })
+          .map((m) => {
+            const derivedConfig = (report.definition.output.derivedFields as any)[m];
+            const label = derivedConfig.display?.label || formatLabel(m);
+            const tooltip = derivedConfig.display?.description;
+            const format = derivedConfig.display?.format;
+            return {
+              key: m,
+              label,
+              type: "rate" as const,
+              format,
+              tooltip,
+            };
+          }),
       ];
 
       // Totals
       const totals: Record<string, number> = {};
-      const dailyTotals: Record<string, number[]> = {}; // metric -> [val, val, ...] (aligned with allDates)
-      const avgMetricsForTotals = [
-        "position",
-        "ctr",
-        "roas",
-        "cpa",
-        "aov",
-        "engagement_rate",
-        "bounce_rate",
-      ];
+      const dailyTotals: Record<string, number[]> = {};
 
-      metrics.forEach((m) => {
-        if (avgMetricsForTotals.includes(m)) {
-          // Average these metrics instead of summing
-          const values = processedRows
-            .map((r) => r[m])
-            .filter((v) => v !== undefined && v !== null && v !== 0);
-          totals[m] =
-            values.length > 0
-              ? values.reduce((a, b) => a + b, 0) / values.length
-              : 0;
-        } else {
-          totals[m] = processedRows.reduce((acc, r) => acc + (r[m] || 0), 0);
-        }
+      // Sum all base metrics
+      const baseMetrics = metrics.filter(
+        (m) => !(report.definition.output.derivedFields as any)?.[m]
+      );
+      baseMetrics.forEach((m) => {
+        totals[m] = processedRows.reduce((acc, r) => acc + (r[m] || 0), 0);
 
         // Aggregate daily values across all rows
         dailyTotals[m] = allDates.map((date, idx) => {
@@ -959,35 +851,11 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
         });
       });
 
-      // Recalculate derived totals from summed base metrics
-      if (
-        totals.clicks !== undefined &&
-        totals.impressions !== undefined &&
-        totals.impressions > 0
-      ) {
-        totals.ctr = totals.clicks / totals.impressions;
-      }
-      if (
-        totals.spend !== undefined &&
-        totals.revenue !== undefined &&
-        totals.spend > 0
-      ) {
-        totals.roas = totals.revenue / totals.spend;
-      }
-      if (
-        totals.conversions_value !== undefined &&
-        totals.spend !== undefined &&
-        totals.spend > 0
-      ) {
-        totals.roas = totals.conversions_value / totals.spend;
-      }
-      if (
-        totals.spend !== undefined &&
-        totals.conversions !== undefined &&
-        totals.conversions > 0
-      ) {
-        totals.cpa = totals.spend / totals.conversions;
-      }
+      // Re-derive all derived field totals from summed base metrics using their expressions
+      const derivedFieldsForTotals = report.definition.output.derivedFields || {};
+      Object.entries(derivedFieldsForTotals).forEach(([fieldKey, fieldDef]: [string, any]) => {
+        totals[fieldKey] = evaluateSQLExpression(fieldDef.expression, totals);
+      });
 
       return res.json({ headers, rows: processedRows, totals, dailyTotals });
     }

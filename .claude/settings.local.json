@@ -10,7 +10,9 @@
       "Bash(source .env)",
       "Bash(bq show:*)",
       "Bash(bq query:*)",
-      "Bash(yarn cli:*)"
+      "Bash(yarn cli:*)",
+      "Bash(npm run:*)",
+      "Bash(wait:*)"
     ]
   }
 }

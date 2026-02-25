@@ -22,14 +22,15 @@ export const gscQueryPerformance = new AggregateReport({
     grain: ["account_id", "query"],
     includeDimensions: ["branded_vs_nonbranded"],
     metrics: {
-      clicks: { aggregation: "sum" },
-      impressions: { aggregation: "sum" },
-      position: { aggregation: "avg" },
+      clicks: { aggregation: "sum", display: { format: "number", description: "Total organic traffic. This is the volume of visitors coming to your site for free from Google search results." } },
+      impressions: { aggregation: "sum", display: { format: "number", description: "Organic visibility. This measures how often Google shows your brand to people searching for related keywords." } },
+      position: { aggregation: "avg", display: { format: "number", description: "Search rank. This is your average 'seat' on the Google results page. The closer this number is to 1, the higher you appear at the top of the page." } },
     },
     derivedFields: {
       ctr: {
         expression: "SAFE_DIVIDE(clicks, impressions)",
         type: z.number(),
+        display: { format: "percent", description: "Search relevance. A higher CTR means your website's title and description are highly relevant to what people are searching for." },
       },
     },
   },

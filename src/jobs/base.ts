@@ -416,6 +416,19 @@ export type AggregateReportMetricConfig<
    * If omitted, inferred from source metric or defaults to number.
    */
   type?: z.ZodType;
+
+  /**
+   * Optional display metadata for UI rendering and formatting.
+   * Includes label overrides, format hints, and descriptions.
+   */
+  display?: {
+    /** Custom label for the metric (e.g. "Purchase Revenue" for conversions_value) */
+    label?: string;
+    /** Format type for value rendering: 'currency' (e.g. $123.45), 'percent' (e.g. 45%), 'ratio' (e.g. 2.5x), 'number', 'duration' */
+    format?: "currency" | "percent" | "ratio" | "number" | "duration";
+    /** Tooltip description for the metric in UI (platform-context-specific) */
+    description?: string;
+  };
 };
 
 export type AggregateReportDerivedFieldConfig = {
@@ -424,6 +437,19 @@ export type AggregateReportDerivedFieldConfig = {
 
   /** Logical type of the value for downstream typing/validation. */
   type: z.ZodType;
+
+  /**
+   * Optional display metadata for UI rendering and formatting.
+   * Includes label overrides, format hints, and descriptions.
+   */
+  display?: {
+    /** Custom label for the metric (e.g. "Return on Ad Spend" for roas) */
+    label?: string;
+    /** Format type for value rendering: 'currency', 'percent', 'ratio', 'number', 'duration' */
+    format?: "currency" | "percent" | "ratio" | "number" | "duration";
+    /** Tooltip description for the metric in UI (platform-context-specific) */
+    description?: string;
+  };
 };
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

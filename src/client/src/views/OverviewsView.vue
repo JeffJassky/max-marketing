@@ -56,87 +56,6 @@ const tabs = [
   { id: PlatformTab.GSC, label: 'Search Console', icon: Search, reportId: 'gscQueryPerformance' }
 ];
 
-// Tooltip descriptions by platform and metric (aligned with spec)
-const metricTooltips: Record<PlatformTab, Record<string, string>> = {
-  [PlatformTab.GOOGLE]: {
-    // Spec: Overview: Google Ads - Row 1: Performance Cards
-    spend: "Total amount billed by Google for your search, display, and video ads. This represents your raw investment into capturing search intent.",
-    impressions: "Visibility count. This shows how many times your brand appeared in front of potential customers, regardless of whether they clicked.",
-    clicks: "Total traffic generated. This measures the number of users who found your ad compelling enough to take the first step toward your site.",
-    conversions: "Success count. This tracks the total number of users who completed a high-value action, such as a purchase, after clicking your Google ad.",
-    conversions_value: "The total dollar value of all conversion actions tracked by Google Ads. Note: this includes all conversion types (purchases, leads, signups, etc.), not just sales revenue.",
-    roas: "Return on Ad Spend. For every dollar spent, this shows how much revenue was generated. Higher is better.",
-    cpa: "Cost Per Acquisition. The average cost to acquire one conversion. Lower is typically better.",
-    ctr: "Click-Through Rate. The percentage of impressions that resulted in a click. Indicates ad relevance and appeal."
-  },
-  [PlatformTab.META]: {
-    // Spec: Overview: Meta Ads - Row 1: Performance Cards
-    spend: "Total ad spend on Meta platforms. This covers everything from boosted posts to high-conversion Instagram Story ads.",
-    impressions: "Total exposure. This measures the scale of your 'interruption' marketing, showing how many times your creative appeared in user feeds.",
-    clicks: "Engagement volume. This represents the number of users who stopped scrolling and clicked to learn more about your brand.",
-    conversions: "Total results. These are the specific outcomes—like sales or leads—that Meta identifies as coming directly from your social ads.",
-    conversions_value: "Revenue from purchase events tracked by the Meta Pixel. This is filtered to purchase-type conversions only (via action_values), so it represents actual sales revenue, not general conversion value.",
-    roas: "Return on Ad Spend for Meta. Shows revenue generated per dollar spent on Facebook and Instagram ads.",
-    cpa: "Cost Per Acquisition on Meta. Average spend required to generate one conversion.",
-    ctr: "Click-Through Rate. Percentage of people who clicked after seeing your ad. Reflects creative and targeting effectiveness.",
-    reach: "Unique users who saw your ad at least once. Indicates the breadth of your audience exposure."
-  },
-  [PlatformTab.GA4]: {
-    // Spec: Overview: Google Analytics (GA4) - Row 1: Site Engagement Cards
-    sessions: "Total visits to your site. A session starts when a user arrives and ends after 30 minutes of inactivity.",
-    engaged_sessions: "Sessions where users spent 10+ seconds, had 2+ page views, or completed a conversion. Quality engagement indicator.",
-    conversions: "The total number of high-value actions taken on your site. This includes purchases and other 'milestone' actions like adding an item to the cart.",
-    revenue: "Total purchase revenue tracked by Google Analytics. May differ from Shopify due to attribution methodology.",
-    engagement_rate: "This measures traffic quality. A high engagement rate means your visitors are actually interacting with your content rather than leaving immediately.",
-    conversion_rate: "The percentage of sessions that resulted in a conversion. Higher rates indicate more effective traffic and site experience.",
-    // Spec-required metrics
-    avg_engagement_time: "The average time a user spends actively looking at your site. For high-ticket items, longer times often indicate higher purchase intent.",
-    events_per_user: "This shows how 'busy' your users are. More events per user generally mean they are exploring multiple products or reading deep into your content.",
-    active_users: "The number of distinct users who visited your site during this period.",
-    event_count: "Total number of events triggered across all users and sessions.",
-    user_engagement_duration: "The total amount of time your website was actively in users' foreground across all sessions."
-  },
-  [PlatformTab.SHOPIFY]: {
-    // Shopify performance metrics
-    revenue: "Total gross sales from your Shopify store. The source of truth for actual business revenue.",
-    orders: "Total number of completed orders. Direct measure of purchase volume.",
-    tax: "Total tax collected on orders. Useful for financial reconciliation.",
-    discounts: "Total value of discounts applied. Helps track promotion effectiveness.",
-    refunds: "Total refund amounts processed. Monitor for potential product or service issues.",
-    aov: "Average Order Value. Revenue divided by orders. Higher AOV often indicates successful upselling."
-  },
-  [PlatformTab.INSTAGRAM]: {
-    // Social media organic performance
-    impressions: "Total times your organic posts were displayed to users across social platforms.",
-    reach: "Unique accounts that saw your content. Measures audience breadth.",
-    engagement: "Total interactions including likes, comments, shares, and saves.",
-    followers: "Total follower count across connected social accounts.",
-    engagement_rate: "Engagement divided by reach. Indicates how compelling your content is to your audience.",
-    posts: "Number of posts published during this period."
-  },
-  [PlatformTab.FACEBOOK_ORGANIC]: {
-    // Social media organic performance
-    impressions: "Total times your organic posts were displayed to users across social platforms.",
-    reach: "Unique accounts that saw your content. Measures audience breadth.",
-    engagement: "Total interactions including likes, comments, shares, and saves.",
-    followers: "Total follower count across connected social accounts.",
-    engagement_rate: "Engagement divided by reach. Indicates how compelling your content is to your audience.",
-    posts: "Number of posts published during this period."
-  },
-  [PlatformTab.GSC]: {
-    // Spec: Overview: Search Console - Row 1: Organic Health Cards
-    clicks: "Total organic traffic. This is the volume of visitors coming to your site for free from Google search results.",
-    impressions: "Organic visibility. This measures how often Google shows your brand to people searching for related keywords.",
-    ctr: "Search relevance. A higher CTR means your website's title and description are highly relevant to what people are searching for.",
-    position: "Search rank. This is your average 'seat' on the Google results page. The closer this number is to 1, the higher you appear at the top of the page."
-  }
-};
-
-// Get tooltip for a metric based on active platform
-const getMetricTooltip = (metricKey: string): string => {
-  const platformTooltips = metricTooltips[activeTab.value];
-  return platformTooltips?.[metricKey] || `${metricKey.replace(/_/g, ' ')} for the selected period.`;
-};
 
 const activeTab = ref<PlatformTab>(PlatformTab.GOOGLE);
 const loading = ref(false);
@@ -147,6 +66,8 @@ interface ReportHeader {
   label: string;
   type: 'dimension' | 'metric' | 'rate' | 'sparkline';
   metric?: string; // For sparkline column
+  format?: 'currency' | 'percent' | 'ratio' | 'number' | 'duration';
+  tooltip?: string;
 }
 
 interface ReportData {
@@ -243,15 +164,31 @@ const loadReport = async () => {
   }
 };
 
-const formatValue = (key: string, value: any) => {
+const formatValue = (format: string | undefined, value: any) => {
   if (typeof value === 'number') {
-    if (key.includes('rate') || key.includes('ctr') || key.includes('roas')) {
-      return key.includes('roas') ? `${value.toFixed(2)}x` : `${(value * 100).toFixed(1)}%`;
+    switch (format) {
+      case 'currency':
+        return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      case 'percent':
+        return `${(value * 100).toFixed(1)}%`;
+      case 'ratio':
+        return `${value.toFixed(2)}x`;
+      case 'duration': {
+        const totalSeconds = Math.round(value);
+        const days = Math.floor(totalSeconds / 86400);
+        const hours = Math.floor((totalSeconds % 86400) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        const pad = (n: number) => String(n).padStart(2, '0');
+
+        if (days > 0) return `${days}:${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+        if (hours > 0) return `${hours}:${pad(minutes)}:${pad(seconds)}`;
+        return `${minutes}:${pad(seconds)}`;
+      }
+      case 'number':
+      default:
+        return value.toLocaleString();
     }
-    if (key.includes('spend') || key.includes('revenue') || key.includes('cpa') || key.includes('aov') || key.includes('value')) {
-      return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    }
-    return value.toLocaleString();
   }
   return value;
 };
@@ -404,11 +341,11 @@ onUnmounted(() => {
         <div class="py-4 md:py-8">
           <!-- Summary Cards (Top Row) -->
           <div
-            class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8 px-4 md:px-8"
+            class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8 px-4 md:px-8"
           >
-            <!-- Pick top 4 numeric metrics -->
+            <!-- Display all numeric metrics -->
             <div
-              v-for="header in reportData.headers.filter(h => h.type === 'metric' || h.type === 'rate').slice(0, 4)"
+              v-for="header in reportData.headers.filter(h => h.type === 'metric' || h.type === 'rate')"
               :key="header.key"
               class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm group/tooltip relative"
             >
@@ -423,7 +360,7 @@ onUnmounted(() => {
                 />
               </div>
               <p class="text-2xl font-bold text-slate-900">
-                {{ formatValue(header.key, reportData.totals[header.key]) }}
+                {{ formatValue(header.format, reportData.totals[header.key]) }}
               </p>
               <!-- Cumulative Sparkline for Total -->
               <div class="mt-2 h-8 w-full">
@@ -436,7 +373,7 @@ onUnmounted(() => {
               <div
                 class="absolute top-full left-2 right-2 mt-2 bg-slate-900 text-white text-xs p-3 rounded-xl opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg"
               >
-                {{ getMetricTooltip(header.key) }}
+                {{ header.tooltip || `${header.label} for the selected period.` }}
               </div>
             </div>
           </div>
@@ -574,7 +511,7 @@ onUnmounted(() => {
                       </template>
 
                       <template v-else>
-                        {{ formatValue(header.key, row[header.key]) }}
+                        {{ formatValue(header.format, row[header.key]) }}
                       </template>
                     </td>
                   </tr>
