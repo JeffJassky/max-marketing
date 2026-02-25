@@ -1,1 +1,11 @@
+#!/bin/bash
+
+# Prevent committing multiple lock files - only yarn.lock is allowed
+if [ -f package-lock.json ] || [ -f pnpm-lock.yaml ] || [ -f bun.lock ]; then
+  echo "❌ Error: Multiple lock files detected."
+  echo "   Only yarn.lock should be committed."
+  echo "   Please remove package-lock.json, pnpm-lock.yaml, or bun.lock before committing."
+  exit 1
+fi
+
 yarn build
