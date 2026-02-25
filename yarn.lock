@@ -1893,6 +1893,11 @@ https-proxy-agent@^7.0.1:
     agent-base "^7.1.2"
     debug "4"
 
+husky@^9.1.7:
+  version "9.1.7"
+  resolved "https://registry.npmjs.org/husky/-/husky-9.1.7.tgz"
+  integrity sha512-5gs5ytaNjBrh5Ow3zrvdUUY+0VxIuWVL4i9irt6friV+BqdCfmV11CQTWMiBYWHbXhco+J1kHfTOUkePhCDvMA==
+
 iconv-lite@^0.4.24:
   version "0.4.24"
   resolved "https://registry.npmjs.org/iconv-lite/-/iconv-lite-0.4.24.tgz"
@@ -2175,6 +2180,7 @@ math-intrinsics@^1.1.0:
     "@vueuse/integrations" "^10.9.0"
     apexcharts "^3.54.1"
     deep-chat "^2.4.1"
+    floating-vue "^5.2.2"
     lucide-vue-next "^0.554.0"
     marked "^17.0.1"
     pinia "^2.2.2"

@@ -16,7 +16,9 @@
       "Bash(tail:*)",
       "Bash(yarn install:*)",
       "Bash(npm install:*)",
-      "Bash(killall:*)"
+      "Bash(killall:*)",
+      "Bash(npx husky:*)",
+      "Bash(npm ls:*)"
     ]
   }
 }
