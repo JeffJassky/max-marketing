@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, inject, type Ref, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, watch, inject, type Ref, onMounted, onUnmounted, nextTick, computed } from 'vue';
 import {
   Layout,
   BarChart3,
@@ -13,11 +13,18 @@ import {
   Info,
   ChevronUp,
   ChevronDown,
-  ExternalLink
+  ExternalLink,
+  MoreVertical,
+  Plus,
+  Eye,
+  EyeOff,
+  GripVertical
 } from 'lucide-vue-next';
 import Sparkline from '../components/Sparkline.vue';
 import { useDateRange } from '../composables/useDateRange';
-import { computed } from 'vue';
+import { useAccountSettingsStore } from '../stores/accountSettings';
+import { useSortable } from '@vueuse/integrations/useSortable';
+import { Dropdown } from 'floating-vue';
 
 interface MaxAccount {
   id: string;
@@ -112,6 +119,182 @@ const sortedRows = computed(() => {
     return sortOrder.value === 'asc' ? aVal - bVal : bVal - aVal;
   });
 });
+
+// ============================================================================
+// SETTINGS INTEGRATION
+// ============================================================================
+
+// Helper to safely access nested settings by dot path
+function getSettingByPath(settings: any, path: string): any {
+  const keys = path.split('.');
+  let current = settings;
+  for (const key of keys) {
+    if (current == null) return undefined;
+    current = current[key];
+  }
+  return current;
+}
+
+// Map platform tabs to settings section keys
+const platformToSectionKey: Record<PlatformTab, string> = {
+  [PlatformTab.GOOGLE]: 'sections.overviews.google',
+  [PlatformTab.META]: 'sections.overviews.meta',
+  [PlatformTab.GA4]: 'sections.overviews.ga4',
+  [PlatformTab.SHOPIFY]: 'sections.overviews.shopify',
+  [PlatformTab.INSTAGRAM]: 'sections.overviews.instagram',
+  [PlatformTab.FACEBOOK_ORGANIC]: 'sections.overviews.facebook',
+  [PlatformTab.GSC]: 'sections.overviews.gsc',
+} as const;
+
+// Read from Pinia store (updated reactively when settings change)
+const settingsStoreForRead = useAccountSettingsStore();
+
+// Compute the current section key based on active tab
+const currentSectionKey = computed(() => platformToSectionKey[activeTab.value]);
+
+// Get pinned metrics for the current platform (computed dynamically, reads from store)
+const pinnedMetrics = computed(() => {
+  if (!settingsStoreForRead.settings) return [];
+  const sectionPath = platformToSectionKey[activeTab.value];
+  const pinned = getSettingByPath(settingsStoreForRead.settings, `${sectionPath}.pinnedMetrics`);
+  return Array.isArray(pinned) ? pinned : [];
+});
+
+// Get hidden metrics from global settings (reads from store)
+const hiddenMetrics = computed(() => {
+  if (!settingsStoreForRead.settings) return [];
+  const hidden = getSettingByPath(settingsStoreForRead.settings, 'global.hiddenMetrics');
+  return Array.isArray(hidden) ? hidden : [];
+});
+
+// Filter and reorder headers based on settings
+const filteredAndOrderedHeaders = computed(() => {
+  let headers = [...reportData.value.headers];
+
+  // Filter out hidden metrics
+  headers = headers.filter(h => !hiddenMetrics.value.includes(h.key));
+
+  // If pinned metrics specified, reorder by pinning them first
+  if (pinnedMetrics.value && pinnedMetrics.value.length > 0) {
+    const pinned = pinnedMetrics.value.filter(key => headers.some(h => h.key === key));
+    const unpinned = headers.filter(h => !pinnedMetrics.value.includes(h.key));
+
+    // Return pinned first, then unpinned
+    return [
+      ...pinned.map(key => headers.find(h => h.key === key)!),
+      ...unpinned
+    ];
+  }
+
+  return headers;
+});
+
+// Get all metric headers (for restore menu)
+const allMetricHeaders = computed(() => {
+  return reportData.value.headers.filter(h => h.type === 'metric' || h.type === 'rate');
+});
+
+// Get hidden metric headers
+const hiddenMetricHeaders = computed(() => {
+  return allMetricHeaders.value.filter(h => hiddenMetrics.value.includes(h.key));
+});
+
+// ============================================================================
+// CUSTOMIZATION HANDLERS
+// ============================================================================
+
+const openMetricMenu = ref<string | null>(null);
+const restoreOpen = ref(false);
+const summaryCardsContainer = ref<HTMLElement | null>(null);
+
+// Reactive list of visible metric keys for sortable
+const sortableMetricKeys = ref<string[]>([]);
+
+// Keep sortableMetricKeys in sync with filteredAndOrderedHeaders
+watch(
+  () => filteredAndOrderedHeaders.value,
+  (newHeaders) => {
+    sortableMetricKeys.value = newHeaders
+      .filter(h => h.type === 'metric' || h.type === 'rate')
+      .map(h => h.key);
+  },
+  { deep: false, immediate: true }
+);
+
+// Setup sortable for drag-drop reordering
+useSortable(summaryCardsContainer, sortableMetricKeys, {
+  animation: 200,
+  ghostClass: 'opacity-50 shadow-xl',
+  dragClass: 'ring-2 ring-indigo-400 shadow-xl',
+  handle: '.drag-handle',
+  delay: 0,
+  delayOnTouchOnly: true,
+  onUpdate: async (event) => {
+    if (!selectedAccount?.value) return;
+
+    try {
+      const newOrder = sortableMetricKeys.value;
+      const sectionPath = `${currentSectionKey.value}.pinnedMetrics` as any;
+      await settingsStoreForRead.updateSetting(
+        selectedAccount.value.id,
+        sectionPath,
+        newOrder
+      );
+    } catch (error) {
+      console.error('Failed to reorder metrics:', error);
+    }
+  },
+});
+
+/**
+ * Hide a metric globally and remove from pinned order
+ */
+const hideMetric = async (metricKey: string) => {
+  if (!selectedAccount?.value) return;
+  openMetricMenu.value = null;
+
+  try {
+    // Add to hidden metrics
+    const newHiddenMetrics = [...hiddenMetrics.value, metricKey];
+    await settingsStoreForRead.updateSetting(
+      selectedAccount.value.id,
+      'global.hiddenMetrics',
+      newHiddenMetrics
+    );
+
+    // Remove from pinned if it was there
+    if (pinnedMetrics.value.includes(metricKey)) {
+      const newPinnedMetrics = pinnedMetrics.value.filter(k => k !== metricKey);
+      const sectionPath = `${currentSectionKey.value}.pinnedMetrics` as any;
+      await settingsStoreForRead.updateSetting(
+        selectedAccount.value.id,
+        sectionPath,
+        newPinnedMetrics
+      );
+    }
+  } catch (error) {
+    console.error('Failed to hide metric:', error);
+  }
+};
+
+/**
+ * Restore a hidden metric
+ */
+const restoreMetric = async (metricKey: string) => {
+  if (!selectedAccount?.value) return;
+
+  try {
+    const newHiddenMetrics = hiddenMetrics.value.filter(k => k !== metricKey);
+    await settingsStoreForRead.updateSetting(
+      selectedAccount.value.id,
+      'global.hiddenMetrics',
+      newHiddenMetrics
+    );
+  } catch (error) {
+    console.error('Failed to restore metric:', error);
+  }
+};
+
 
 const loadReport = async () => {
   if (!selectedAccount?.value) return;
@@ -341,23 +524,55 @@ onUnmounted(() => {
         <div class="py-4 md:py-8">
           <!-- Summary Cards (Top Row) -->
           <div
+            ref="summaryCardsContainer"
             class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8 px-4 md:px-8"
           >
-            <!-- Display all numeric metrics -->
+            <!-- Display all numeric metrics (filtered and reordered by settings) -->
             <div
-              v-for="header in reportData.headers.filter(h => h.type === 'metric' || h.type === 'rate')"
+              v-for="header in filteredAndOrderedHeaders.filter(h => h.type === 'metric' || h.type === 'rate')"
               :key="header.key"
-              class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm group/tooltip relative"
+              :data-id="header.key"
+              class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm group/tooltip relative cursor-grab active:cursor-grabbing transition-all hover:shadow-md"
+              :class="{ 'opacity-50': settingsStoreForRead.isSaving(header.key) }"
             >
               <div class="flex justify-between items-start mb-1">
-                <p
-                  class="text-xs font-bold text-slate-500 uppercase tracking-wide"
-                >
-                  {{ header.label }}
-                </p>
-                <Info
-                  class="w-4 h-4 text-slate-300 group-hover/tooltip:text-indigo-400 transition-colors cursor-help"
-                />
+                <div class="flex items-center gap-2 flex-1">
+                  <GripVertical class="w-4 h-4 text-slate-300 flex-shrink-0 drag-handle cursor-grab hover:text-slate-500 transition-colors" />
+                  <p
+                    class="text-xs font-bold text-slate-500 uppercase tracking-wide"
+                  >
+                    {{ header.label }}
+                  </p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <Info
+                    class="w-4 h-4 text-slate-300 group-hover/tooltip:text-indigo-400 transition-colors cursor-help"
+                  />
+                  <!-- Menu button -->
+                  <div class="relative">
+                    <button
+                      @click="openMetricMenu = openMetricMenu === header.key ? null : header.key"
+                      class="p-1 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
+                      title="Options"
+                    >
+                      <MoreVertical class="w-4 h-4" />
+                    </button>
+                    <!-- Dropdown menu -->
+                    <div
+                      v-if="openMetricMenu === header.key"
+                      class="absolute right-0 mt-1 w-40 bg-white border border-slate-200 rounded-lg shadow-lg z-40"
+                    >
+                      <button
+                        @click="hideMetric(header.key)"
+                        :disabled="settingsStoreForRead.isSaving(header.key)"
+                        class="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2 disabled:opacity-50"
+                      >
+                        <EyeOff class="w-4 h-4" />
+                        Hide metric
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
               <p class="text-2xl font-bold text-slate-900">
                 {{ formatValue(header.format, reportData.totals[header.key]) }}
@@ -376,6 +591,40 @@ onUnmounted(() => {
                 {{ header.tooltip || `${header.label} for the selected period.` }}
               </div>
             </div>
+            <!-- Add Metric Card (shows hidden metrics in dropdown) -->
+            <Dropdown
+              v-if="hiddenMetricHeaders.length > 0"
+              placement="bottom"
+              :distance="8"
+            >
+              <div
+                class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm group flex flex-col items-center justify-center gap-3 text-center cursor-pointer hover:shadow-md transition-shadow"
+              >
+                <Plus class="w-6 h-6 text-indigo-600 group-hover:scale-110 transition-transform" />
+                <div>
+                  <p class="font-semibold text-slate-900 text-sm">Add Metric</p>
+                  <p class="text-xs text-slate-500">{{ hiddenMetricHeaders.length }} available</p>
+                </div>
+              </div>
+
+              <template #popper>
+                <div class="bg-white rounded-lg p-3 space-y-2">
+                  <button
+                    v-for="header in hiddenMetricHeaders"
+                    :key="header.key"
+                    @click="restoreMetric(header.key)"
+                    :disabled="settingsStoreForRead.isSaving(header.key)"
+                    class="w-full flex items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-50 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    <div class="flex-1 min-w-0">
+                      <p class="font-medium text-slate-700 truncate">{{ header.label }}</p>
+                      <p class="text-xs text-slate-500 truncate">{{ header.tooltip }}</p>
+                    </div>
+                    <Plus class="w-4 h-4 text-indigo-600 flex-shrink-0 ml-2" />
+                  </button>
+                </div>
+              </template>
+            </Dropdown>
           </div>
 
           <!-- Data Table -->
@@ -396,7 +645,7 @@ onUnmounted(() => {
                 >
                   <tr>
                     <th
-                      v-for="header in reportData.headers"
+                      v-for="header in filteredAndOrderedHeaders"
                       :key="header.key"
                       @click="header.type !== 'sparkline' && handleSort(header.key)"
                       class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap group select-none bg-slate-50"
@@ -424,7 +673,7 @@ onUnmounted(() => {
                     class="hover:bg-slate-50 transition-colors"
                   >
                     <td
-                      v-for="header in reportData.headers"
+                      v-for="header in filteredAndOrderedHeaders"
                       :key="header.key"
                       class="px-6 py-4 text-sm text-slate-700"
                       :class="{

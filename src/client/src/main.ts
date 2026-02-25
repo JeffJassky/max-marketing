@@ -1,5 +1,8 @@
 import { createApp } from 'vue';
+import { createPinia } from 'pinia';
 import { createRouter, createWebHistory } from 'vue-router';
+import FloatingVue from 'floating-vue';
+import 'floating-vue/dist/style.css';
 import App from './App.vue';
 import { routes } from './router';
 import './main.css';
@@ -9,4 +12,8 @@ const router = createRouter({
   routes
 });
 
-createApp(App).use(router).mount('#app');
+createApp(App)
+  .use(createPinia())
+  .use(FloatingVue)
+  .use(router)
+  .mount('#app');

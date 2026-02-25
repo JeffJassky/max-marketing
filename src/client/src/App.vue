@@ -4,6 +4,9 @@ import { useRoute, RouterView } from 'vue-router';
 import Sidebar from './components/Sidebar.vue';
 import HeaderBar from './components/HeaderBar.vue';
 import { Sparkles, MessageSquare, X } from 'lucide-vue-next';
+import { useAccountSettings } from './composables/useAccountSettings';
+import { useAccountSettingsStore } from './stores/accountSettings';
+import type { AccountSettings } from '@shared/settings/types';
 import 'deep-chat';
 
 const route = useRoute();
@@ -20,6 +23,9 @@ interface MaxAccount {
 }
 
 const selectedAccount = ref<MaxAccount | null>(null);
+const accountSettings = ref<AccountSettings | null>(null);
+const { fetch: fetchAccountSettings } = useAccountSettings();
+const settingsStore = useAccountSettingsStore();
 
 // Chat State
 const showChat = ref(false);
@@ -49,9 +55,21 @@ const loadAccountState = () => {
   }
 };
 
-const selectAccount = (account: MaxAccount) => {
+const selectAccount = async (account: MaxAccount) => {
   selectedAccount.value = account;
   localStorage.setItem('selectedMaxAccountId', account.id);
+
+  // Fetch account settings when account changes
+  try {
+    const settings = await fetchAccountSettings(account.id);
+    accountSettings.value = settings;
+    // Also populate Pinia store
+    settingsStore.setSettings(settings);
+  } catch (error) {
+    console.error('Failed to load account settings:', error);
+    // Continue anyway with null settings (defaults will apply)
+  }
+
   window.dispatchEvent(new Event('accounts-updated'));
 };
 
@@ -68,6 +86,7 @@ onMounted(() => {
 
 provide('selectedAccount', selectedAccount);
 provide('selectAccount', selectAccount);
+provide('accountSettings', accountSettings);
 </script>
 
 <template>

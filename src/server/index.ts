@@ -32,6 +32,9 @@ import { socialPlatformPerformance } from "../jobs/entities/social-media-daily/a
 import { creativePerformanceReport } from "../jobs/entities/creative-daily/aggregateReports/creative-performance.aggregateReport";
 import { brandVoiceCreativePerformance } from "../jobs/entities/creative-daily/aggregateReports/brand-voice-creative.aggregateReport";
 import { clientAccountModel } from "./models/ClientAccount";
+import { accountSettingsModel } from "./models/AccountSettingsModel";
+import { resolveSettings, deepMerge } from "../shared/settings/resolve";
+import { AccountSettingsPatchSchema } from "../shared/settings/schema";
 import { buildReportQuery } from "../shared/data/queryBuilder";
 import { AllAwards } from "../shared/data/awards/library";
 import { prompt as analystPrompt } from "../shared/data/llm/analyst-reporter.prompt";
@@ -343,6 +346,66 @@ app.delete("/api/accounts/:id", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error deleting account:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ============================================================================
+// ACCOUNT SETTINGS ROUTES
+// ============================================================================
+
+/**
+ * GET /api/accounts/:id/settings
+ * Returns the fully resolved settings (defaults + account overrides merged)
+ */
+app.get("/api/accounts/:id/settings", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Fetch overrides from database
+    const overrides = await accountSettingsModel.getOverrides(id);
+
+    // Resolve with defaults
+    const resolved = resolveSettings(overrides);
+
+    res.json(resolved);
+  } catch (error) {
+    console.error("Error fetching account settings:", error);
+    res.status(500).json({ error: "Failed to fetch settings" });
+  }
+});
+
+/**
+ * PATCH /api/accounts/:id/settings
+ * Merges partial settings with existing overrides (JSON Merge Patch semantics).
+ * Sending null for a key reverts it to the system default.
+ */
+app.patch("/api/accounts/:id/settings", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const patch = req.body;
+
+    // Validate patch shape
+    const validated = AccountSettingsPatchSchema.parse(patch);
+
+    // Read current overrides
+    const current = await accountSettingsModel.getOverrides(id);
+
+    // Merge patch into current (JSON Merge Patch semantics)
+    const merged = deepMerge(current, validated);
+
+    // Persist back to database
+    await accountSettingsModel.setOverrides(id, merged);
+
+    // Return fully resolved settings
+    const resolved = resolveSettings(merged);
+    res.json(resolved);
+  } catch (error: any) {
+    if (error.name === 'ZodError') {
+      res.status(400).json({ error: 'Invalid settings shape', details: error.errors });
+    } else {
+      console.error("Error updating account settings:", error);
+      res.status(500).json({ error: "Failed to update settings" });
+    }
   }
 });
 
@@ -1559,7 +1622,8 @@ app.listen(port, async () => {
   console.log(`Server listening on port ${port}`);
   try {
     await clientAccountModel.initialize();
+    await accountSettingsModel.initialize();
   } catch (err) {
-    console.error("Failed to initialize clientAccountModel:", err);
+    console.error("Failed to initialize models:", err);
   }
 });
