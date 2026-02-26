@@ -1189,6 +1189,483 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
   }
 });
 
+// ============================================================================
+// Unified Overview – cross-platform aggregation for "Your Overview" tab
+// ============================================================================
+app.get("/api/overview/unified", async (req: Request, res: Response) => {
+  const {
+    accountId,
+    googleAdsId,
+    facebookAdsId,
+    ga4Id,
+    instagramId,
+    facebookPageId,
+    gscId,
+    start: startDate,
+    end: endDate,
+  } = req.query;
+
+  // Build per-platform account ID arrays
+  const adsAccountIds: string[] = [];
+  if (googleAdsId) adsAccountIds.push(String(googleAdsId));
+  if (facebookAdsId) adsAccountIds.push(String(facebookAdsId));
+
+  const socialAccountIds: string[] = [];
+  if (instagramId) socialAccountIds.push(String(instagramId));
+  if (facebookPageId) socialAccountIds.push(String(facebookPageId));
+
+  const gscAccountIds: string[] = [];
+  if (gscId) gscAccountIds.push(String(gscId));
+
+  const ga4AccountIds: string[] = [];
+  if (ga4Id) ga4AccountIds.push(String(ga4Id));
+
+  const hasAny =
+    adsAccountIds.length > 0 ||
+    socialAccountIds.length > 0 ||
+    gscAccountIds.length > 0 ||
+    ga4AccountIds.length > 0;
+
+  if (!hasAny) {
+    return res
+      .status(400)
+      .json({ error: "At least one platform ID is required" });
+  }
+
+  // Date range + previous period
+  let startStr: string;
+  let endStr: string;
+  let prevStartStr: string;
+  let prevEndStr: string;
+
+  if (startDate && endDate) {
+    startStr = String(startDate);
+    endStr = String(endDate);
+
+    const s = new Date(startStr);
+    const e = new Date(endStr);
+    const diffDays =
+      Math.ceil(Math.abs(e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) +
+      1;
+
+    const prevEnd = new Date(s);
+    prevEnd.setDate(prevEnd.getDate() - 1);
+    const prevStart = new Date(prevEnd);
+    prevStart.setDate(prevStart.getDate() - diffDays + 1);
+
+    prevStartStr = prevStart.toISOString().split("T")[0];
+    prevEndStr = prevEnd.toISOString().split("T")[0];
+  } else {
+    const now = new Date();
+    endStr = now.toISOString().split("T")[0];
+    const s = new Date(now);
+    s.setDate(s.getDate() - 30);
+    startStr = s.toISOString().split("T")[0];
+
+    const prevEnd = new Date(s);
+    prevEnd.setDate(prevEnd.getDate() - 1);
+    const prevStart = new Date(prevEnd);
+    prevStart.setDate(prevStart.getDate() - 30);
+
+    prevStartStr = prevStart.toISOString().split("T")[0];
+    prevEndStr = prevEnd.toISOString().split("T")[0];
+  }
+
+  const safeDivide = (a: number, b: number) => (b > 0 ? a / b : 0);
+  const pctChange = (cur: number, prev: number) =>
+    prev > 0 ? ((cur - prev) / prev) * 100 : 0;
+
+  try {
+    const bq = createBigQueryClient();
+    const dateParams = {
+      startDate: startStr,
+      endDate: endStr,
+      prevStartDate: prevStartStr,
+      prevEndDate: prevEndStr,
+    };
+
+    // --- Paid Media (ads_daily) ---
+    const paidTotalsPromise =
+      adsAccountIds.length > 0
+        ? bq.query({
+            query: `
+              WITH current_period AS (
+                SELECT SUM(spend) as spend, SUM(conversions) as conversions,
+                       SUM(impressions) as impressions, SUM(clicks) as clicks
+                FROM \`entities.ads_daily\`
+                WHERE account_id IN UNNEST(@accountIds)
+                  AND date >= @startDate AND date <= @endDate
+              ),
+              prev_period AS (
+                SELECT SUM(spend) as spend, SUM(conversions) as conversions,
+                       SUM(impressions) as impressions, SUM(clicks) as clicks
+                FROM \`entities.ads_daily\`
+                WHERE account_id IN UNNEST(@accountIds)
+                  AND date >= @prevStartDate AND date <= @prevEndDate
+              )
+              SELECT
+                COALESCE(c.spend, 0) as cur_spend, COALESCE(p.spend, 0) as prev_spend,
+                COALESCE(c.conversions, 0) as cur_conversions, COALESCE(p.conversions, 0) as prev_conversions,
+                COALESCE(c.impressions, 0) as cur_impressions, COALESCE(p.impressions, 0) as prev_impressions,
+                COALESCE(c.clicks, 0) as cur_clicks, COALESCE(p.clicks, 0) as prev_clicks
+              FROM current_period c, prev_period p`,
+            params: { accountIds: adsAccountIds, ...dateParams },
+          })
+        : Promise.resolve([[]] as any);
+
+    const paidDailyPromise =
+      adsAccountIds.length > 0
+        ? bq.query({
+            query: `
+              SELECT date, SUM(spend) as spend, SUM(conversions) as conversions,
+                     SUM(impressions) as impressions, SUM(clicks) as clicks
+              FROM \`entities.ads_daily\`
+              WHERE account_id IN UNNEST(@accountIds)
+                AND date >= @startDate AND date <= @endDate
+              GROUP BY date ORDER BY date`,
+            params: {
+              accountIds: adsAccountIds,
+              startDate: startStr,
+              endDate: endStr,
+            },
+          })
+        : Promise.resolve([[]] as any);
+
+    // --- Organic Social (social_media_daily) ---
+    const socialTotalsPromise =
+      socialAccountIds.length > 0
+        ? bq.query({
+            query: `
+              WITH current_period AS (
+                SELECT SUM(impressions) as impressions, SUM(engagement) as engagement,
+                       SUM(likes) as likes, SUM(comments) as comments, SUM(shares) as shares
+                FROM \`entities.social_media_daily\`
+                WHERE account_id IN UNNEST(@accountIds)
+                  AND date >= @startDate AND date <= @endDate
+              ),
+              prev_period AS (
+                SELECT SUM(impressions) as impressions, SUM(engagement) as engagement,
+                       SUM(likes) as likes, SUM(comments) as comments, SUM(shares) as shares
+                FROM \`entities.social_media_daily\`
+                WHERE account_id IN UNNEST(@accountIds)
+                  AND date >= @prevStartDate AND date <= @prevEndDate
+              )
+              SELECT
+                COALESCE(c.impressions, 0) as cur_impressions, COALESCE(p.impressions, 0) as prev_impressions,
+                COALESCE(c.engagement, 0) as cur_engagement, COALESCE(p.engagement, 0) as prev_engagement,
+                COALESCE(c.likes, 0) as cur_likes, COALESCE(p.likes, 0) as prev_likes,
+                COALESCE(c.comments, 0) as cur_comments, COALESCE(p.comments, 0) as prev_comments,
+                COALESCE(c.shares, 0) as cur_shares, COALESCE(p.shares, 0) as prev_shares
+              FROM current_period c, prev_period p`,
+            params: { accountIds: socialAccountIds, ...dateParams },
+          })
+        : Promise.resolve([[]] as any);
+
+    const socialDailyPromise =
+      socialAccountIds.length > 0
+        ? bq.query({
+            query: `
+              SELECT date, SUM(impressions) as impressions, SUM(engagement) as engagement
+              FROM \`entities.social_media_daily\`
+              WHERE account_id IN UNNEST(@accountIds)
+                AND date >= @startDate AND date <= @endDate
+              GROUP BY date ORDER BY date`,
+            params: {
+              accountIds: socialAccountIds,
+              startDate: startStr,
+              endDate: endStr,
+            },
+          })
+        : Promise.resolve([[]] as any);
+
+    // --- GSC (gsc_daily) ---
+    const gscTotalsPromise =
+      gscAccountIds.length > 0
+        ? bq.query({
+            query: `
+              WITH current_period AS (
+                SELECT SUM(impressions) as impressions, SUM(clicks) as clicks
+                FROM \`entities.gsc_daily\`
+                WHERE account_id IN UNNEST(@accountIds)
+                  AND date >= @startDate AND date <= @endDate
+              ),
+              prev_period AS (
+                SELECT SUM(impressions) as impressions, SUM(clicks) as clicks
+                FROM \`entities.gsc_daily\`
+                WHERE account_id IN UNNEST(@accountIds)
+                  AND date >= @prevStartDate AND date <= @prevEndDate
+              )
+              SELECT
+                COALESCE(c.impressions, 0) as cur_impressions, COALESCE(p.impressions, 0) as prev_impressions,
+                COALESCE(c.clicks, 0) as cur_clicks, COALESCE(p.clicks, 0) as prev_clicks
+              FROM current_period c, prev_period p`,
+            params: { accountIds: gscAccountIds, ...dateParams },
+          })
+        : Promise.resolve([[]] as any);
+
+    // --- GA4 (ga4_daily) ---
+    const ga4TotalsPromise =
+      ga4AccountIds.length > 0
+        ? bq.query({
+            query: `
+              WITH current_period AS (
+                SELECT SUM(sessions) as sessions,
+                       SUM(CASE WHEN channel_group = 'Organic Search' THEN sessions ELSE 0 END) as organic_sessions
+                FROM \`entities.ga4_daily\`
+                WHERE account_id IN UNNEST(@accountIds)
+                  AND date >= @startDate AND date <= @endDate
+              ),
+              prev_period AS (
+                SELECT SUM(sessions) as sessions,
+                       SUM(CASE WHEN channel_group = 'Organic Search' THEN sessions ELSE 0 END) as organic_sessions
+                FROM \`entities.ga4_daily\`
+                WHERE account_id IN UNNEST(@accountIds)
+                  AND date >= @prevStartDate AND date <= @prevEndDate
+              )
+              SELECT
+                COALESCE(c.sessions, 0) as cur_sessions, COALESCE(p.sessions, 0) as prev_sessions,
+                COALESCE(c.organic_sessions, 0) as cur_organic_sessions, COALESCE(p.organic_sessions, 0) as prev_organic_sessions
+              FROM current_period c, prev_period p`,
+            params: { accountIds: ga4AccountIds, ...dateParams },
+          })
+        : Promise.resolve([[]] as any);
+
+    const ga4DailyPromise =
+      ga4AccountIds.length > 0
+        ? bq.query({
+            query: `
+              SELECT date, SUM(sessions) as sessions
+              FROM \`entities.ga4_daily\`
+              WHERE account_id IN UNNEST(@accountIds)
+                AND date >= @startDate AND date <= @endDate
+              GROUP BY date ORDER BY date`,
+            params: {
+              accountIds: ga4AccountIds,
+              startDate: startStr,
+              endDate: endStr,
+            },
+          })
+        : Promise.resolve([[]] as any);
+
+    const gscDailyPromise =
+      gscAccountIds.length > 0
+        ? bq.query({
+            query: `
+              SELECT date, SUM(impressions) as impressions, SUM(clicks) as clicks
+              FROM \`entities.gsc_daily\`
+              WHERE account_id IN UNNEST(@accountIds)
+                AND date >= @startDate AND date <= @endDate
+              GROUP BY date ORDER BY date`,
+            params: {
+              accountIds: gscAccountIds,
+              startDate: startStr,
+              endDate: endStr,
+            },
+          })
+        : Promise.resolve([[]] as any);
+
+    // --- Social Account Followers (social_accounts_daily) ---
+    const followersTotalsPromise =
+      socialAccountIds.length > 0
+        ? bq.query({
+            query: `
+              WITH latest AS (
+                SELECT account_id, platform, MAX(date) as max_date
+                FROM \`entities.social_accounts_daily\`
+                WHERE account_id IN UNNEST(@accountIds)
+                  AND date >= @startDate AND date <= @endDate
+                GROUP BY account_id, platform
+              ),
+              current_followers AS (
+                SELECT SUM(s.followers) as followers
+                FROM \`entities.social_accounts_daily\` s
+                JOIN latest l ON s.account_id = l.account_id AND s.platform = l.platform AND s.date = l.max_date
+              ),
+              prev_latest AS (
+                SELECT account_id, platform, MAX(date) as max_date
+                FROM \`entities.social_accounts_daily\`
+                WHERE account_id IN UNNEST(@accountIds)
+                  AND date >= @prevStartDate AND date <= @prevEndDate
+                GROUP BY account_id, platform
+              ),
+              prev_followers AS (
+                SELECT SUM(s.followers) as followers
+                FROM \`entities.social_accounts_daily\` s
+                JOIN prev_latest l ON s.account_id = l.account_id AND s.platform = l.platform AND s.date = l.max_date
+              )
+              SELECT
+                COALESCE(c.followers, 0) as cur_followers,
+                COALESCE(p.followers, 0) as prev_followers
+              FROM current_followers c, prev_followers p`,
+            params: { accountIds: socialAccountIds, ...dateParams },
+          })
+        : Promise.resolve([[]] as any);
+
+    // Wrap each query so a missing table doesn't fail the whole response
+    const safe = <T>(p: Promise<T>, fallback: T): Promise<T> =>
+      p.catch((err) => {
+        console.warn("Unified overview query skipped:", err.message?.split("\n")[0]);
+        return fallback;
+      });
+
+    // Run all queries in parallel
+    const [
+      [paidTotals],
+      [paidDaily],
+      [socialTotals],
+      [socialDaily],
+      [gscTotals],
+      [ga4Totals],
+      [ga4Daily],
+      [gscDaily],
+      [followersTotals],
+    ] = await Promise.all([
+      safe(paidTotalsPromise, [[]] as any),
+      safe(paidDailyPromise, [[]] as any),
+      safe(socialTotalsPromise, [[]] as any),
+      safe(socialDailyPromise, [[]] as any),
+      safe(gscTotalsPromise, [[]] as any),
+      safe(ga4TotalsPromise, [[]] as any),
+      safe(ga4DailyPromise, [[]] as any),
+      safe(gscDailyPromise, [[]] as any),
+      safe(followersTotalsPromise, [[]] as any),
+    ]);
+
+    const p = paidTotals[0] || {};
+    const s = socialTotals[0] || {};
+    const g = gscTotals[0] || {};
+    const a = ga4Totals[0] || {};
+
+    // Platform detection
+    const paidPlatforms: string[] = [];
+    if (googleAdsId) paidPlatforms.push("Google Ads");
+    if (facebookAdsId) paidPlatforms.push("Meta Ads");
+
+    const socialPlatforms: string[] = [];
+    if (instagramId) socialPlatforms.push("Instagram");
+    if (facebookPageId) socialPlatforms.push("Facebook");
+
+    const searchPlatforms: string[] = [];
+    if (gscId) searchPlatforms.push("Search Console");
+    if (ga4Id) searchPlatforms.push("Google Analytics");
+
+    // Build response
+    const curSpend = Number(p.cur_spend || 0);
+    const prevSpend = Number(p.prev_spend || 0);
+    const curConversions = Number(p.cur_conversions || 0);
+    const prevConversions = Number(p.prev_conversions || 0);
+    const curImpressionsPaid = Number(p.cur_impressions || 0);
+    const prevImpressionsPaid = Number(p.prev_impressions || 0);
+    const curClicks = Number(p.cur_clicks || 0);
+    const prevClicks = Number(p.prev_clicks || 0);
+    const curBlendedCPC = curClicks > 0 ? curSpend / curClicks : null;
+    const prevBlendedCPC = prevClicks > 0 ? prevSpend / prevClicks : null;
+
+    const curReach = Number(s.cur_impressions || 0);
+    const prevReach = Number(s.prev_impressions || 0);
+    const curEngagement = Number(s.cur_engagement || 0);
+    const prevEngagement = Number(s.prev_engagement || 0);
+    const curEngRate = curReach > 0 ? (curEngagement / curReach) * 100 : null;
+    const prevEngRate = prevReach > 0 ? (prevEngagement / prevReach) * 100 : null;
+
+    const f = (followersTotals && followersTotals[0]) || {};
+    const curFollowers = Number(f.cur_followers || 0);
+    const prevFollowers = Number(f.prev_followers || 0);
+
+    const curSearchImpressions = Number(g.cur_impressions || 0);
+    const prevSearchImpressions = Number(g.prev_impressions || 0);
+    const curSearchClicks = Number(g.cur_clicks || 0);
+    const prevSearchClicks = Number(g.prev_clicks || 0);
+    const curSessions = Number(a.cur_sessions || 0);
+    const prevSessions = Number(a.prev_sessions || 0);
+    const curOrgSessions = Number(a.cur_organic_sessions || 0);
+    const prevOrgSessions = Number(a.prev_organic_sessions || 0);
+
+    res.json({
+      paidMedia: {
+        platforms: paidPlatforms,
+        metrics: {
+          spend: {
+            value: curSpend,
+            change: pctChange(curSpend, prevSpend),
+            daily: paidDaily.map((r: any) => Number(r.spend || 0)),
+          },
+          conversions: {
+            value: curConversions,
+            change: pctChange(curConversions, prevConversions),
+            daily: paidDaily.map((r: any) => Number(r.conversions || 0)),
+          },
+          impressions: {
+            value: curImpressionsPaid,
+            change: pctChange(curImpressionsPaid, prevImpressionsPaid),
+            daily: paidDaily.map((r: any) => Number(r.impressions || 0)),
+          },
+          clicks: {
+            value: curClicks,
+            change: pctChange(curClicks, prevClicks),
+            daily: paidDaily.map((r: any) => Number(r.clicks || 0)),
+          },
+          blendedCPC: {
+            value: curBlendedCPC,
+            change: curBlendedCPC !== null && prevBlendedCPC !== null ? pctChange(curBlendedCPC, prevBlendedCPC) : null,
+          },
+        },
+      },
+      organicSocial: {
+        platforms: socialPlatforms,
+        metrics: {
+          reach: {
+            value: curReach,
+            change: pctChange(curReach, prevReach),
+            daily: socialDaily.map((r: any) => Number(r.impressions || 0)),
+          },
+          engagement: {
+            value: curEngagement,
+            change: pctChange(curEngagement, prevEngagement),
+            daily: socialDaily.map((r: any) => Number(r.engagement || 0)),
+          },
+          engagementRate: {
+            value: curEngRate,
+            change: curEngRate !== null && prevEngRate !== null ? curEngRate - prevEngRate : null,
+          },
+          followers: {
+            value: curFollowers,
+            change: pctChange(curFollowers, prevFollowers),
+          },
+        },
+      },
+      searchAndSite: {
+        platforms: searchPlatforms,
+        metrics: {
+          searchImpressions: {
+            value: curSearchImpressions,
+            change: pctChange(curSearchImpressions, prevSearchImpressions),
+            daily: gscDaily.map((r: any) => Number(r.impressions || 0)),
+          },
+          searchClicks: {
+            value: curSearchClicks,
+            change: pctChange(curSearchClicks, prevSearchClicks),
+            daily: gscDaily.map((r: any) => Number(r.clicks || 0)),
+          },
+          organicSessions: {
+            value: curOrgSessions,
+            change: pctChange(curOrgSessions, prevOrgSessions),
+          },
+          totalSessions: {
+            value: curSessions,
+            change: pctChange(curSessions, prevSessions),
+            daily: ga4Daily.map((r: any) => Number(r.sessions || 0)),
+          },
+        },
+      },
+      period: { start: startStr, end: endStr },
+    });
+  } catch (error) {
+    console.error("Error fetching unified overview:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 app.get(
   "/api/aggregateReports/pmax-spend-breakdown",
   async (req: Request, res: Response) => {

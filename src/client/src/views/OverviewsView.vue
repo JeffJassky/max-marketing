@@ -21,6 +21,7 @@ import {
   GripVertical
 } from 'lucide-vue-next';
 import Sparkline from '../components/Sparkline.vue';
+import UnifiedOverview from '../components/UnifiedOverview.vue';
 import { useDateRange } from '../composables/useDateRange';
 import { useAccountSettingsStore } from '../stores/accountSettings';
 import { useSortable } from '@vueuse/integrations/useSortable';
@@ -42,6 +43,7 @@ const selectedAccount = inject<Ref<MaxAccount | null>>('selectedAccount');
 const { dateParams } = useDateRange();
 
 const PlatformTab = {
+  OVERVIEW: 'OVERVIEW',
   GOOGLE: 'GOOGLE',
   META: 'META',
   GA4: 'GA4',
@@ -54,6 +56,7 @@ const PlatformTab = {
 type PlatformTab = typeof PlatformTab[keyof typeof PlatformTab];
 
 const tabs = [
+  { id: PlatformTab.OVERVIEW, label: 'Your Overview', icon: Layout, reportId: null },
   { id: PlatformTab.GOOGLE, label: 'Google Ads', icon: BarChart3, reportId: 'googleAdsCampaignPerformance' },
   { id: PlatformTab.META, label: 'Meta Ads', icon: Facebook, reportId: 'metaAdsCampaignPerformance' },
   { id: PlatformTab.GA4, label: 'Google Analytics', icon: Globe, reportId: 'ga4AcquisitionPerformance' },
@@ -64,7 +67,7 @@ const tabs = [
 ];
 
 
-const activeTab = ref<PlatformTab>(PlatformTab.GOOGLE);
+const activeTab = ref<PlatformTab>(PlatformTab.OVERVIEW);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
@@ -137,6 +140,7 @@ function getSettingByPath(settings: any, path: string): any {
 
 // Map platform tabs to settings section keys
 const platformToSectionKey: Record<PlatformTab, string> = {
+  [PlatformTab.OVERVIEW]: 'sections.overviews.unified',
   [PlatformTab.GOOGLE]: 'sections.overviews.google',
   [PlatformTab.META]: 'sections.overviews.meta',
   [PlatformTab.GA4]: 'sections.overviews.ga4',
@@ -221,30 +225,56 @@ watch(
   { deep: false, immediate: true }
 );
 
-// Setup sortable for drag-drop reordering
-useSortable(summaryCardsContainer, sortableMetricKeys, {
-  animation: 200,
-  ghostClass: 'opacity-50 shadow-xl',
-  dragClass: 'ring-2 ring-indigo-400 shadow-xl',
-  handle: '.drag-handle',
-  delay: 0,
-  delayOnTouchOnly: true,
-  onUpdate: async (event) => {
-    if (!selectedAccount?.value) return;
+// Setup sortable for drag-drop reordering (in onMounted)
+const initSortable = () => {
+  const container = summaryCardsContainer.value;
 
-    try {
-      const newOrder = sortableMetricKeys.value;
-      const sectionPath = `${currentSectionKey.value}.pinnedMetrics` as any;
-      await settingsStoreForRead.updateSetting(
-        selectedAccount.value.id,
-        sectionPath,
-        newOrder
-      );
-    } catch (error) {
-      console.error('Failed to reorder metrics:', error);
-    }
-  },
-});
+  console.log('[Sortable] Initializing...');
+  console.log('[Sortable] Container element:', container);
+  console.log('[Sortable] Container exists:', !!container);
+  console.log('[Sortable] Container children:', container?.children?.length || 0);
+
+  if (!container) {
+    console.warn('[Sortable] Container ref is null, sortable not initialized');
+    return;
+  }
+
+  // Log details about children
+  Array.from(container.children).forEach((child, idx) => {
+    const el = child as HTMLElement;
+    console.log(`[Sortable] Child ${idx}:`, {
+      tag: el.tagName,
+      dataId: el.getAttribute('data-id'),
+      hasHandle: el.querySelector('.drag-handle') !== null,
+      classes: el.className
+    });
+  });
+
+	useSortable(container, sortableMetricKeys, {
+    ghostClass: 'sortable-ghost',
+    handle: '.drag-handle',
+    delay: 0,
+	  delayOnTouchOnly: true,
+    onUpdate: async (event) => {
+      console.log('[Sortable] Order updated, new order:', sortableMetricKeys.value);
+      if (!selectedAccount?.value) return;
+
+      try {
+        const newOrder = sortableMetricKeys.value;
+        const sectionPath = `${currentSectionKey.value}.pinnedMetrics` as any;
+        await settingsStoreForRead.updateSetting(
+          selectedAccount.value.id,
+          sectionPath,
+          newOrder
+        );
+      } catch (error) {
+        console.error('Failed to reorder metrics:', error);
+      }
+    },
+  });
+
+  console.log('[Sortable] Initialized');
+};
 
 /**
  * Hide a metric globally and remove from pinned order
@@ -298,9 +328,10 @@ const restoreMetric = async (metricKey: string) => {
 
 const loadReport = async () => {
   if (!selectedAccount?.value) return;
+  if (activeTab.value === PlatformTab.OVERVIEW) return; // Handled by UnifiedOverview
 
   const currentTab = tabs.find(t => t.id === activeTab.value);
-  if (!currentTab) return;
+  if (!currentTab || !currentTab.reportId) return;
 
   loading.value = true;
   error.value = null;
@@ -441,8 +472,22 @@ onMounted(() => {
   });
 });
 
+// Watch for container to become available (after report data loads) and init sortable
+watch(
+  () => summaryCardsContainer.value,
+  (container) => {
+    if (container) {
+      console.log('[Sortable] Container became available, initializing...');
+      nextTick(() => {
+        initSortable();
+      });
+    }
+  }
+);
+
 onUnmounted(() => {
   scrollContainerRef.value?.removeEventListener('scroll', handleStickyScroll);
+  // useSortable handles cleanup automatically
 });
 </script>
 
@@ -497,6 +542,11 @@ onUnmounted(() => {
 
     <!-- Content -->
     <div ref="scrollContainerRef" class="flex-1 overflow-y-auto">
+      <!-- Unified Overview Tab -->
+      <UnifiedOverview v-if="activeTab === PlatformTab.OVERVIEW" />
+
+      <!-- Platform-specific content -->
+      <template v-else>
       <div v-if="loading" class="py-4 md:py-8">
         <RefreshCw class="w-8 h-8 mb-2 animate-spin text-indigo-300" />
         <p>Loading report data...</p>
@@ -525,6 +575,7 @@ onUnmounted(() => {
           <!-- Summary Cards (Top Row) -->
           <div
             ref="summaryCardsContainer"
+            id="summaryCardsContainer"
             class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8 px-4 md:px-8"
           >
             <!-- Display all numeric metrics (filtered and reordered by settings) -->
@@ -532,12 +583,14 @@ onUnmounted(() => {
               v-for="header in filteredAndOrderedHeaders.filter(h => h.type === 'metric' || h.type === 'rate')"
               :key="header.key"
               :data-id="header.key"
-              class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm group/tooltip relative cursor-grab active:cursor-grabbing transition-all hover:shadow-md"
+              class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative cursor-grab active:cursor-grabbing transition-all hover:shadow-md"
               :class="{ 'opacity-50': settingsStoreForRead.isSaving(header.key) }"
             >
               <div class="flex justify-between items-start mb-1">
                 <div class="flex items-center gap-2 flex-1">
-                  <GripVertical class="w-4 h-4 text-slate-300 flex-shrink-0 drag-handle cursor-grab hover:text-slate-500 transition-colors" />
+                  <GripVertical
+                    class="w-4 h-4 text-slate-300 flex-shrink-0 drag-handle cursor-grab hover:text-slate-500 transition-colors"
+                  />
                   <p
                     class="text-xs font-bold text-slate-500 uppercase tracking-wide"
                   >
@@ -545,9 +598,17 @@ onUnmounted(() => {
                   </p>
                 </div>
                 <div class="flex items-center gap-2">
-                  <Info
-                    class="w-4 h-4 text-slate-300 group-hover/tooltip:text-indigo-400 transition-colors cursor-help"
-                  />
+                  <div class="group/info relative">
+                    <Info
+                      class="w-4 h-4 text-slate-300 group-hover/info:text-indigo-400 transition-colors cursor-help"
+                    />
+                    <!-- Tooltip -->
+                    <div
+                      class="absolute top-full right-0 mt-2 w-56 bg-slate-900 text-white text-xs p-3 rounded-xl opacity-0 group-hover/info:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg whitespace-normal"
+                    >
+                      {{ header.tooltip || `${header.label} for the selected period.` }}
+                    </div>
+                  </div>
                   <!-- Menu button -->
                   <div class="relative">
                     <button
@@ -584,12 +645,6 @@ onUnmounted(() => {
                   color="#6366f1"
                 />
               </div>
-              <!-- Tooltip -->
-              <div
-                class="absolute top-full left-2 right-2 mt-2 bg-slate-900 text-white text-xs p-3 rounded-xl opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg"
-              >
-                {{ header.tooltip || `${header.label} for the selected period.` }}
-              </div>
             </div>
             <!-- Add Metric Card (shows hidden metrics in dropdown) -->
             <Dropdown
@@ -600,10 +655,14 @@ onUnmounted(() => {
               <div
                 class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm group flex flex-col items-center justify-center gap-3 text-center cursor-pointer hover:shadow-md transition-shadow"
               >
-                <Plus class="w-6 h-6 text-indigo-600 group-hover:scale-110 transition-transform" />
+                <Plus
+                  class="w-6 h-6 text-indigo-600 group-hover:scale-110 transition-transform"
+                />
                 <div>
                   <p class="font-semibold text-slate-900 text-sm">Add Metric</p>
-                  <p class="text-xs text-slate-500">{{ hiddenMetricHeaders.length }} available</p>
+                  <p class="text-xs text-slate-500">
+                    {{ hiddenMetricHeaders.length }} available
+                  </p>
                 </div>
               </div>
 
@@ -617,8 +676,12 @@ onUnmounted(() => {
                     class="w-full flex items-center justify-between px-3 py-2 text-left text-sm hover:bg-slate-50 rounded-lg transition-colors disabled:opacity-50"
                   >
                     <div class="flex-1 min-w-0">
-                      <p class="font-medium text-slate-700 truncate">{{ header.label }}</p>
-                      <p class="text-xs text-slate-500 truncate">{{ header.tooltip }}</p>
+                      <p class="font-medium text-slate-700 truncate">
+                        {{ header.label }}
+                      </p>
+                      <p class="text-xs text-slate-500 truncate">
+                        {{ header.tooltip }}
+                      </p>
                     </div>
                     <Plus class="w-4 h-4 text-indigo-600 flex-shrink-0 ml-2" />
                   </button>
@@ -629,12 +692,20 @@ onUnmounted(() => {
 
           <!-- Data Table -->
           <div class="overflow-x-auto px-4 md:px-8 no-scrollbar mt-4">
-            <div class="inline-block min-w-full bg-white rounded-xl border border-slate-200 shadow-sm mb-8">
-              <table class="min-w-full divide-y divide-slate-100 [&_tbody_tr:last-child_td:first-child]:rounded-bl-xl [&_tbody_tr:last-child_td:last-child]:rounded-br-xl">
-                <caption class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 text-left rounded-t-xl">
+            <div
+              class="inline-block min-w-full bg-white rounded-xl border border-slate-200 shadow-sm mb-8"
+            >
+              <table
+                class="min-w-full divide-y divide-slate-100 [&_tbody_tr:last-child_td:first-child]:rounded-bl-xl [&_tbody_tr:last-child_td:last-child]:rounded-br-xl"
+              >
+                <caption
+                  class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 text-left rounded-t-xl"
+                >
                   <div class="flex justify-between items-center">
                     <h3 class="font-bold text-slate-800">Detailed Breakdown</h3>
-                    <span class="text-xs text-slate-500">{{ reportData.rows.length }} rows</span>
+                    <span class="text-xs text-slate-500"
+                      >{{ reportData.rows.length }} rows</span
+                    >
                   </div>
                 </caption>
                 <thead
@@ -656,10 +727,19 @@ onUnmounted(() => {
                         <template v-if="header.type !== 'sparkline'">
                           <div class="w-4 h-4 flex items-center justify-center">
                             <template v-if="sortKey === header.key">
-                              <ChevronUp v-if="sortOrder === 'asc'" class="w-3 h-3 text-indigo-600" />
-                              <ChevronDown v-else class="w-3 h-3 text-indigo-600" />
+                              <ChevronUp
+                                v-if="sortOrder === 'asc'"
+                                class="w-3 h-3 text-indigo-600"
+                              />
+                              <ChevronDown
+                                v-else
+                                class="w-3 h-3 text-indigo-600"
+                              />
                             </template>
-                            <ChevronDown v-else class="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <ChevronDown
+                              v-else
+                              class="w-3 h-3 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                            />
                           </div>
                         </template>
                       </div>
@@ -770,6 +850,13 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
+      </template>
     </div>
   </div>
 </template>
+
+<style scoped>
+.sortable-ghost {
+  opacity: 0.2;
+}
+</style>
