@@ -1,6 +1,12 @@
-import "dotenv/config";
+import { config } from "./config";
 import path from "path";
-import express, { type Request, type Response } from "express";
+import express, { type Request, type Response, type NextFunction } from "express";
+import session from "express-session";
+import MongoStore from "connect-mongo";
+import mongoose from "mongoose";
+import pinoHttp from "pino-http";
+import { logger } from "./logger";
+import { authLimiter, chatLimiter, apiLimiter } from "./middleware/rateLimiter";
 import { createBigQueryClient } from "../shared/vendors/google/bigquery/bigquery";
 import { googleAdsCoreKeywordPerformance } from "../jobs/imports/google_ads/core-keyword-performance.import";
 import { facebookAdsInsights } from "../jobs/imports/facebook_ads/insights.import";
@@ -53,25 +59,74 @@ import {
   QuestionDataContext,
 } from "../shared/data/questions";
 
-const app = express();
+import { connectMongoDB } from "./db/mongoose";
+import passport from "./auth/passport";
+import { requireAuth, requireAccountAccess } from "./auth/middleware";
+import authRoutes from "./routes/auth";
+import adminRoutes from "./routes/admin";
+import dashboardRoutes from "./routes/dashboard";
+import { AccountMembership } from "./models/AccountMembership";
+import { IUser } from "./models/User";
+
+export const app = express();
+app.set("trust proxy", 1);
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
+app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => (req as any).url === "/health" } }));
+
+// --- Health Check (unauthenticated) ---
+app.get("/health", (_req: Request, res: Response) => {
+  const mongoState = mongoose.connection.readyState;
+  const mongoStatus = mongoState === 1 ? "connected" : mongoState === 2 ? "connecting" : "disconnected";
+  res.json({ status: "ok", mongo: mongoStatus, uptime: process.uptime() });
+});
+
+// --- Session & Passport (must be before routes) ---
+if (config.MONGODB_URI) {
+  app.use(
+    session({
+      secret: config.SESSION_SECRET,
+      store: MongoStore.create({ mongoUrl: config.MONGODB_URI }),
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        httpOnly: true,
+        sameSite: "lax",
+      },
+    }),
+  );
+  app.use(passport.initialize());
+  app.use(passport.session());
+}
+
+// --- Auth Rate Limiting ---
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/forgot-password", authLimiter);
+
+// --- Auth Routes (public) ---
+app.use("/api/auth", authRoutes);
+
+// --- Admin Routes (requires admin) ---
+app.use("/api/admin", adminRoutes);
+
+// --- Rate Limiting ---
+app.use("/api", apiLimiter);
+app.use("/api/chat", chatLimiter);
+
+// --- Auth guard for all remaining /api routes ---
+app.use("/api", requireAuth);
+
+// --- Dashboard Routes ---
+app.use("/api/dashboard", dashboardRoutes);
 
 app.post("/api/chat", async (req: Request, res: Response) => {
   const { messages, context } = req.body;
 
-  console.log(
-    "Chat Request Body:",
-    JSON.stringify(
-      {
-        messageCount: messages?.length,
-        contextKeys: context ? Object.keys(context) : null,
-        contextValues: context ? Object.values(context) : null,
-      },
-      null,
-      2,
-    ),
-  );
+  logger.info({
+    messageCount: messages?.length,
+    contextKeys: context ? Object.keys(context) : null,
+  }, "Chat request received");
 
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: "Messages array is required" });
@@ -82,7 +137,7 @@ app.post("/api/chat", async (req: Request, res: Response) => {
     const response = await agent.chat(messages);
     res.json({ text: response });
   } catch (error) {
-    console.error("Error in chat agent:", error);
+    logger.error({ err: error }, "Error in chat agent");
     res
       .status(500)
       .json({ error: "The marketing agent encountered an error." });
@@ -163,10 +218,7 @@ const fetchOverviews = async (
 
       results[report.id] = { rows };
     } catch (e) {
-      console.warn(
-        `Failed to fetch overview for ${report.id} in generation context`,
-        e,
-      );
+      logger.warn({ err: e, reportId: report.id }, "Failed to fetch overview for generation context");
     }
   });
 
@@ -304,17 +356,26 @@ app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
       gsc: gscRows,
     });
   } catch (error) {
-    console.error("Error fetching platform accounts:", error);
+    logger.error({ err: error }, "Error fetching platform accounts");
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-app.get("/api/accounts", async (_req: Request, res: Response) => {
+app.get("/api/accounts", async (req: Request, res: Response) => {
   try {
     const rows = await clientAccountModel.findAll();
+    const user = req.user as IUser | undefined;
+
+    // Non-admin users only see accounts they have membership in
+    if (user && user.role !== "admin") {
+      const memberships = await AccountMembership.find({ userId: user._id }).lean();
+      const allowedIds = new Set(memberships.map((m) => m.accountId));
+      return res.json(rows.filter((r: any) => allowedIds.has(r.id)));
+    }
+
     res.json(rows);
   } catch (error) {
-    console.error("Error fetching accounts:", error);
+    logger.error({ err: error }, "Error fetching accounts");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -324,27 +385,27 @@ app.post("/api/accounts", async (req: Request, res: Response) => {
     await clientAccountModel.create(req.body);
     res.status(201).json({ message: "Account created" });
   } catch (error) {
-    console.error("Error creating account:", error);
+    logger.error({ err: error }, "Error creating account");
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-app.put("/api/accounts/:id", async (req: Request, res: Response) => {
+app.put("/api/accounts/:id", requireAccountAccess("owner"), async (req: Request, res: Response) => {
   try {
     await clientAccountModel.update(req.params.id, req.body);
     res.json({ message: "Account updated" });
   } catch (error) {
-    console.error("Error updating account:", error);
+    logger.error({ err: error }, "Error updating account");
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-app.delete("/api/accounts/:id", async (req: Request, res: Response) => {
+app.delete("/api/accounts/:id", requireAccountAccess("owner"), async (req: Request, res: Response) => {
   try {
     await clientAccountModel.delete(req.params.id);
     res.json({ message: "Account deleted" });
   } catch (error) {
-    console.error("Error deleting account:", error);
+    logger.error({ err: error }, "Error deleting account");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -357,7 +418,7 @@ app.delete("/api/accounts/:id", async (req: Request, res: Response) => {
  * GET /api/accounts/:id/settings
  * Returns the fully resolved settings (defaults + account overrides merged)
  */
-app.get("/api/accounts/:id/settings", async (req: Request, res: Response) => {
+app.get("/api/accounts/:id/settings", requireAccountAccess(), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -369,7 +430,7 @@ app.get("/api/accounts/:id/settings", async (req: Request, res: Response) => {
 
     res.json(resolved);
   } catch (error) {
-    console.error("Error fetching account settings:", error);
+    logger.error({ err: error }, "Error fetching account settings");
     res.status(500).json({ error: "Failed to fetch settings" });
   }
 });
@@ -379,7 +440,7 @@ app.get("/api/accounts/:id/settings", async (req: Request, res: Response) => {
  * Merges partial settings with existing overrides (JSON Merge Patch semantics).
  * Sending null for a key reverts it to the system default.
  */
-app.patch("/api/accounts/:id/settings", async (req: Request, res: Response) => {
+app.patch("/api/accounts/:id/settings", requireAccountAccess("owner"), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const patch = req.body;
@@ -403,7 +464,7 @@ app.patch("/api/accounts/:id/settings", async (req: Request, res: Response) => {
     if (error.name === 'ZodError') {
       res.status(400).json({ error: 'Invalid settings shape', details: error.errors });
     } else {
-      console.error("Error updating account settings:", error);
+      logger.error({ err: error }, "Error updating account settings");
       res.status(500).json({ error: "Failed to update settings" });
     }
   }
@@ -479,7 +540,7 @@ app.get("/api/monitors/anomalies", async (req: Request, res: Response) => {
       questions: formatQuestionsForResponse(relevantQuestions),
     });
   } catch (error) {
-    console.error("Error fetching monitor anomalies:", error);
+    logger.error({ err: error }, "Error fetching monitor anomalies");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -502,7 +563,7 @@ app.get(
       );
       res.json(rows);
     } catch (error) {
-      console.error("Error fetching wasted spend:", error);
+      logger.error({ err: error }, "Error fetching wasted spend");
       res.json([]);
     }
   },
@@ -519,7 +580,7 @@ app.get(
       const rows = await broadMatchDriftMonitor.getAnomalies(String(accountId));
       res.json(rows);
     } catch (error) {
-      console.error("Error fetching drift:", error);
+      logger.error({ err: error }, "Error fetching drift");
       res.json([]);
     }
   },
@@ -545,7 +606,7 @@ app.get(
 
       res.json(labeled);
     } catch (error) {
-      console.error("Error fetching low performance:", error);
+      logger.error({ err: error }, "Error fetching low performance");
       res.json([]);
     }
   },
@@ -562,7 +623,7 @@ app.get(
       const rows = await pmaxSpendBreakdown.getData(String(accountId), 200);
       res.json(rows);
     } catch (error) {
-      console.warn("Error fetching pmax breakdown:", error);
+      logger.warn({ err: error }, "Error fetching pmax breakdown");
       res.json([]);
     }
   },
@@ -660,7 +721,7 @@ app.get(
 
       res.json(cleanRows);
     } catch (error) {
-      console.error(`Error fetching report ${reportId}:`, error);
+      logger.error({ err: error, reportId }, "Error fetching report");
       res.status(500).json({ error: "Internal server error" });
     }
   },
@@ -744,16 +805,14 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
       limit: 500, // Limit rows to prevent browser crashes
     });
 
-    console.log(`Executing live report query for ${reportId} (${timeGrain})`);
-    console.log(`  Account IDs filter:`, uniqueIds);
-    console.log(`  Date range: ${startDate} to ${endDate}`);
+    logger.info({ reportId, timeGrain, accountIds: uniqueIds, startDate, endDate }, "Executing live report query");
 
     const [rows] = await bq.query({
       query: sql,
       params: { accountIds: uniqueIds },
     });
 
-    console.log(`  Query returned ${rows.length} rows`);
+    logger.info({ reportId, rowCount: rows.length }, "Live report query returned");
 
     if (timeGrain === "daily") {
       if (rows.length === 0) {
@@ -925,7 +984,7 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
 
     res.json(rows);
   } catch (error) {
-    console.error(`Error executing live report ${reportId}:`, error);
+    logger.error({ err: error, reportId }, "Error executing live report");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -1063,7 +1122,6 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
         FROM \`imports.shopify_orders\`
         WHERE account_id IN UNNEST(@accountIds)
         AND date >= @startDate AND date <= @endDate
-        AND (order_customer_number_of_orders = 1 OR order_customer_number_of_orders IS NULL)
         AND LOWER(COALESCE(customer_is_returning, 'false')) != 'true'
       ),
       prev_new_customers AS (
@@ -1071,7 +1129,6 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
         FROM \`imports.shopify_orders\`
         WHERE account_id IN UNNEST(@accountIds)
         AND date >= @prevStartDate AND date <= @prevEndDate
-        AND (order_customer_number_of_orders = 1 OR order_customer_number_of_orders IS NULL)
         AND LOWER(COALESCE(customer_is_returning, 'false')) != 'true'
       )
       SELECT
@@ -1184,7 +1241,7 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
       period: startDate ? `${startStr} to ${endStr}` : `${days}d`,
     });
   } catch (error) {
-    console.error("Error fetching executive summary:", error);
+    logger.error({ err: error }, "Error fetching executive summary");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -1504,7 +1561,7 @@ app.get("/api/overview/unified", async (req: Request, res: Response) => {
     // Wrap each query so a missing table doesn't fail the whole response
     const safe = <T>(p: Promise<T>, fallback: T): Promise<T> =>
       p.catch((err) => {
-        console.warn("Unified overview query skipped:", err.message?.split("\n")[0]);
+        logger.warn({ reason: err.message?.split("\n")[0] }, "Unified overview query skipped");
         return fallback;
       });
 
@@ -1661,7 +1718,7 @@ app.get("/api/overview/unified", async (req: Request, res: Response) => {
       period: { start: startStr, end: endStr },
     });
   } catch (error) {
-    console.error("Error fetching unified overview:", error);
+    logger.error({ err: error }, "Error fetching unified overview");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -1676,7 +1733,7 @@ app.get(
       const rows = await pmaxSpendBreakdown.getData(String(accountId), 200);
       res.json(rows);
     } catch (error) {
-      console.error("Error fetching pmax breakdown report:", error);
+      logger.error({ err: error }, "Error fetching pmax breakdown report");
       res.json([]);
     }
   },
@@ -1718,10 +1775,7 @@ app.get(
 
       res.json(rows);
     } catch (error) {
-      console.error(
-        "Error fetching unified ads spend breakdown report:",
-        error,
-      );
+      logger.error({ err: error }, "Error fetching unified ads spend breakdown report");
       res.json([]);
     }
   },
@@ -1740,7 +1794,7 @@ app.get(
       const [rows] = await bq.query(query);
       res.json(rows);
     } catch (error) {
-      console.error("Error fetching superlative months:", error);
+      logger.error({ err: error }, "Error fetching superlative months");
       res.status(500).json({ error: "Internal server error" });
     }
   },
@@ -1849,7 +1903,7 @@ app.get("/api/brand-voice/summary", async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching brand voice summary:", error);
+    logger.error({ err: error }, "Error fetching brand voice summary");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -1915,7 +1969,7 @@ app.get("/api/questions/homepage", async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching homepage questions:", error);
+    logger.error({ err: error }, "Error fetching homepage questions");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -1967,7 +2021,7 @@ app.get("/api/reports/superlatives", async (req: Request, res: Response) => {
       questions: formatQuestionsForResponse(relevantQuestions),
     });
   } catch (error) {
-    console.error("Error fetching superlatives:", error);
+    logger.error({ err: error }, "Error fetching superlatives");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -1980,7 +2034,7 @@ app.post(
     try {
       // If data is missing but context is provided, fetch it server-side
       if (!superlatives?.length && !overviews && accountIds?.length && month) {
-        console.log(`Fetching context data server-side for month: ${month}`);
+        logger.info({ month }, "Fetching context data server-side");
         const bq = createBigQueryClient();
 
         // Fetch Superlatives
@@ -2049,7 +2103,7 @@ app.post(
 
       res.json(result.talking_points);
     } catch (error) {
-      console.error("Error generating talking points:", error);
+      logger.error({ err: error }, "Error generating talking points");
       res.status(500).json({ error: "Failed to generate talking points" });
     }
   },
@@ -2069,7 +2123,7 @@ app.post("/api/reports/generate-draft", async (req: Request, res: Response) => {
     );
     res.json(result);
   } catch (error) {
-    console.error("Error generating draft:", error);
+    logger.error({ err: error }, "Error generating draft");
     res.status(500).json({ error: "Failed to generate draft" });
   }
 });
@@ -2094,13 +2148,39 @@ app.get(/.*/, (req: Request, res: Response, next) => {
   });
 });
 
-const port = process.env.PORT || 3000;
-app.listen(port, async () => {
-  console.log(`Server listening on port ${port}`);
-  try {
-    await clientAccountModel.initialize();
-    await accountSettingsModel.initialize();
-  } catch (err) {
-    console.error("Failed to initialize models:", err);
+// --- Global Error Handler ---
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  logger.error({ err }, "Unhandled error");
+  if (!res.headersSent) {
+    res.status(500).json({ error: "Internal server error" });
   }
 });
+
+const port = config.PORT;
+
+if (require.main === module) {
+  const server = app.listen(port, async () => {
+    logger.info({ port }, "Server listening");
+    try {
+      await connectMongoDB();
+      await clientAccountModel.initialize();
+      await accountSettingsModel.initialize();
+    } catch (err) {
+      logger.error({ err }, "Failed to initialize models");
+    }
+  });
+
+  const shutdown = (signal: string) => {
+    logger.info({ signal }, "Shutdown signal received");
+    server.close(() => {
+      logger.info("HTTP server closed");
+      mongoose.disconnect().then(() => {
+        logger.info("MongoDB disconnected");
+        process.exit(0);
+      });
+    });
+  };
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
+}

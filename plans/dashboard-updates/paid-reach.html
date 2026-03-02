@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paid Reach — Dashboard Card Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-page: #F0F1F5;
+    --bg-card: #FFFFFF;
+    --text-primary: #1A1A2E;
+    --text-secondary: #6B7280;
+    --text-muted: #9CA3AF;
+    --accent-indigo: #6C63FF;
+    --accent-green: #10B981;
+    --accent-red: #EF4444;
+    --border-light: #E5E7EB;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-page);
+    font-family: 'DM Sans', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px;
+  }
+
+  .mockup-wrapper {
+    max-width: 520px;
+    width: 100%;
+  }
+
+  .mockup-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 28px 28px 24px;
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Header */
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .card-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .card-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #6C63FF20, #6C63FF10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card-icon svg {
+    width: 16px;
+    height: 16px;
+    color: var(--accent-indigo);
+  }
+
+  /* Hero */
+  .hero-section {
+    margin-bottom: 6px;
+  }
+
+  .hero-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 48px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--text-primary);
+  }
+
+  .hero-context {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    margin-bottom: 8px;
+  }
+
+  .hero-substat {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+  }
+
+  .hero-substat strong {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .hero-substat .sep {
+    color: var(--border-light);
+  }
+
+  .hero-change-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .hero-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .hero-change.positive { color: var(--accent-green); }
+  .hero-change.negative { color: var(--accent-red); }
+
+  .change-context {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* Sparkline */
+  .sparkline-container {
+    margin: 16px 0 20px;
+    height: 36px;
+  }
+
+  .sparkline-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .sparkline-line {
+    fill: none;
+    stroke: var(--accent-indigo);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .sparkline-area {
+    fill: url(#paidReachGradient);
+  }
+
+  /* Divider */
+  .divider {
+    height: 1px;
+    background: var(--border-light);
+    margin: 20px 0;
+  }
+
+  /* Platform efficiency */
+  .efficiency-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  .efficiency-subtitle {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+
+  .platform-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+  }
+
+  .platform-row + .platform-row {
+    border-top: 1px solid #F3F4F6;
+  }
+
+  .platform-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .platform-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .platform-dot.google { background: #4285F4; }
+  .platform-dot.meta { background: #0081FB; }
+  .platform-dot.tiktok { background: #25F4EE; }
+
+  .platform-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .platform-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .platform-impressions {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .platform-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .platform-cpm {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+  }
+
+  .cpm-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .cpm-label {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .efficiency-badge {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 3px;
+    color: var(--accent-green);
+    background: #D1FAE518;
+  }
+
+  /* Paid vs Organic context */
+  .context-section {
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: #F9FAFB;
+    border-radius: 10px;
+  }
+
+  .context-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .context-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .context-value {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .context-bar-track {
+    height: 6px;
+    background: #E5E7EB;
+    border-radius: 3px;
+    overflow: hidden;
+    display: flex;
+  }
+
+  .context-bar-paid {
+    height: 100%;
+    background: var(--accent-indigo);
+    border-radius: 3px 0 0 3px;
+    width: 35%;
+  }
+
+  .context-bar-organic {
+    height: 100%;
+    background: var(--accent-green);
+    width: 65%;
+    border-radius: 0 3px 3px 0;
+  }
+
+  .context-legend {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .legend-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .legend-dot.paid { background: var(--accent-indigo); }
+  .legend-dot.organic { background: var(--accent-green); }
+
+  /* Annotations */
+  .annotation-area {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 2px dashed #E5E7EB;
+  }
+
+  .annotation-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent-indigo);
+    margin-bottom: 10px;
+  }
+
+  .annotation-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .annotation-text strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<div class="mockup-wrapper">
+  <div class="mockup-label">Dashboard Card Mockup — Half Width</div>
+
+  <div class="card">
+    <!-- Header -->
+    <div class="card-header">
+      <div class="card-title">Paid Reach</div>
+      <div class="card-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Hero: Total paid impressions -->
+    <div class="hero-section">
+      <div class="hero-number">1.2M</div>
+      <div class="hero-context">Total paid impressions across all ad platforms</div>
+      <div class="hero-substat">
+        Reach: <strong>842K</strong> <span class="sep">·</span> Spend: <strong>$3,420</strong>
+      </div>
+      <div class="hero-change-row">
+        <span class="hero-change positive">▲ 11.4%</span>
+        <span class="change-context">vs. prior 30 days</span>
+      </div>
+    </div>
+
+    <!-- Sparkline -->
+    <div class="sparkline-container">
+      <svg class="sparkline-svg" viewBox="0 0 460 36" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="paidReachGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#6C63FF" stop-opacity="0.12"/>
+            <stop offset="100%" stop-color="#6C63FF" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <path class="sparkline-area" d="M0,28 L16,25 L33,27 L49,22 L66,24 L82,20 L99,22 L115,18 L132,20 L148,16 L165,19 L181,15 L198,17 L214,14 L230,16 L247,12 L263,15 L280,11 L296,14 L313,10 L329,13 L346,9 L362,12 L379,8 L395,11 L412,7 L428,10 L444,8 L460,6 L460,36 L0,36 Z"/>
+        <path class="sparkline-line" d="M0,28 L16,25 L33,27 L49,22 L66,24 L82,20 L99,22 L115,18 L132,20 L148,16 L165,19 L181,15 L198,17 L214,14 L230,16 L247,12 L263,15 L280,11 L296,14 L313,10 L329,13 L346,9 L362,12 L379,8 L395,11 L412,7 L428,10 L444,8 L460,6"/>
+      </svg>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Platform efficiency -->
+    <div class="efficiency-title">Cost Per 1,000 Impressions</div>
+    <div class="efficiency-subtitle">Ordered by most efficient</div>
+
+    <div class="platform-row">
+      <div class="platform-left">
+        <div class="platform-dot meta"></div>
+        <div class="platform-info">
+          <span class="platform-name">Meta Ads</span>
+          <span class="platform-impressions">854K impressions</span>
+        </div>
+      </div>
+      <div class="platform-right">
+        <div class="platform-cpm">
+          <span class="cpm-value">$3.64</span>
+          <span class="cpm-label">CPM</span>
+        </div>
+        <span class="efficiency-badge">Best</span>
+      </div>
+    </div>
+
+    <div class="platform-row">
+      <div class="platform-left">
+        <div class="platform-dot tiktok"></div>
+        <div class="platform-info">
+          <span class="platform-name">TikTok Ads</span>
+          <span class="platform-impressions">267K impressions</span>
+        </div>
+      </div>
+      <div class="platform-right">
+        <div class="platform-cpm">
+          <span class="cpm-value">$5.12</span>
+          <span class="cpm-label">CPM</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="platform-row">
+      <div class="platform-left">
+        <div class="platform-dot google"></div>
+        <div class="platform-info">
+          <span class="platform-name">Google Ads</span>
+          <span class="platform-impressions">79K impressions</span>
+        </div>
+      </div>
+      <div class="platform-right">
+        <div class="platform-cpm">
+          <span class="cpm-value">$8.91</span>
+          <span class="cpm-label">CPM</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Paid vs Organic context -->
+    <div class="context-section">
+      <div class="context-row">
+        <span class="context-label">Paid vs. Organic Impressions</span>
+        <span class="context-value">35% / 65%</span>
+      </div>
+      <div class="context-bar-track">
+        <div class="context-bar-paid"></div>
+        <div class="context-bar-organic"></div>
+      </div>
+      <div class="context-legend">
+        <span class="legend-item"><span class="legend-dot paid"></span>Paid</span>
+        <span class="legend-item"><span class="legend-dot organic"></span>Organic</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Annotations -->
+  <div class="annotation-area">
+    <div class="annotation-title">Design Notes</div>
+    <div class="annotation-text">
+      <strong>Hero:</strong> Total paid impressions as the headline number. Reach and total spend shown as compact supporting stats so the user sees volume, unique people, and cost in one glance.<br><br>
+      <strong>Efficiency section:</strong> "Cost Per 1,000 Impressions" is spelled out rather than "CPM" — clarity over jargon. Ordered most efficient first so the user immediately sees where their money goes furthest. "Best" badge highlights the winner.<br><br>
+      <strong>Paid vs. Organic bar:</strong> A single compact proportional bar connecting this card's story to the broader Brand Pulse. Tells the user whether they're earning attention or buying it, without duplicating Brand Pulse's full breakdown.<br><br>
+      <strong>Adapts to platforms:</strong> Only shows rows for connected ad platforms. One platform = one row. The "Best" badge only appears when there are 2+ platforms to compare.<br><br>
+      <strong>Brand dashboard only.</strong>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

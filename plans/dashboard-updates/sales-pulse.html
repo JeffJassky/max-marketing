@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Pulse — Dashboard Card Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-page: #F0F1F5;
+    --bg-card: #FFFFFF;
+    --text-primary: #1A1A2E;
+    --text-secondary: #6B7280;
+    --text-muted: #9CA3AF;
+    --accent-indigo: #6C63FF;
+    --accent-green: #10B981;
+    --accent-red: #EF4444;
+    --border-light: #E5E7EB;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-page);
+    font-family: 'DM Sans', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px;
+  }
+
+  .mockup-wrapper {
+    max-width: 520px;
+    width: 100%;
+  }
+
+  .mockup-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 28px 28px 24px;
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Header */
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .card-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .card-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #10B98120, #10B98110);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card-icon svg {
+    width: 16px;
+    height: 16px;
+    color: var(--accent-green);
+  }
+
+  /* Hero — momentum signal */
+  .hero-section {
+    margin-bottom: 6px;
+  }
+
+  .momentum-row {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+
+  .hero-direction {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 48px;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .hero-direction.accelerating { color: var(--accent-green); }
+  .hero-direction.decelerating { color: var(--accent-red); }
+
+  .momentum-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 6px;
+    letter-spacing: 0.02em;
+  }
+
+  .momentum-badge.accelerating {
+    color: var(--accent-green);
+    background: #D1FAE518;
+  }
+
+  .momentum-badge.decelerating {
+    color: var(--accent-red);
+    background: #FEE2E218;
+  }
+
+  .hero-context {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 5px;
+    line-height: 1.4;
+  }
+
+  .hero-context strong {
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+
+  /* Sparkline */
+  .sparkline-container {
+    margin: 18px 0 20px;
+    height: 48px;
+    position: relative;
+  }
+
+  .sparkline-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .sparkline-line {
+    fill: none;
+    stroke: var(--accent-green);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .sparkline-area {
+    fill: url(#sparkGradientSales);
+  }
+
+  /* Period markers */
+  .period-divider {
+    stroke: var(--text-muted);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+    opacity: 0.4;
+  }
+
+  .period-label {
+    font-size: 8px;
+    fill: var(--text-muted);
+    font-family: 'DM Sans', sans-serif;
+    letter-spacing: 0.03em;
+  }
+
+  /* Divider */
+  .divider {
+    height: 1px;
+    background: var(--border-light);
+    margin: 20px 0;
+  }
+
+  /* Drivers section */
+  .drivers-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 14px;
+  }
+
+  .driver-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+  }
+
+  .driver-row + .driver-row {
+    border-top: 1px solid #F3F4F6;
+  }
+
+  .driver-left {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .driver-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .driver-sublabel {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .driver-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .driver-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .driver-change {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+
+  .driver-change.positive {
+    color: var(--accent-green);
+    background: #D1FAE515;
+  }
+
+  .driver-change.negative {
+    color: var(--accent-red);
+    background: #FEE2E215;
+  }
+
+  .driver-change.flat {
+    color: var(--text-muted);
+    background: #F3F4F6;
+  }
+
+  /* Revenue total */
+  .revenue-total {
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: #F9FAFB;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .revenue-total-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .revenue-total-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .revenue-total-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .revenue-total-change {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent-green);
+  }
+
+  /* Annotations */
+  .annotation-area {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 2px dashed #E5E7EB;
+  }
+
+  .annotation-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent-indigo);
+    margin-bottom: 10px;
+  }
+
+  .annotation-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .annotation-text strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<div class="mockup-wrapper">
+  <div class="mockup-label">Dashboard Card Mockup — Half Width</div>
+
+  <div class="card">
+    <!-- Header -->
+    <div class="card-header">
+      <div class="card-title">Sales Pulse</div>
+      <div class="card-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Hero: Momentum signal -->
+    <div class="hero-section">
+      <div class="momentum-row">
+        <div class="hero-direction accelerating">↑ 23%</div>
+        <div class="momentum-badge accelerating">Accelerating</div>
+      </div>
+      <div class="hero-context">
+        <strong>38 orders</strong> last 14 days vs. <strong>31 orders</strong> prior 14 days
+      </div>
+    </div>
+
+    <!-- Sparkline with period marker -->
+    <div class="sparkline-container">
+      <svg class="sparkline-svg" viewBox="0 0 460 48" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="sparkGradientSales" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#10B981" stop-opacity="0.12"/>
+            <stop offset="100%" stop-color="#10B981" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <!-- Period divider at midpoint -->
+        <line x1="230" y1="0" x2="230" y2="48" class="period-divider"/>
+        <text x="115" y="8" class="period-label" text-anchor="middle">Prior 14 days</text>
+        <text x="345" y="8" class="period-label" text-anchor="middle">Last 14 days</text>
+        <!-- Area -->
+        <path class="sparkline-area" d="M0,38 L16,36 L33,40 L49,37 L66,35 L82,38 L99,34 L115,36 L132,33 L148,35 L165,32 L181,34 L198,30 L214,33 L230,31 L247,28 L263,26 L280,29 L296,24 L313,22 L329,25 L346,20 L362,18 L379,21 L395,16 L412,14 L428,17 L444,12 L460,10 L460,48 L0,48 Z"/>
+        <!-- Line -->
+        <path class="sparkline-line" d="M0,38 L16,36 L33,40 L49,37 L66,35 L82,38 L99,34 L115,36 L132,33 L148,35 L165,32 L181,34 L198,30 L214,33 L230,31 L247,28 L263,26 L280,29 L296,24 L313,22 L329,25 L346,20 L362,18 L379,21 L395,16 L412,14 L428,17 L444,12 L460,10"/>
+      </svg>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- What's driving it -->
+    <div class="drivers-title">What's Driving It</div>
+
+    <div class="driver-row">
+      <div class="driver-left">
+        <span class="driver-label">Orders</span>
+        <span class="driver-sublabel">Last 14 days</span>
+      </div>
+      <div class="driver-right">
+        <span class="driver-value">38</span>
+        <span class="driver-change positive">↑ 23%</span>
+      </div>
+    </div>
+
+    <div class="driver-row">
+      <div class="driver-left">
+        <span class="driver-label">Avg. Order Value</span>
+        <span class="driver-sublabel">Last 14 days</span>
+      </div>
+      <div class="driver-right">
+        <span class="driver-value">$68.40</span>
+        <span class="driver-change positive">↑ 4%</span>
+      </div>
+    </div>
+
+    <!-- Revenue total -->
+    <div class="revenue-total">
+      <span class="revenue-total-label">14-Day Revenue</span>
+      <div class="revenue-total-row">
+        <span class="revenue-total-value">$2,599</span>
+        <span class="revenue-total-change">↑ 28%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Annotations -->
+  <div class="annotation-area">
+    <div class="annotation-title">Design Notes</div>
+    <div class="annotation-text">
+      <strong>Hero:</strong> The momentum percentage IS the headline — not a conversion count. "↑ 23%" with "Accelerating" badge tells the story instantly. Color-coded green for accelerating, red for decelerating.<br><br>
+      <strong>Context line:</strong> Shows the raw order counts behind the percentage so the user trusts the number and can feel the scale.<br><br>
+      <strong>Sparkline:</strong> Daily order count over the full 28-day window (prior 14 + last 14). A dashed vertical line marks the midpoint so the user can visually compare the two halves. The rising right side IS the acceleration.<br><br>
+      <strong>"What's Driving It":</strong> Breaks the momentum into its two components — order count trend and average order value trend. This answers "are we getting more customers or are customers spending more?" Both can be true independently.<br><br>
+      <strong>14-Day Revenue:</strong> The bottom summary grounds everything in dollars. The 28% combines both drivers (more orders × higher AOV).<br><br>
+      <strong>Rolling window:</strong> Uses 14 vs. prior 14 days for a smoother signal than 7-day comparisons. Recalculates daily.<br><br>
+      <strong>Shopify dashboard only.</strong>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

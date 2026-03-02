@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marketing Efficiency Ratio — Dashboard Card Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-page: #F0F1F5;
+    --bg-card: #FFFFFF;
+    --text-primary: #1A1A2E;
+    --text-secondary: #6B7280;
+    --text-muted: #9CA3AF;
+    --accent-indigo: #6C63FF;
+    --accent-green: #10B981;
+    --accent-red: #EF4444;
+    --border-light: #E5E7EB;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-page);
+    font-family: 'DM Sans', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px;
+  }
+
+  .mockup-wrapper {
+    max-width: 520px;
+    width: 100%;
+  }
+
+  .mockup-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 28px 28px 24px;
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Header */
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .card-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .card-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #6C63FF20, #6C63FF10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card-icon svg {
+    width: 16px;
+    height: 16px;
+    color: var(--accent-indigo);
+  }
+
+  /* Hero */
+  .hero-section {
+    margin-bottom: 8px;
+  }
+
+  .mer-row {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .hero-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 48px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--text-primary);
+  }
+
+  .mer-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 6px;
+    color: var(--accent-indigo);
+    background: #6C63FF12;
+    letter-spacing: 0.02em;
+  }
+
+  .hero-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    margin-bottom: 8px;
+  }
+
+  .hero-change-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .hero-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .hero-change.positive { color: var(--accent-green); }
+  .hero-change.negative { color: var(--accent-red); }
+
+  .change-context {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* Sparkline */
+  .sparkline-container {
+    margin: 16px 0 20px;
+    height: 40px;
+  }
+
+  .sparkline-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .sparkline-line {
+    fill: none;
+    stroke: var(--accent-indigo);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .sparkline-area {
+    fill: url(#sparkGradient);
+  }
+
+  .sparkline-threshold {
+    stroke: var(--border-light);
+    stroke-width: 1;
+    stroke-dasharray: 4 3;
+  }
+
+  .sparkline-threshold-label {
+    font-size: 9px;
+    fill: var(--text-muted);
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  /* Divider */
+  .divider {
+    height: 1px;
+    background: var(--border-light);
+    margin: 20px 0;
+  }
+
+  /* Revenue vs Spend — combined bar */
+  .combined-bar-section {
+    margin-bottom: 4px;
+  }
+
+  .combined-bar-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 14px;
+  }
+
+  .combined-bar-track {
+    height: 32px;
+    background: #F3F4F6;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .combined-bar-spend {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 41.7%;
+    background: linear-gradient(90deg, var(--accent-indigo), #818CF8);
+    border-radius: 8px 0 0 8px;
+    z-index: 2;
+  }
+
+  .combined-bar-revenue {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, #10B98130, #34D39920);
+    border-radius: 8px;
+    z-index: 1;
+  }
+
+  .bar-labels {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-top: 10px;
+  }
+
+  .bar-label-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .bar-label-group.right {
+    text-align: right;
+  }
+
+  .bar-label-name {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .bar-label-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .bar-label-value.spend-color {
+    color: var(--accent-indigo);
+  }
+
+  .bar-label-value.revenue-color {
+    color: var(--accent-green);
+  }
+
+  /* Attribution confidence */
+  .attribution-section {
+    margin-top: 18px;
+    padding: 10px 14px;
+    background: #F9FAFB;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .attribution-bar-track {
+    flex: 1;
+    height: 4px;
+    background: #E5E7EB;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .attribution-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--accent-indigo);
+    width: 68%;
+  }
+
+  .attribution-text {
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  .attribution-text strong {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  /* Annotations */
+  .annotation-area {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 2px dashed #E5E7EB;
+  }
+
+  .annotation-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent-indigo);
+    margin-bottom: 10px;
+  }
+
+  .annotation-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .annotation-text strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<div class="mockup-wrapper">
+  <div class="mockup-label">Dashboard Card Mockup — Half Width</div>
+
+  <div class="card">
+    <!-- Header -->
+    <div class="card-header">
+      <div class="card-title">Marketing Efficiency Ratio</div>
+      <div class="card-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="1" x2="12" y2="23"/>
+          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Hero -->
+    <div class="hero-section">
+      <div class="mer-row">
+        <div class="hero-number">2.4x</div>
+        <div class="mer-badge">Efficiency Ratio</div>
+      </div>
+      <div class="hero-label">Shopify revenue ÷ total ad spend across all platforms</div>
+      <div class="hero-change-row">
+        <span class="hero-change positive">▲ 14.2%</span>
+        <span class="change-context">vs. prior 30 days</span>
+      </div>
+    </div>
+
+    <!-- Sparkline -->
+    <div class="sparkline-container">
+      <svg class="sparkline-svg" viewBox="0 0 460 40" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="sparkGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#6C63FF" stop-opacity="0.12"/>
+            <stop offset="100%" stop-color="#6C63FF" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <line x1="0" y1="30" x2="460" y2="30" class="sparkline-threshold"/>
+        <text x="448" y="28" class="sparkline-threshold-label" text-anchor="end">1.0x</text>
+        <path class="sparkline-area" d="M0,28 L15,26 L30,30 L46,29 L61,27 L77,24 L92,22 L107,25 L123,23 L138,20 L153,22 L169,19 L184,17 L200,20 L215,18 L230,15 L246,17 L261,14 L277,12 L292,15 L307,13 L323,10 L338,12 L353,9 L369,11 L384,8 L400,10 L415,7 L430,8 L446,6 L460,5 L460,40 L0,40 Z"/>
+        <path class="sparkline-line" d="M0,28 L15,26 L30,30 L46,29 L61,27 L77,24 L92,22 L107,25 L123,23 L138,20 L153,22 L169,19 L184,17 L200,20 L215,18 L230,15 L246,17 L261,14 L277,12 L292,15 L307,13 L323,10 L338,12 L353,9 L369,11 L384,8 L400,10 L415,7 L430,8 L446,6 L460,5"/>
+      </svg>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Revenue vs Spend — single combined bar -->
+    <div class="combined-bar-section">
+      <div class="combined-bar-title">Revenue vs. Ad Spend</div>
+      <div class="combined-bar-track">
+        <div class="combined-bar-revenue"></div>
+        <div class="combined-bar-spend"></div>
+      </div>
+      <div class="bar-labels">
+        <div class="bar-label-group">
+          <span class="bar-label-name">Total Ad Spend</span>
+          <span class="bar-label-value spend-color">$3,420</span>
+        </div>
+        <div class="bar-label-group right">
+          <span class="bar-label-name">Shopify Revenue</span>
+          <span class="bar-label-value revenue-color">$8,208</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Attribution confidence -->
+    <div class="attribution-section">
+      <div class="attribution-bar-track">
+        <div class="attribution-bar-fill"></div>
+      </div>
+      <div class="attribution-text"><strong>68%</strong> of revenue traceable to marketing</div>
+    </div>
+  </div>
+
+  <!-- Annotations -->
+  <div class="annotation-area">
+    <div class="annotation-title">Design Notes</div>
+    <div class="annotation-text">
+      <strong>Title:</strong> "Marketing Efficiency Ratio" — clear, descriptive, no jargon abbreviations.<br><br>
+      <strong>Badge:</strong> "Efficiency Ratio" labels what the number is, not a judgment about what it means.<br><br>
+      <strong>Hero number:</strong> Shows the ratio as-is. When spend exceeds revenue, the number goes negative (e.g., -0.4x).<br><br>
+      <strong>Combined bar:</strong> Single bar where the indigo portion represents ad spend within the full revenue bar. The proportional relationship is immediately visible. "Revenue vs. Ad Spend" title is bold and readable — not the light uppercase treatment.<br><br>
+      <strong>Sparkline:</strong> Trend over the selected period with a 1.0x threshold line for context.<br><br>
+      <strong>Attribution:</strong> Stays as a quiet footnote at the bottom — context, not headline.<br><br>
+      <strong>Shopify dashboard only.</strong>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

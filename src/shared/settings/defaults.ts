@@ -47,6 +47,7 @@ export const defaultAccountSettings: AccountSettings = {
     'dashboard': {
       pinnedMetrics: undefined,
       layout: {},
+      customConfig: { templatePreset: undefined, hiddenBlocks: [] },
     },
 
     // Monitors

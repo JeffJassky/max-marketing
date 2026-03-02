@@ -19,11 +19,15 @@ import {
   Activity,
   Trophy,
   Image as ImageIcon,
-  FileText
+  FileText,
+  ShieldCheck
 } from 'lucide-vue-next';
 import AccountSelector from './AccountSelector.vue';
+import { useAuthStore } from '../stores/auth';
+
 const router = useRouter();
 const route = useRoute();
+const authStore = useAuthStore();
 
 const navItems = [
   { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', path: '/' },
@@ -58,6 +62,7 @@ const setView = (item: typeof navItems[number]) => {
 
 const isActive = (item: typeof navItems[number]) => {
   if (item.id === 'dashboard') return route.path === '/';
+  if (item.id === 'admin') return route.path === '/admin';
   return route.path.startsWith(item.path);
 };
 
@@ -82,7 +87,7 @@ const isChildActive = (childPath: string) => route.path === childPath;
 
     <AccountSelector />
 
-    <nav class="flex-1 px-3 space-y-1 mt-4">
+    <nav class="flex-1 px-3 space-y-1 mt-4 overflow-y-auto">
       <div class="px-3 mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Apps</div>
       <div v-for="item in navItems" :key="item.id" class="space-y-1">
         <div
@@ -125,6 +130,26 @@ const isChildActive = (childPath: string) => route.path === childPath;
             <component v-if="child.icon" :is="child.icon" :size="14" />
             <span>{{ child.label }}</span>
           </button>
+        </div>
+      </div>
+
+      <!-- Admin nav item (admin only) -->
+      <div v-if="authStore.isAdmin" class="mt-2 pt-2 border-t border-slate-800">
+        <div class="px-3 mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">Admin</div>
+        <div
+          @click="router.push('/admin')"
+          class="flex items-center justify-between px-3 py-3 rounded-xl transition-all cursor-pointer group"
+          :class="[
+            route.path === '/admin'
+              ? 'bg-slate-800 text-amplify-green border border-slate-700'
+              : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border border-transparent'
+          ]"
+        >
+          <div class="flex items-center gap-3">
+            <ShieldCheck :size="20" class="transition-colors" :class="route.path === '/admin' ? 'text-amplify-green' : 'text-slate-500 group-hover:text-slate-300'" />
+            <span class="text-sm" :class="route.path === '/admin' ? 'font-bold' : 'font-medium'">Admin</span>
+          </div>
+          <ChevronRight v-if="route.path === '/admin'" :size="14" class="text-amplify-green" />
         </div>
       </div>
     </nav>

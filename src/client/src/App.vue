@@ -6,10 +6,14 @@ import HeaderBar from './components/HeaderBar.vue';
 import { Sparkles, MessageSquare, X } from 'lucide-vue-next';
 import { useAccountSettings } from './composables/useAccountSettings';
 import { useAccountSettingsStore } from './stores/accountSettings';
+import { useAuthStore } from './stores/auth';
 import type { AccountSettings } from '@shared/settings/types';
 import 'deep-chat';
 
 const route = useRoute();
+const authStore = useAuthStore();
+
+const isPublicRoute = computed(() => route.meta.public === true);
 
 interface MaxAccount {
   id: string;
@@ -90,86 +94,102 @@ provide('accountSettings', accountSettings);
 </script>
 
 <template>
-  <div
-    class="flex h-screen w-full transition-theme overflow-hidden bg-amplify-dark"
-  >
-    <Sidebar />
-    <div class="flex-1 flex flex-col h-full overflow-hidden bg-stone-50">
-      <HeaderBar :route-name="route.name?.toString() || ''" />
-      <main class="flex-1 overflow-hidden relative">
-        <RouterView v-slot="{ Component }">
-          <component :is="Component" />
-        </RouterView>
-      </main>
-    </div>
-
-    <!-- Floating Chat Toggle -->
-    <button
-      @click="showChat = !showChat"
-      class="fixed bottom-8 right-8 w-16 h-16 bg-indigo-600 text-white rounded-full shadow-2xl shadow-indigo-200 flex items-center justify-center hover:bg-indigo-700 transition-all z-50 group"
-    >
-      <MessageSquare v-if="!showChat" :size="28" />
-      <X v-else :size="28" />
-      <div
-        class="absolute right-full mr-4 bg-slate-900 text-white text-xs font-bold px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none"
-      >
-        Ask Max anything about your data
-      </div>
-    </button>
-
-    <!-- Chat Drawer -->
-    <div
-      v-show="showChat"
-      class="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl z-[60] border-l border-slate-200 flex flex-col"
-    >
-      <!-- Header -->
-      <div
-        class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 flex-none"
-      >
-        <div class="flex items-center gap-3">
-          <div
-            class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-100"
-          >
-            <Sparkles :size="20" />
-          </div>
-          <div>
-            <h3 class="font-bold text-slate-900">Max Analysis Agent</h3>
-            <p
-              class="text-[10px] text-slate-400 uppercase font-black tracking-widest"
-            >
-              Active • Cross-Platform Brain
-            </p>
-          </div>
-        </div>
-        <button
-          @click="showChat = false"
-          class="text-slate-400 hover:text-slate-600"
-        >
-          <X :size="20" />
-        </button>
-      </div>
-
-      <!-- Chat Area -->
-      <div class="flex-1 min-h-0 overflow-hidden">
-        <deep-chat
-          speechToText="true"
-          :browserStorage="chatStorageConfig"
-          :requestBodyLimits="{ maxMessages: 0 }"
-          :connect="{
-            url: '/api/chat',
-            method: 'POST',
-            additionalBodyProps: { context: chatContext }
-          }"
-          :introMessage="{ text: 'Hi! I\'m Max. I can analyze your ad performance, detect waste, and answer specific questions about your Google, Meta, or Shopify data. What can I help you with today?' }"
-          style="height: 100%; width: 100%; border: none; display: block;"
-          :messageStyles='{
-            "default": {
-              "user": { "bubble": { "backgroundColor": "#4f46e5", "maxWidth": "85%" } },
-              "ai": { "bubble": { "backgroundColor": "#f8fafc", "color": "#1e293b", "border": "1px solid #e2e8f0", "maxWidth": "95%", "overflowX": "auto" } }
-            }
-          }'
-        ></deep-chat>
-      </div>
+  <!-- Loading state while auth initializes -->
+  <div v-if="!authStore.initialized && !isPublicRoute" class="flex h-screen w-full items-center justify-center bg-amplify-dark">
+    <div class="text-center">
+      <div class="w-10 h-10 bg-amplify-green rounded-lg flex items-center justify-center text-amplify-darker font-bold text-2xl mx-auto mb-4 animate-pulse">M</div>
+      <p class="text-slate-400 text-sm">Loading...</p>
     </div>
   </div>
+
+  <!-- Public routes (login, forgot-password, reset-password) — no chrome -->
+  <template v-else-if="isPublicRoute">
+    <RouterView />
+  </template>
+
+  <!-- Authenticated app layout -->
+  <template v-else>
+    <div
+      class="flex h-screen w-full transition-theme overflow-hidden bg-amplify-dark"
+    >
+      <Sidebar />
+      <div class="flex-1 flex flex-col h-full overflow-hidden bg-stone-50">
+        <HeaderBar :route-name="route.name?.toString() || ''" />
+        <main class="flex-1 overflow-hidden relative">
+          <RouterView v-slot="{ Component }">
+            <component :is="Component" />
+          </RouterView>
+        </main>
+      </div>
+
+      <!-- Floating Chat Toggle -->
+      <button
+        @click="showChat = !showChat"
+        class="fixed bottom-8 right-8 w-16 h-16 bg-indigo-600 text-white rounded-full shadow-2xl shadow-indigo-200 flex items-center justify-center hover:bg-indigo-700 transition-all z-50 group"
+      >
+        <MessageSquare v-if="!showChat" :size="28" />
+        <X v-else :size="28" />
+        <div
+          class="absolute right-full mr-4 bg-slate-900 text-white text-xs font-bold px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none"
+        >
+          Ask Max anything about your data
+        </div>
+      </button>
+
+      <!-- Chat Drawer -->
+      <div
+        v-show="showChat"
+        class="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl z-[60] border-l border-slate-200 flex flex-col"
+      >
+        <!-- Header -->
+        <div
+          class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 flex-none"
+        >
+          <div class="flex items-center gap-3">
+            <div
+              class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-100"
+            >
+              <Sparkles :size="20" />
+            </div>
+            <div>
+              <h3 class="font-bold text-slate-900">Max Analysis Agent</h3>
+              <p
+                class="text-[10px] text-slate-400 uppercase font-black tracking-widest"
+              >
+                Active • Cross-Platform Brain
+              </p>
+            </div>
+          </div>
+          <button
+            @click="showChat = false"
+            class="text-slate-400 hover:text-slate-600"
+          >
+            <X :size="20" />
+          </button>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="flex-1 min-h-0 overflow-hidden">
+          <deep-chat
+            speechToText="true"
+            :browserStorage="chatStorageConfig"
+            :requestBodyLimits="{ maxMessages: 0 }"
+            :connect="{
+              url: '/api/chat',
+              method: 'POST',
+              additionalBodyProps: { context: chatContext }
+            }"
+            :introMessage="{ text: 'Hi! I\'m Max. I can analyze your ad performance, detect waste, and answer specific questions about your Google, Meta, or Shopify data. What can I help you with today?' }"
+            style="height: 100%; width: 100%; border: none; display: block;"
+            :messageStyles='{
+              "default": {
+                "user": { "bubble": { "backgroundColor": "#4f46e5", "maxWidth": "85%" } },
+                "ai": { "bubble": { "backgroundColor": "#f8fafc", "color": "#1e293b", "border": "1px solid #e2e8f0", "maxWidth": "95%", "overflowX": "auto" } }
+              }
+            }'
+          ></deep-chat>
+        </div>
+      </div>
+    </div>
+  </template>
 </template>

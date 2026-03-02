@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brand Dashboard — Page Layout Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-page: #F0F1F5;
+    --bg-card: #FFFFFF;
+    --bg-sidebar: #1A1A2E;
+    --text-primary: #1A1A2E;
+    --text-secondary: #6B7280;
+    --text-muted: #9CA3AF;
+    --text-sidebar: #94A3B8;
+    --text-sidebar-active: #FFFFFF;
+    --accent-indigo: #6C63FF;
+    --accent-green: #10B981;
+    --accent-red: #EF4444;
+    --accent-cyan: #06B6D4;
+    --accent-amber: #F59E0B;
+    --accent-lime: #84CC16;
+    --border-light: #E5E7EB;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+    --color-organic: #10B981;
+    --color-paid: #6C63FF;
+    --color-search: #06B6D4;
+    --color-social: #E1306C;
+    --color-direct: #F59E0B;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-page);
+    font-family: 'DM Sans', sans-serif;
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 190px;
+    background: var(--bg-sidebar);
+    padding: 20px 0;
+    flex-shrink: 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 10;
+  }
+
+  .sidebar-logo {
+    padding: 0 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-mark {
+    width: 32px;
+    height: 32px;
+    background: var(--accent-lime);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--bg-sidebar);
+  }
+
+  .logo-text {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .logo-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #FFFFFF;
+    letter-spacing: 0.04em;
+  }
+
+  .logo-sub {
+    font-size: 9px;
+    color: var(--accent-lime);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .sidebar-section {
+    padding: 0 12px;
+    margin-bottom: 8px;
+  }
+
+  .sidebar-section-label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #475569;
+    padding: 0 8px;
+    margin-bottom: 6px;
+  }
+
+  .sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text-sidebar);
+    cursor: default;
+    margin-bottom: 2px;
+  }
+
+  .sidebar-item.active {
+    background: #6C63FF20;
+    color: var(--text-sidebar-active);
+  }
+
+  .sidebar-item svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    opacity: 0.6;
+  }
+
+  .sidebar-item.active svg {
+    opacity: 1;
+  }
+
+  /* Main content */
+  .main {
+    margin-left: 190px;
+    flex: 1;
+    min-height: 100vh;
+  }
+
+  /* Top bar */
+  .topbar {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-light);
+    padding: 12px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+
+  .topbar-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .date-selector {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: #F3F4F6;
+    padding: 6px 12px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .avatar {
+    width: 28px;
+    height: 28px;
+    background: var(--accent-indigo);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: #FFFFFF;
+  }
+
+  /* Content area */
+  .content {
+    padding: 28px 32px 60px;
+    max-width: 1120px;
+  }
+
+  /* Greeting placeholder */
+  .greeting-placeholder {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: var(--shadow-card);
+    margin-bottom: 24px;
+  }
+
+  .greeting-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  .greeting-sub {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+  }
+
+  .greeting-sub span {
+    color: var(--accent-green);
+    font-weight: 600;
+  }
+
+  .questions-area {
+    background: #F9FAFB;
+    border-radius: 12px;
+    padding: 16px 20px;
+  }
+
+  .questions-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .questions-icon {
+    font-size: 14px;
+  }
+
+  .questions-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .questions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .question-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+
+  /* Dashboard grid */
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  /* Card representations */
+  .dash-card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    box-shadow: var(--shadow-card);
+    padding: 24px;
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .card-header-mini {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+
+  .card-title-mini {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .card-icon-mini {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card-icon-mini svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  /* Mini hero */
+  .mini-hero {
+    margin-bottom: 4px;
+  }
+
+  .mini-hero-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .mini-hero-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 34px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--text-primary);
+  }
+
+  .mini-badge {
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+
+  .mini-hero-context {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 3px;
+    margin-bottom: 6px;
+  }
+
+  .mini-change {
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .mini-change.positive { color: var(--accent-green); }
+  .mini-change.negative { color: var(--accent-red); }
+
+  .mini-change-context {
+    font-size: 9px;
+    color: var(--text-muted);
+    margin-left: 6px;
+  }
+
+  /* Mini sparkline */
+  .mini-sparkline {
+    height: 28px;
+    margin: 10px 0 14px;
+  }
+
+  .mini-sparkline svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .mini-spark-line {
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* Mini divider */
+  .mini-divider {
+    height: 1px;
+    background: var(--border-light);
+    margin: 12px 0;
+  }
+
+  /* Mini section titles */
+  .mini-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+  }
+
+  /* Mini bars */
+  .mini-bar {
+    height: 22px;
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    margin-bottom: 8px;
+  }
+
+  .mini-bar-segment {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 600;
+    color: #FFFFFF;
+  }
+
+  /* Mini rows */
+  .mini-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 0;
+    font-size: 10px;
+  }
+
+  .mini-row + .mini-row {
+    border-top: 1px solid #F3F4F6;
+  }
+
+  .mini-row-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .mini-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .mini-row-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .mini-row-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .mini-row-change {
+    font-size: 9px;
+    font-weight: 600;
+  }
+
+  /* Mini callout */
+  .mini-callout {
+    margin-top: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 9px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* Brand Pulse placeholder */
+  .brand-pulse-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    position: relative;
+  }
+
+  .donut-rings {
+    position: relative;
+    width: 160px;
+    height: 160px;
+  }
+
+  .donut-ring {
+    position: absolute;
+    border-radius: 50%;
+    border-style: solid;
+    border-color: transparent;
+  }
+
+  .donut-outer {
+    width: 160px;
+    height: 160px;
+    top: 0; left: 0;
+    border-width: 10px;
+    border-top-color: var(--accent-lime);
+    border-right-color: var(--accent-lime);
+    border-bottom-color: var(--accent-lime);
+    transform: rotate(-30deg);
+  }
+
+  .donut-mid {
+    width: 120px;
+    height: 120px;
+    top: 20px; left: 20px;
+    border-width: 8px;
+    border-top-color: var(--accent-cyan);
+    border-right-color: var(--accent-cyan);
+    transform: rotate(-60deg);
+  }
+
+  .donut-inner {
+    width: 84px;
+    height: 84px;
+    top: 38px; left: 38px;
+    border-width: 6px;
+    border-top-color: var(--accent-indigo);
+    transform: rotate(-45deg);
+  }
+
+  .donut-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+
+  .donut-center-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+
+  .donut-center-label {
+    font-size: 8px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .bp-score-area {
+    margin-left: 16px;
+  }
+
+  .bp-score-label {
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+  }
+
+  .bp-score-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+
+  .bp-score-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .bp-changes {
+    margin-top: 6px;
+    font-size: 9px;
+    color: var(--accent-green);
+    font-weight: 600;
+  }
+
+  /* Search Visibility bars */
+  .mini-split-bar {
+    height: 22px;
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    margin-bottom: 6px;
+  }
+
+  .mini-split-branded {
+    height: 100%;
+    background: var(--accent-indigo);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 600;
+    color: #FFFFFF;
+  }
+
+  .mini-split-nonbranded {
+    height: 100%;
+    background: #C4B5FD;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 600;
+    color: #1A1A2E;
+  }
+
+  .mini-funnel-bar {
+    height: 22px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #E0F2FE;
+    position: relative;
+    margin-bottom: 6px;
+  }
+
+  .mini-funnel-fill {
+    height: 100%;
+    background: var(--accent-cyan);
+    border-radius: 6px;
+    min-width: 24px;
+  }
+
+  .mini-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    margin-bottom: 2px;
+  }
+
+  .mini-bar-labels .label-name {
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  .mini-bar-labels .label-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">M</div>
+    <div class="logo-text">
+      <span class="logo-title">MAXED</span>
+      <span class="logo-sub">Marketing.OS</span>
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <div class="sidebar-section-label">Apps</div>
+    <div class="sidebar-item active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </div>
+    <div class="sidebar-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Overviews
+    </div>
+    <div class="sidebar-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/></svg>
+      Monitors
+    </div>
+    <div class="sidebar-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      Hall of Fame
+    </div>
+    <div class="sidebar-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      Creative Lab
+    </div>
+    <div class="sidebar-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+      Report Builder
+    </div>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-title">My Momentum</div>
+    <div class="topbar-right">
+      <div class="date-selector">📅 Last 30 Days ▾</div>
+      <div class="avatar">JR</div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="content">
+
+    <!-- Greeting placeholder -->
+    <div class="greeting-placeholder">
+      <div class="greeting-title">Ready to win, Eastman Guitars?</div>
+      <div class="greeting-sub">Brand Impact Score is <span>72/100</span>. We found <strong>14 optimization opportunities</strong> for you today.</div>
+      <div class="questions-area">
+        <div class="questions-header">
+          <span class="questions-icon">✨</span>
+          <span class="questions-title">Questions to Explore</span>
+        </div>
+        <div class="questions-grid">
+          <div class="question-item">Is there anything we should keep an eye on?</div>
+          <div class="question-item">What's been working well recently?</div>
+          <div class="question-item">Where are the biggest opportunities right now?</div>
+          <div class="question-item">How is overall performance trending?</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dashboard cards grid -->
+    <div class="dashboard-grid">
+
+      <!-- ROW 1 -->
+      <!-- Brand Pulse -->
+      <div class="dash-card">
+        <div class="card-header-mini">
+          <div class="card-title-mini">Brand Pulse</div>
+          <div class="card-icon-mini" style="background: linear-gradient(135deg, #84CC1620, #84CC1610);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#84CC16" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          </div>
+        </div>
+        <div class="brand-pulse-placeholder">
+          <div class="donut-rings">
+            <div class="donut-ring donut-outer"></div>
+            <div class="donut-ring donut-mid"></div>
+            <div class="donut-ring donut-inner"></div>
+            <div class="donut-center">
+              <div class="donut-center-number">2.4M</div>
+              <div class="donut-center-label">Impressions</div>
+            </div>
+          </div>
+          <div class="bp-score-area">
+            <div class="bp-score-label">Brand Impact Score</div>
+            <div class="bp-score-number">72<span class="bp-score-sub">/100</span></div>
+            <div class="bp-changes">▲ 18% MoM · ▲ 34% YoY</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Audience Growth -->
+      <div class="dash-card">
+        <div class="card-header-mini">
+          <div class="card-title-mini">Audience Growth</div>
+          <div class="card-icon-mini" style="background: linear-gradient(135deg, #6C63FF20, #6C63FF10);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#6C63FF" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+        </div>
+        <div class="mini-hero">
+          <div class="mini-hero-number">124.8K</div>
+          <div class="mini-hero-context">Total followers across 3 platforms</div>
+          <span class="mini-change positive">▲ 4.2%</span><span class="mini-change-context">vs. prior 30 days</span>
+        </div>
+        <div class="mini-sparkline">
+          <svg viewBox="0 0 300 28" preserveAspectRatio="none">
+            <defs><linearGradient id="agG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6C63FF" stop-opacity="0.12"/><stop offset="100%" stop-color="#6C63FF" stop-opacity="0"/></linearGradient></defs>
+            <path fill="url(#agG)" d="M0,24 L20,23 L40,23 L60,22 L80,21 L100,21 L120,20 L140,19 L160,18 L180,17 L200,16 L220,15 L240,14 L260,12 L280,11 L300,10 L300,28 L0,28Z"/>
+            <path class="mini-spark-line" stroke="#6C63FF" d="M0,24 L20,23 L40,23 L60,22 L80,21 L100,21 L120,20 L140,19 L160,18 L180,17 L200,16 L220,15 L240,14 L260,12 L280,11 L300,10"/>
+          </svg>
+        </div>
+        <div class="mini-divider"></div>
+        <div class="mini-section-title">By Platform</div>
+        <div class="mini-row">
+          <div class="mini-row-left"><div class="mini-dot" style="background:#E1306C;"></div> Instagram</div>
+          <div class="mini-row-right"><span class="mini-row-value">79,172</span><span class="mini-row-change positive" style="font-size:9px;">↑ 8.1%</span></div>
+        </div>
+        <div class="mini-row">
+          <div class="mini-row-left"><div class="mini-dot" style="background:#1877F2;"></div> Facebook</div>
+          <div class="mini-row-right"><span class="mini-row-value">38,450</span><span class="mini-row-change positive" style="font-size:9px;">↑ 1.2%</span></div>
+        </div>
+        <div class="mini-row">
+          <div class="mini-row-left"><div class="mini-dot" style="background:#25F4EE;"></div> TikTok</div>
+          <div class="mini-row-right"><span class="mini-row-value">7,178</span><span class="mini-row-change negative" style="font-size:9px;">↓ 0.4%</span></div>
+        </div>
+        <div class="mini-callout" style="background:#F0FDF4; border:1px solid #D1FAE540;">
+          <span style="font-size:9px; color:var(--text-secondary);">⚡ <span style="color:var(--accent-green); font-weight:600;">Fastest: Instagram</span></span>
+          <span style="font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:600; color:var(--accent-green);">↑ 8.1%</span>
+        </div>
+      </div>
+
+      <!-- ROW 2 -->
+      <!-- Paid Reach -->
+      <div class="dash-card">
+        <div class="card-header-mini">
+          <div class="card-title-mini">Paid Reach</div>
+          <div class="card-icon-mini" style="background: linear-gradient(135deg, #6C63FF20, #6C63FF10);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#6C63FF" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+          </div>
+        </div>
+        <div class="mini-hero">
+          <div class="mini-hero-number">1.2M</div>
+          <div class="mini-hero-context">Total paid impressions across all ad platforms</div>
+          <div style="font-size:10px; color:var(--text-secondary); margin-bottom:6px;">
+            Reach: <strong style="font-family:'JetBrains Mono',monospace; color:var(--text-primary);">842K</strong>
+            <span style="color:var(--border-light); margin:0 4px;">·</span>
+            Spend: <strong style="font-family:'JetBrains Mono',monospace; color:var(--text-primary);">$3,420</strong>
+          </div>
+          <span class="mini-change positive">▲ 11.4%</span><span class="mini-change-context">vs. prior 30 days</span>
+        </div>
+        <div class="mini-sparkline">
+          <svg viewBox="0 0 300 28" preserveAspectRatio="none">
+            <defs><linearGradient id="prG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6C63FF" stop-opacity="0.12"/><stop offset="100%" stop-color="#6C63FF" stop-opacity="0"/></linearGradient></defs>
+            <path fill="url(#prG)" d="M0,22 L20,19 L40,21 L60,17 L80,19 L100,15 L120,17 L140,14 L160,16 L180,12 L200,14 L220,10 L240,12 L260,9 L280,10 L300,7 L300,28 L0,28Z"/>
+            <path class="mini-spark-line" stroke="#6C63FF" d="M0,22 L20,19 L40,21 L60,17 L80,19 L100,15 L120,17 L140,14 L160,16 L180,12 L200,14 L220,10 L240,12 L260,9 L280,10 L300,7"/>
+          </svg>
+        </div>
+        <div class="mini-divider"></div>
+        <div class="mini-section-title">Cost Per 1,000 Impressions</div>
+        <div class="mini-row">
+          <div class="mini-row-left"><div class="mini-dot" style="background:#0081FB;"></div> Meta Ads</div>
+          <div class="mini-row-right">
+            <span class="mini-row-value">$3.64</span>
+            <span style="font-size:8px; font-weight:700; color:var(--accent-green); background:#D1FAE518; padding:1px 4px; border-radius:3px;">Best</span>
+          </div>
+        </div>
+        <div class="mini-row">
+          <div class="mini-row-left"><div class="mini-dot" style="background:#25F4EE;"></div> TikTok Ads</div>
+          <div class="mini-row-right"><span class="mini-row-value">$5.12</span></div>
+        </div>
+        <div class="mini-row">
+          <div class="mini-row-left"><div class="mini-dot" style="background:#4285F4;"></div> Google Ads</div>
+          <div class="mini-row-right"><span class="mini-row-value">$8.91</span></div>
+        </div>
+        <div style="margin-top:10px; background:#F9FAFB; border-radius:6px; padding:8px 10px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+            <span style="font-size:10px; font-weight:600; color:var(--text-secondary);">Paid vs. Organic Impressions</span>
+            <span style="font-size:10px; font-weight:600; color:var(--text-primary);">35% / 65%</span>
+          </div>
+          <div style="height:8px; border-radius:4px; overflow:hidden; display:flex;">
+            <div style="width:35%; height:100%; background:var(--accent-indigo);"></div>
+            <div style="width:65%; height:100%; background:var(--accent-green);"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search Visibility -->
+      <div class="dash-card">
+        <div class="card-header-mini">
+          <div class="card-title-mini">Search Visibility</div>
+          <div class="card-icon-mini" style="background: linear-gradient(135deg, #06B6D420, #06B6D410);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#06B6D4" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </div>
+        </div>
+        <div class="mini-hero">
+          <div class="mini-hero-row">
+            <div class="mini-hero-number">36.8K</div>
+            <span class="mini-badge" style="color:var(--accent-green); background:#D1FAE518;">↑ Growing</span>
+          </div>
+          <div class="mini-hero-context">Total times your site appeared in Google search</div>
+          <span class="mini-change positive">▲ 9.3%</span><span class="mini-change-context">vs. prior 30 days</span>
+        </div>
+        <div class="mini-sparkline">
+          <svg viewBox="0 0 300 28" preserveAspectRatio="none">
+            <defs><linearGradient id="svG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#06B6D4" stop-opacity="0.12"/><stop offset="100%" stop-color="#06B6D4" stop-opacity="0"/></linearGradient></defs>
+            <path fill="url(#svG)" d="M0,23 L20,22 L40,21 L60,22 L80,20 L100,19 L120,20 L140,18 L160,17 L180,16 L200,15 L220,14 L240,13 L260,12 L280,11 L300,9 L300,28 L0,28Z"/>
+            <path class="mini-spark-line" stroke="#06B6D4" d="M0,23 L20,22 L40,21 L60,22 L80,20 L100,19 L120,20 L140,18 L160,17 L180,16 L200,15 L220,14 L240,13 L260,12 L280,11 L300,9"/>
+          </svg>
+        </div>
+        <div class="mini-divider"></div>
+        <div class="mini-section-title">Branded vs. Non-Branded Searches</div>
+        <div class="mini-split-bar">
+          <div class="mini-split-branded" style="width:62%;">62%</div>
+          <div class="mini-split-nonbranded" style="width:38%;">38%</div>
+        </div>
+        <div class="mini-bar-labels">
+          <span><span class="label-name">Branded </span><span class="label-value">22,816</span></span>
+          <span><span class="label-name">Non-Branded </span><span class="label-value">13,984</span></span>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">
+            <span class="mini-section-title" style="margin-bottom:0;">Impressions to Clicks</span>
+            <span style="font-size:9px;"><span style="color:var(--text-muted);">CTR </span><span style="font-weight:600; color:var(--text-primary);">2.5%</span> <span style="font-size:8px; color:var(--accent-green);">↑ 0.3%</span></span>
+          </div>
+          <div class="mini-funnel-bar">
+            <div class="mini-funnel-fill" style="width:6.5%;"></div>
+          </div>
+          <div class="mini-bar-labels">
+            <span><span class="label-name">Clicks </span><span class="label-value">922</span></span>
+            <span><span class="label-name">Impressions </span><span class="label-value">36,824</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROW 3 -->
+      <!-- Reach Breakdown -->
+      <div class="dash-card">
+        <div class="card-header-mini">
+          <div class="card-title-mini">Reach Breakdown</div>
+          <div class="card-icon-mini" style="background: linear-gradient(135deg, #10B98120, #6C63FF10);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#6C63FF" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+          </div>
+        </div>
+        <div class="mini-hero">
+          <div class="mini-hero-number">3.4M</div>
+          <div class="mini-hero-context">Total impressions across all channels</div>
+          <span class="mini-change positive">▲ 16.2%</span><span class="mini-change-context">vs. prior 30 days</span>
+        </div>
+        <div class="mini-sparkline">
+          <svg viewBox="0 0 300 28" preserveAspectRatio="none">
+            <defs><linearGradient id="rbG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6C63FF" stop-opacity="0.12"/><stop offset="100%" stop-color="#6C63FF" stop-opacity="0"/></linearGradient></defs>
+            <path fill="url(#rbG)" d="M0,22 L20,20 L40,21 L60,18 L80,19 L100,16 L120,17 L140,14 L160,15 L180,13 L200,14 L220,11 L240,12 L260,9 L280,10 L300,7 L300,28 L0,28Z"/>
+            <path class="mini-spark-line" stroke="#6C63FF" d="M0,22 L20,20 L40,21 L60,18 L80,19 L100,16 L120,17 L140,14 L160,15 L180,13 L200,14 L220,11 L240,12 L260,9 L280,10 L300,7"/>
+          </svg>
+        </div>
+        <div class="mini-divider"></div>
+        <div class="mini-section-title">Where Your Reach Comes From</div>
+        <div class="mini-bar">
+          <div class="mini-bar-segment" style="background:var(--color-organic); width:48%;">48%</div>
+          <div class="mini-bar-segment" style="background:var(--color-paid); width:35%;">35%</div>
+          <div class="mini-bar-segment" style="background:var(--color-search); width:17%;">17%</div>
+        </div>
+        <div class="mini-row">
+          <div class="mini-row-left"><div class="mini-dot" style="background:var(--color-organic);"></div> Organic Social</div>
+          <div class="mini-row-right"><span class="mini-row-value">1.63M</span><span class="mini-row-change positive" style="font-size:9px;">↑ 22%</span></div>
+        </div>
+        <div class="mini-row">
+          <div class="mini-row-left"><div class="mini-dot" style="background:var(--color-paid);"></div> Paid Ads</div>
+          <div class="mini-row-right"><span class="mini-row-value">1.19M</span><span class="mini-row-change positive" style="font-size:9px;">↑ 11%</span></div>
+        </div>
+        <div class="mini-row">
+          <div class="mini-row-left"><div class="mini-dot" style="background:var(--color-search);"></div> Search</div>
+          <div class="mini-row-right"><span class="mini-row-value">578K</span><span class="mini-row-change positive" style="font-size:9px;">↑ 9%</span></div>
+        </div>
+      </div>
+
+      <!-- Site Traffic -->
+      <div class="dash-card">
+        <div class="card-header-mini">
+          <div class="card-title-mini">Site Traffic</div>
+          <div class="card-icon-mini" style="background: linear-gradient(135deg, #F59E0B20, #F59E0B10);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          </div>
+        </div>
+        <div class="mini-hero">
+          <div class="mini-hero-number">8,547</div>
+          <div class="mini-hero-context">Total website sessions from GA4</div>
+          <span class="mini-change positive">▲ 18.6%</span><span class="mini-change-context">vs. prior 30 days</span>
+        </div>
+        <div class="mini-sparkline">
+          <svg viewBox="0 0 300 28" preserveAspectRatio="none">
+            <defs><linearGradient id="stG2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#F59E0B" stop-opacity="0.12"/><stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/></linearGradient></defs>
+            <path fill="url(#stG2)" d="M0,20 L20,22 L40,18 L60,20 L80,16 L100,19 L120,15 L140,17 L160,13 L180,15 L200,12 L220,14 L240,10 L260,12 L280,9 L300,7 L300,28 L0,28Z"/>
+            <path class="mini-spark-line" stroke="#F59E0B" d="M0,20 L20,22 L40,18 L60,20 L80,16 L100,19 L120,15 L140,17 L160,13 L180,15 L200,12 L220,14 L240,10 L260,12 L280,9 L300,7"/>
+          </svg>
+        </div>
+        <div class="mini-divider"></div>
+        <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:8px;">
+          <div class="mini-section-title" style="margin-bottom:0;">Traffic Sources</div>
+          <span style="font-size:9px;"><span style="color:var(--text-muted);">Engaged </span><span style="font-weight:600; color:var(--accent-green);">64%</span> <span style="font-size:8px; color:var(--accent-green);">↑ 3%</span></span>
+        </div>
+        <div class="mini-bar">
+          <div class="mini-bar-segment" style="background:var(--color-social); width:34%;">34%</div>
+          <div class="mini-bar-segment" style="background:var(--color-paid); width:28%;">28%</div>
+          <div class="mini-bar-segment" style="background:var(--color-search); width:22%;">22%</div>
+          <div class="mini-bar-segment" style="background:var(--color-direct); width:16%; color:#1A1A2E;">16%</div>
+        </div>
+        <div class="mini-row">
+          <div class="mini-row-left"><div class="mini-dot" style="background:var(--color-social);"></div> Social Referral</div>
+          <div class="mini-row-right"><span class="mini-row-value">2,906</span><span class="mini-row-change positive" style="font-size:9px;">↑ 24%</span></div>
+        </div>
+        <div class="mini-row">
+          <div class="mini-row-left"><div class="mini-dot" style="background:var(--color-paid);"></div> Paid</div>
+          <div class="mini-row-right"><span class="mini-row-value">2,393</span><span class="mini-row-change positive" style="font-size:9px;">↑ 15%</span></div>
+        </div>
+        <div class="mini-row">
+          <div class="mini-row-left"><div class="mini-dot" style="background:var(--color-search);"></div> Organic Search</div>
+          <div class="mini-row-right"><span class="mini-row-value">1,880</span><span class="mini-row-change positive" style="font-size:9px;">↑ 9%</span></div>
+        </div>
+        <div class="mini-row">
+          <div class="mini-row-left"><div class="mini-dot" style="background:var(--color-direct);"></div> Direct</div>
+          <div class="mini-row-right"><span class="mini-row-value">1,368</span><span class="mini-row-change positive" style="font-size:9px;">↑ 22%</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

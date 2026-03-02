@@ -9,8 +9,18 @@ import SuperlativesView from '../views/SuperlativesView.vue';
 import OverviewsView from '../views/OverviewsView.vue';
 import ReportBuilderView from '../views/ReportBuilderView.vue';
 import CreativeLabView from '../views/CreativeLabView.vue';
+import LoginView from '../views/LoginView.vue';
+import ForgotPasswordView from '../views/ForgotPasswordView.vue';
+import ResetPasswordView from '../views/ResetPasswordView.vue';
+import AdminView from '../views/AdminView.vue';
 
 export const routes: RouteRecordRaw[] = [
+  // Public auth routes
+  { path: '/login', name: 'login', component: LoginView, meta: { public: true } },
+  { path: '/forgot-password', name: 'forgot-password', component: ForgotPasswordView, meta: { public: true } },
+  { path: '/reset-password', name: 'reset-password', component: ResetPasswordView, meta: { public: true } },
+
+  // Protected routes
   { path: '/', name: 'dashboard', component: DashboardView },
   { path: '/overviews', name: 'overviews', component: OverviewsView },
   { path: '/report-builder', name: 'report-builder', component: ReportBuilderView },
@@ -22,5 +32,8 @@ export const routes: RouteRecordRaw[] = [
   { path: '/google-ads', name: 'google-ads', component: GoogleAdsView },
   { path: '/social-spark', name: 'social-spark', component: SocialSparkView },
   { path: '/local-seo', name: 'local-seo', component: BrandVoiceView },
-  { path: '/settings', name: 'settings', component: SettingsView }
+  { path: '/settings', name: 'settings', component: SettingsView },
+
+  // Admin routes
+  { path: '/admin', name: 'admin', component: AdminView, meta: { requiresAdmin: true } }
 ];

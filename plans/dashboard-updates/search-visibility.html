@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Search Visibility — Dashboard Card Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-page: #F0F1F5;
+    --bg-card: #FFFFFF;
+    --text-primary: #1A1A2E;
+    --text-secondary: #6B7280;
+    --text-muted: #9CA3AF;
+    --accent-indigo: #6C63FF;
+    --accent-green: #10B981;
+    --accent-red: #EF4444;
+    --accent-cyan: #06B6D4;
+    --border-light: #E5E7EB;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-page);
+    font-family: 'DM Sans', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px;
+  }
+
+  .mockup-wrapper {
+    max-width: 520px;
+    width: 100%;
+  }
+
+  .mockup-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 28px 28px 24px;
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Header */
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .card-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .card-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #06B6D420, #06B6D410);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card-icon svg {
+    width: 16px;
+    height: 16px;
+    color: var(--accent-cyan);
+  }
+
+  /* Hero */
+  .hero-section {
+    margin-bottom: 6px;
+  }
+
+  .hero-row {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+
+  .hero-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 48px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--text-primary);
+  }
+
+  .momentum-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 6px;
+    letter-spacing: 0.02em;
+  }
+
+  .momentum-badge.up {
+    color: var(--accent-green);
+    background: #D1FAE518;
+  }
+
+  .hero-context {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    margin-bottom: 8px;
+  }
+
+  .hero-change-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .hero-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .hero-change.positive { color: var(--accent-green); }
+  .hero-change.negative { color: var(--accent-red); }
+
+  .change-context {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* Sparkline */
+  .sparkline-container {
+    margin: 16px 0 20px;
+    height: 36px;
+  }
+
+  .sparkline-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .sparkline-line {
+    fill: none;
+    stroke: var(--accent-cyan);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .sparkline-area {
+    fill: url(#searchGradient);
+  }
+
+  /* Divider */
+  .divider {
+    height: 1px;
+    background: var(--border-light);
+    margin: 20px 0;
+  }
+
+  /* Bar sections */
+  .bar-section {
+    margin-bottom: 22px;
+  }
+
+  .bar-section:last-child {
+    margin-bottom: 0;
+  }
+
+  .bar-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .bar-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .bar-stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .bar-stat-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  .bar-stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .bar-stat-change {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--accent-green);
+  }
+
+  /* Split bar */
+  .split-bar-track {
+    height: 28px;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+  }
+
+  .split-bar-branded {
+    height: 100%;
+    background: var(--accent-indigo);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 62%;
+  }
+
+  .split-bar-nonbranded {
+    height: 100%;
+    background: #C4B5FD;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38%;
+  }
+
+  .segment-inner-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #FFFFFF;
+  }
+
+  .split-bar-nonbranded .segment-inner-label {
+    color: #1A1A2E;
+  }
+
+  .split-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+  }
+
+  .split-label-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .split-label-group.right {
+    text-align: right;
+  }
+
+  .split-label-name {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .split-label-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  /* Funnel bar */
+  .funnel-bar-track {
+    height: 28px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #E0F2FE;
+    position: relative;
+  }
+
+  .funnel-bar-fill {
+    height: 100%;
+    background: var(--accent-cyan);
+    border-radius: 8px;
+    width: 6.5%;
+    min-width: 36px;
+  }
+
+  .funnel-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+  }
+
+  .funnel-label-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .funnel-label-group.right {
+    text-align: right;
+  }
+
+  .funnel-label-name {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .funnel-label-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  /* Annotations */
+  .annotation-area {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 2px dashed #E5E7EB;
+  }
+
+  .annotation-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent-indigo);
+    margin-bottom: 10px;
+  }
+
+  .annotation-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .annotation-text strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<div class="mockup-wrapper">
+  <div class="mockup-label">Dashboard Card Mockup — Half Width</div>
+
+  <div class="card">
+    <!-- Header -->
+    <div class="card-header">
+      <div class="card-title">Search Visibility</div>
+      <div class="card-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Hero -->
+    <div class="hero-section">
+      <div class="hero-row">
+        <div class="hero-number">36.8K</div>
+        <div class="momentum-badge up">↑ Growing</div>
+      </div>
+      <div class="hero-context">Total times your site appeared in Google search results</div>
+      <div class="hero-change-row">
+        <span class="hero-change positive">▲ 9.3%</span>
+        <span class="change-context">vs. prior 30 days</span>
+      </div>
+    </div>
+
+    <!-- Sparkline -->
+    <div class="sparkline-container">
+      <svg class="sparkline-svg" viewBox="0 0 460 36" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="searchGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#06B6D4" stop-opacity="0.12"/>
+            <stop offset="100%" stop-color="#06B6D4" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <path class="sparkline-area" d="M0,30 L16,29 L33,28 L49,29 L66,27 L82,26 L99,27 L115,25 L132,24 L148,25 L165,23 L181,22 L198,23 L214,21 L230,20 L247,19 L263,20 L280,18 L296,17 L313,16 L329,17 L346,15 L362,14 L379,13 L395,12 L412,11 L428,12 L444,10 L460,9 L460,36 L0,36 Z"/>
+        <path class="sparkline-line" d="M0,30 L16,29 L33,28 L49,29 L66,27 L82,26 L99,27 L115,25 L132,24 L148,25 L165,23 L181,22 L198,23 L214,21 L230,20 L247,19 L263,20 L280,18 L296,17 L313,16 L329,17 L346,15 L362,14 L379,13 L395,12 L412,11 L428,12 L444,10 L460,9"/>
+      </svg>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Bar 1: Branded vs Non-Branded -->
+    <div class="bar-section">
+      <div class="bar-title">Branded vs. Non-Branded Searches</div>
+      <div class="split-bar-track">
+        <div class="split-bar-branded">
+          <span class="segment-inner-label">62%</span>
+        </div>
+        <div class="split-bar-nonbranded">
+          <span class="segment-inner-label">38%</span>
+        </div>
+      </div>
+      <div class="split-bar-labels">
+        <div class="split-label-group">
+          <span class="split-label-name">Branded</span>
+          <span class="split-label-value">22,816</span>
+        </div>
+        <div class="split-label-group right">
+          <span class="split-label-name">Non-Branded</span>
+          <span class="split-label-value">13,984</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bar 2: Impressions to Clicks -->
+    <div class="bar-section">
+      <div class="bar-header">
+        <div class="bar-title">Impressions to Clicks</div>
+        <div class="bar-stat">
+          <span class="bar-stat-label">CTR</span>
+          <span class="bar-stat-value">2.5%</span>
+          <span class="bar-stat-change">↑ 0.3%</span>
+        </div>
+      </div>
+      <div class="funnel-bar-track">
+        <div class="funnel-bar-fill"></div>
+      </div>
+      <div class="funnel-bar-labels">
+        <div class="funnel-label-group">
+          <span class="funnel-label-name">Clicked Through</span>
+          <span class="funnel-label-value">922</span>
+        </div>
+        <div class="funnel-label-group right">
+          <span class="funnel-label-name">Total Impressions</span>
+          <span class="funnel-label-value">36,824</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Annotations -->
+  <div class="annotation-area">
+    <div class="annotation-title">Design Notes</div>
+    <div class="annotation-text">
+      <strong>CTR placement:</strong> Positioned right-aligned above the impressions-to-clicks bar, inline with the section title. No separate row — keeps the card compact.<br><br>
+      <strong>Hero:</strong> Total search impressions (all queries) as the big number. Momentum badge gives directional health at a glance.<br><br>
+      <strong>Bar 1:</strong> Branded vs. non-branded split. Shows what proportion of search visibility comes from people who already know the brand name vs. discovery searches.<br><br>
+      <strong>Bar 2:</strong> Impressions-to-clicks funnel. The filled cyan portion represents clicks within total impressions. CTR and its change indicator sit above the bar for quick reference.<br><br>
+      <strong>Brand dashboard only.</strong>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Acquisition Reality Check — Dashboard Card Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-page: #F0F1F5;
+    --bg-card: #FFFFFF;
+    --text-primary: #1A1A2E;
+    --text-secondary: #6B7280;
+    --text-muted: #9CA3AF;
+    --accent-indigo: #6C63FF;
+    --accent-green: #10B981;
+    --accent-red: #EF4444;
+    --accent-amber: #F59E0B;
+    --border-light: #E5E7EB;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-page);
+    font-family: 'DM Sans', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px;
+  }
+
+  .mockup-wrapper {
+    max-width: 520px;
+    width: 100%;
+  }
+
+  .mockup-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 28px 28px 24px;
+    box-shadow: var(--shadow-card);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Card header */
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .card-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .card-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #6C63FF20, #6C63FF10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card-icon svg {
+    width: 16px;
+    height: 16px;
+    color: var(--accent-indigo);
+  }
+
+  /* Hero section */
+  .hero-section {
+    margin-bottom: 20px;
+  }
+
+  .hero-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 44px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .hero-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  .hero-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 6px;
+  }
+
+  .hero-change.negative {
+    color: var(--accent-red);
+    background: #FEE2E220;
+  }
+
+  .hero-change.positive {
+    color: var(--accent-green);
+    background: #D1FAE520;
+  }
+
+  .hero-change .arrow {
+    font-size: 10px;
+  }
+
+  .change-context {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-left: 6px;
+    font-weight: 400;
+  }
+
+  /* Divider */
+  .divider {
+    height: 1px;
+    background: var(--border-light);
+    margin: 20px 0;
+  }
+
+  /* Platform claims section */
+  .claims-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+  }
+
+  .platform-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+  }
+
+  .platform-row + .platform-row {
+    border-top: 1px solid #F3F4F6;
+  }
+
+  .platform-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .platform-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .platform-dot.google { background: #4285F4; }
+  .platform-dot.meta { background: #0081FB; }
+  .platform-dot.tiktok { background: #25F4EE; }
+
+  .platform-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .platform-name span {
+    font-weight: 400;
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-left: 2px;
+  }
+
+  .platform-cac {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  /* Reality row */
+  .reality-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #6C63FF08;
+    border: 1px solid #6C63FF18;
+    border-radius: 10px;
+    margin-top: 12px;
+  }
+
+  .reality-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent-indigo);
+  }
+
+  .reality-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent-indigo);
+  }
+
+  /* Over-claim footer */
+  .overclaim {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .overclaim-bar-track {
+    flex: 1;
+    height: 4px;
+    background: #F3F4F6;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .overclaim-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--accent-amber);
+    width: 62%;
+    transition: width 0.6s ease;
+  }
+
+  .overclaim-text {
+    font-size: 11px;
+    color: var(--accent-amber);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  /* Annotation */
+  .annotation-area {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 2px dashed #E5E7EB;
+  }
+
+  .annotation-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent-indigo);
+    margin-bottom: 10px;
+  }
+
+  .annotation-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .annotation-text strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<div class="mockup-wrapper">
+  <div class="mockup-label">Dashboard Card Mockup — Half Width</div>
+
+  <div class="card">
+    <!-- Header -->
+    <div class="card-header">
+      <div class="card-title">Acquisition Reality Check</div>
+      <div class="card-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 6v6l4 2"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Hero: True CAC -->
+    <div class="hero-section">
+      <div class="hero-number">$47.22</div>
+      <div class="hero-label">True Cost per Customer · Shopify verified</div>
+      <div>
+        <span class="hero-change negative">
+          <span class="arrow">▲</span> 8.3%
+        </span>
+        <span class="change-context">vs. prior 30 days</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Platform Claims -->
+    <div class="claims-label">What Platforms Report</div>
+
+    <div class="platform-row">
+      <div class="platform-info">
+        <div class="platform-dot google"></div>
+        <div class="platform-name">Google Ads <span>says</span></div>
+      </div>
+      <div class="platform-cac">$32.10</div>
+    </div>
+
+    <div class="platform-row">
+      <div class="platform-info">
+        <div class="platform-dot meta"></div>
+        <div class="platform-name">Meta Ads <span>says</span></div>
+      </div>
+      <div class="platform-cac">$28.45</div>
+    </div>
+
+    <!-- Reality callout -->
+    <div class="reality-row">
+      <div class="reality-label">Shopify Reality</div>
+      <div class="reality-value">$47.22</div>
+    </div>
+
+    <!-- Over-claim indicator -->
+    <div class="overclaim">
+      <div class="overclaim-bar-track">
+        <div class="overclaim-bar-fill"></div>
+      </div>
+      <div class="overclaim-text">Platforms over-claim by 62%</div>
+    </div>
+  </div>
+
+  <!-- Annotations for discussion -->
+  <div class="annotation-area">
+    <div class="annotation-title">Design Notes</div>
+    <div class="annotation-text">
+      <strong>Hero:</strong> True CAC dominates — the first thing the eye hits.<br><br>
+      <strong>Comparison:</strong> Platform-reported numbers are visually muted, positioned as "claims" the user can evaluate against Shopify reality.<br><br>
+      <strong>Reality row:</strong> Indigo-highlighted to reinforce this is the number that matters.<br><br>
+      <strong>Over-claim bar:</strong> Makes the gap tangible without requiring math. Amber signals caution, not crisis.<br><br>
+      <strong>Adapts to platforms:</strong> Only shows rows for platforms the client has connected. One platform? One row. Three? Three rows.
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

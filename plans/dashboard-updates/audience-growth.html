@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audience Growth — Dashboard Card Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-page: #F0F1F5;
+    --bg-card: #FFFFFF;
+    --text-primary: #1A1A2E;
+    --text-secondary: #6B7280;
+    --text-muted: #9CA3AF;
+    --accent-indigo: #6C63FF;
+    --accent-green: #10B981;
+    --accent-red: #EF4444;
+    --border-light: #E5E7EB;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-page);
+    font-family: 'DM Sans', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px;
+  }
+
+  .mockup-wrapper {
+    max-width: 520px;
+    width: 100%;
+  }
+
+  .mockup-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 28px 28px 24px;
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Header */
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .card-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .card-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #6C63FF20, #6C63FF10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card-icon svg {
+    width: 16px;
+    height: 16px;
+    color: var(--accent-indigo);
+  }
+
+  /* Hero */
+  .hero-section {
+    margin-bottom: 6px;
+  }
+
+  .hero-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 48px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--text-primary);
+  }
+
+  .hero-context {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    margin-bottom: 8px;
+  }
+
+  .hero-change-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .hero-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .hero-change.positive { color: var(--accent-green); }
+  .hero-change.negative { color: var(--accent-red); }
+
+  .change-context {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* Sparkline */
+  .sparkline-container {
+    margin: 16px 0 20px;
+    height: 36px;
+  }
+
+  .sparkline-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .sparkline-line {
+    fill: none;
+    stroke: var(--accent-indigo);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .sparkline-area {
+    fill: url(#audienceGradient);
+  }
+
+  /* Divider */
+  .divider {
+    height: 1px;
+    background: var(--border-light);
+    margin: 20px 0;
+  }
+
+  /* Platform breakdown */
+  .breakdown-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 14px;
+  }
+
+  .platform-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+  }
+
+  .platform-row + .platform-row {
+    border-top: 1px solid #F3F4F6;
+  }
+
+  .platform-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .platform-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .platform-dot.instagram { background: #E1306C; }
+  .platform-dot.facebook { background: #1877F2; }
+  .platform-dot.tiktok { background: #25F4EE; }
+  .platform-dot.youtube { background: #FF0000; }
+
+  .platform-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .platform-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .platform-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .platform-change {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+
+  .platform-change.positive {
+    color: var(--accent-green);
+    background: #D1FAE515;
+  }
+
+  .platform-change.negative {
+    color: var(--accent-red);
+    background: #FEE2E215;
+  }
+
+  .platform-change.flat {
+    color: var(--text-muted);
+    background: #F3F4F6;
+  }
+
+  /* Fastest growing callout */
+  .fastest-growing {
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: #F0FDF4;
+    border: 1px solid #D1FAE540;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .fastest-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .fastest-icon {
+    font-size: 13px;
+  }
+
+  .fastest-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-green);
+  }
+
+  .fastest-text span {
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .fastest-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent-green);
+  }
+
+  /* Annotations */
+  .annotation-area {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 2px dashed #E5E7EB;
+  }
+
+  .annotation-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent-indigo);
+    margin-bottom: 10px;
+  }
+
+  .annotation-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .annotation-text strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<div class="mockup-wrapper">
+  <div class="mockup-label">Dashboard Card Mockup — Half Width</div>
+
+  <div class="card">
+    <!-- Header -->
+    <div class="card-header">
+      <div class="card-title">Audience Growth</div>
+      <div class="card-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Hero: Total followers -->
+    <div class="hero-section">
+      <div class="hero-number">124.8K</div>
+      <div class="hero-context">Total followers across 3 platforms</div>
+      <div class="hero-change-row">
+        <span class="hero-change positive">▲ 4.2%</span>
+        <span class="change-context">vs. prior 30 days</span>
+      </div>
+    </div>
+
+    <!-- Sparkline -->
+    <div class="sparkline-container">
+      <svg class="sparkline-svg" viewBox="0 0 460 36" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="audienceGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#6C63FF" stop-opacity="0.12"/>
+            <stop offset="100%" stop-color="#6C63FF" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <!-- Steadily climbing line representing follower growth -->
+        <path class="sparkline-area" d="M0,32 L16,31 L33,31 L49,30 L66,30 L82,29 L99,29 L115,28 L132,27 L148,27 L165,26 L181,26 L198,25 L214,24 L230,23 L247,22 L263,22 L280,21 L296,20 L313,19 L329,18 L346,17 L362,16 L379,15 L395,14 L412,13 L428,12 L444,11 L460,10 L460,36 L0,36 Z"/>
+        <path class="sparkline-line" d="M0,32 L16,31 L33,31 L49,30 L66,30 L82,29 L99,29 L115,28 L132,27 L148,27 L165,26 L181,26 L198,25 L214,24 L230,23 L247,22 L263,22 L280,21 L296,20 L313,19 L329,18 L346,17 L362,16 L379,15 L395,14 L412,13 L428,12 L444,11 L460,10"/>
+      </svg>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Per-platform breakdown -->
+    <div class="breakdown-title">By Platform</div>
+
+    <div class="platform-row">
+      <div class="platform-left">
+        <div class="platform-dot instagram"></div>
+        <span class="platform-name">Instagram</span>
+      </div>
+      <div class="platform-right">
+        <span class="platform-count">79,172</span>
+        <span class="platform-change positive">↑ 8.1%</span>
+      </div>
+    </div>
+
+    <div class="platform-row">
+      <div class="platform-left">
+        <div class="platform-dot facebook"></div>
+        <span class="platform-name">Facebook</span>
+      </div>
+      <div class="platform-right">
+        <span class="platform-count">38,450</span>
+        <span class="platform-change positive">↑ 1.2%</span>
+      </div>
+    </div>
+
+    <div class="platform-row">
+      <div class="platform-left">
+        <div class="platform-dot tiktok"></div>
+        <span class="platform-name">TikTok</span>
+      </div>
+      <div class="platform-right">
+        <span class="platform-count">7,178</span>
+        <span class="platform-change negative">↓ 0.4%</span>
+      </div>
+    </div>
+
+    <!-- Fastest growing -->
+    <div class="fastest-growing">
+      <div class="fastest-label">
+        <span class="fastest-icon">⚡</span>
+        <span class="fastest-text"><span>Fastest growing:</span> Instagram</span>
+      </div>
+      <span class="fastest-value">↑ 8.1%</span>
+    </div>
+  </div>
+
+  <!-- Annotations -->
+  <div class="annotation-area">
+    <div class="annotation-title">Design Notes</div>
+    <div class="annotation-text">
+      <strong>Hero:</strong> Total blended follower count as a single large number. Gives users the "big picture" answer to "how big is my audience?" before breaking it down.<br><br>
+      <strong>Sparkline:</strong> Shows the blended total over time. Follower counts tend to climb steadily (or plateau), so this line will typically look smoother than conversion sparklines.<br><br>
+      <strong>By Platform:</strong> Ordered largest to smallest. Platform-colored dots for quick scanning. Each row shows the count and its period change. Only connected platforms appear — 2 platforms means 2 rows, 4 means 4. The card height flexes naturally.<br><br>
+      <strong>Fastest growing callout:</strong> Highlights the platform with the strongest growth rate — gives the user one actionable takeaway. If all platforms are declining, this row could adapt to show "Least decline" or simply not appear.<br><br>
+      <strong>Lives on both dashboards.</strong> Same card, same data, same treatment regardless of Shopify or Brand dashboard.
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

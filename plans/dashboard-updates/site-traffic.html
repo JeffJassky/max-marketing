@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Site Traffic — Dashboard Card Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-page: #F0F1F5;
+    --bg-card: #FFFFFF;
+    --text-primary: #1A1A2E;
+    --text-secondary: #6B7280;
+    --text-muted: #9CA3AF;
+    --accent-indigo: #6C63FF;
+    --accent-green: #10B981;
+    --accent-red: #EF4444;
+    --accent-cyan: #06B6D4;
+    --accent-amber: #F59E0B;
+    --border-light: #E5E7EB;
+    --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+    --color-social: #E1306C;
+    --color-paid: #6C63FF;
+    --color-search: #06B6D4;
+    --color-direct: #F59E0B;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-page);
+    font-family: 'DM Sans', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px;
+  }
+
+  .mockup-wrapper {
+    max-width: 520px;
+    width: 100%;
+  }
+
+  .mockup-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 28px 28px 24px;
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Header */
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .card-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .card-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #F59E0B20, #F59E0B10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card-icon svg {
+    width: 16px;
+    height: 16px;
+    color: var(--accent-amber);
+  }
+
+  /* Hero */
+  .hero-section {
+    margin-bottom: 6px;
+  }
+
+  .hero-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 48px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--text-primary);
+  }
+
+  .hero-context {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    margin-bottom: 8px;
+  }
+
+  .hero-change-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .hero-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .hero-change.positive { color: var(--accent-green); }
+  .hero-change.negative { color: var(--accent-red); }
+
+  .change-context {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* Sparkline */
+  .sparkline-container {
+    margin: 16px 0 20px;
+    height: 36px;
+  }
+
+  .sparkline-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .sparkline-line {
+    fill: none;
+    stroke: var(--accent-amber);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .sparkline-area {
+    fill: url(#trafficGradient);
+  }
+
+  /* Divider */
+  .divider {
+    height: 1px;
+    background: var(--border-light);
+    margin: 20px 0;
+  }
+
+  /* Bar section */
+  .bar-section {
+    margin-bottom: 0;
+  }
+
+  .bar-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .bar-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .engaged-rate {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .engaged-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  .engaged-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent-green);
+  }
+
+  .engaged-change {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--accent-green);
+  }
+
+  /* Stacked bar */
+  .stacked-bar {
+    height: 32px;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+  }
+
+  .stacked-segment {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: width 0.6s ease;
+  }
+
+  .stacked-segment.social {
+    background: var(--color-social);
+    width: 34%;
+  }
+
+  .stacked-segment.paid {
+    background: var(--color-paid);
+    width: 28%;
+  }
+
+  .stacked-segment.search {
+    background: var(--color-search);
+    width: 22%;
+  }
+
+  .stacked-segment.direct {
+    background: var(--color-direct);
+    width: 16%;
+  }
+
+  .segment-inner-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #FFFFFF;
+  }
+
+  .stacked-segment.direct .segment-inner-label {
+    color: #1A1A2E;
+  }
+
+  /* Channel rows */
+  .channel-rows {
+    margin-top: 12px;
+  }
+
+  .channel-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 0;
+  }
+
+  .channel-row + .channel-row {
+    border-top: 1px solid #F3F4F6;
+  }
+
+  .channel-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .channel-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .channel-dot.social { background: var(--color-social); }
+  .channel-dot.paid { background: var(--color-paid); }
+  .channel-dot.search { background: var(--color-search); }
+  .channel-dot.direct { background: var(--color-direct); }
+
+  .channel-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .channel-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .channel-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .channel-change {
+    font-size: 11px;
+    font-weight: 600;
+    min-width: 44px;
+    text-align: right;
+  }
+
+  .channel-change.positive { color: var(--accent-green); }
+  .channel-change.negative { color: var(--accent-red); }
+  .channel-change.flat { color: var(--text-muted); }
+
+  /* Annotations */
+  .annotation-area {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 2px dashed #E5E7EB;
+  }
+
+  .annotation-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent-indigo);
+    margin-bottom: 10px;
+  }
+
+  .annotation-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .annotation-text strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<div class="mockup-wrapper">
+  <div class="mockup-label">Dashboard Card Mockup — Half Width</div>
+
+  <div class="card">
+    <!-- Header -->
+    <div class="card-header">
+      <div class="card-title">Site Traffic</div>
+      <div class="card-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+          <path d="M2 17l10 5 10-5"/>
+          <path d="M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Hero: Total sessions -->
+    <div class="hero-section">
+      <div class="hero-number">8,547</div>
+      <div class="hero-context">Total website sessions from GA4</div>
+      <div class="hero-change-row">
+        <span class="hero-change positive">▲ 18.6%</span>
+        <span class="change-context">vs. prior 30 days</span>
+      </div>
+    </div>
+
+    <!-- Sparkline -->
+    <div class="sparkline-container">
+      <svg class="sparkline-svg" viewBox="0 0 460 36" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="trafficGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.12"/>
+            <stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <path class="sparkline-area" d="M0,28 L16,30 L33,26 L49,28 L66,24 L82,27 L99,22 L115,25 L132,20 L148,23 L165,19 L181,22 L198,18 L214,20 L230,16 L247,19 L263,15 L280,18 L296,13 L313,16 L329,12 L346,15 L362,11 L379,14 L395,10 L412,13 L428,9 L444,11 L460,8 L460,36 L0,36 Z"/>
+        <path class="sparkline-line" d="M0,28 L16,30 L33,26 L49,28 L66,24 L82,27 L99,22 L115,25 L132,20 L148,23 L165,19 L181,22 L198,18 L214,20 L230,16 L247,19 L263,15 L280,18 L296,13 L313,16 L329,12 L346,15 L362,11 L379,14 L395,10 L412,13 L428,9 L444,11 L460,8"/>
+      </svg>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Stacked bar + channel rows -->
+    <div class="bar-section">
+      <div class="bar-header">
+        <div class="bar-title">Traffic Sources</div>
+        <div class="engaged-rate">
+          <span class="engaged-label">Engaged</span>
+          <span class="engaged-value">64%</span>
+          <span class="engaged-change">↑ 3%</span>
+        </div>
+      </div>
+
+      <div class="stacked-bar">
+        <div class="stacked-segment social">
+          <span class="segment-inner-label">34%</span>
+        </div>
+        <div class="stacked-segment paid">
+          <span class="segment-inner-label">28%</span>
+        </div>
+        <div class="stacked-segment search">
+          <span class="segment-inner-label">22%</span>
+        </div>
+        <div class="stacked-segment direct">
+          <span class="segment-inner-label">16%</span>
+        </div>
+      </div>
+
+      <div class="channel-rows">
+        <div class="channel-row">
+          <div class="channel-left">
+            <div class="channel-dot social"></div>
+            <span class="channel-name">Social Referral</span>
+          </div>
+          <div class="channel-right">
+            <span class="channel-value">2,906</span>
+            <span class="channel-change positive">↑ 24%</span>
+          </div>
+        </div>
+
+        <div class="channel-row">
+          <div class="channel-left">
+            <div class="channel-dot paid"></div>
+            <span class="channel-name">Paid</span>
+          </div>
+          <div class="channel-right">
+            <span class="channel-value">2,393</span>
+            <span class="channel-change positive">↑ 15%</span>
+          </div>
+        </div>
+
+        <div class="channel-row">
+          <div class="channel-left">
+            <div class="channel-dot search"></div>
+            <span class="channel-name">Organic Search</span>
+          </div>
+          <div class="channel-right">
+            <span class="channel-value">1,880</span>
+            <span class="channel-change positive">↑ 9%</span>
+          </div>
+        </div>
+
+        <div class="channel-row">
+          <div class="channel-left">
+            <div class="channel-dot direct"></div>
+            <span class="channel-name">Direct</span>
+          </div>
+          <div class="channel-right">
+            <span class="channel-value">1,368</span>
+            <span class="channel-change positive">↑ 22%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Annotations -->
+  <div class="annotation-area">
+    <div class="annotation-title">Design Notes</div>
+    <div class="annotation-text">
+      <strong>Hero:</strong> Total GA4 sessions as the big number. For brand clients this is the strongest digital intent signal — someone saw the brand and was curious enough to visit. For Shopify clients it's the top of the purchase funnel.<br><br>
+      <strong>Stacked bar:</strong> 32px tall, four colored segments showing traffic source composition. Social Referral, Paid, Organic Search, and Direct. Percentages inside. Mirrors Reach Breakdown's visual pattern so the two cards feel like companions — reach is exposure, site traffic is the response to that exposure.<br><br>
+      <strong>Channel rows:</strong> Tight, compact rows labeling each segment with session counts and directional change. Ordered by volume, largest first. Only shows sources with meaningful traffic.<br><br>
+      <strong>Engaged sessions rate:</strong> Anchored to the right of the "Traffic Sources" title — compact, no extra row. Shows what percentage of sessions were "engaged" per GA4's definition (session lasted >10 seconds, had a conversion event, or had 2+ page views). This is the quality signal: not just "people came" but "people stayed and looked around."<br><br>
+      <strong>Source categories:</strong> Mapped from GA4's default channel groupings. Social Referral = organic social clicks. Paid = all paid ad clicks. Organic Search = unpaid search clicks. Direct = direct URL entry, bookmarks, unattributed. Jeff can map additional GA4 channel groups as needed.<br><br>
+      <strong>Lives on both dashboards.</strong>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

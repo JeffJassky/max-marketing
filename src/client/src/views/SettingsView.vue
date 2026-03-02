@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { Plus, Trash2, Save, Edit } from 'lucide-vue-next';
+import { Save, Edit } from 'lucide-vue-next';
 
 interface PlatformAccount {
   id: string;
@@ -38,8 +38,7 @@ const platformAccounts = ref<{
 });
 
 const accounts = ref<MaxAccount[]>([]);
-const newAccountIds = ref(new Set<string>());
-const isEditing = ref<string | null>(null); // ID of account being edited
+const isEditing = ref<string | null>(null);
 const editForm = ref<MaxAccount>({
   id: '',
   name: '',
@@ -52,44 +51,19 @@ const editForm = ref<MaxAccount>({
   gscId: null
 });
 
-// Load platform accounts
 const loadPlatformAccounts = async () => {
   try {
-    const res = await fetch('/api/platform-accounts');
+    const res = await fetch('/api/platform-accounts', { credentials: 'include' });
     platformAccounts.value = await res.json();
   } catch (e) {
     console.error("Failed to load platform accounts", e);
   }
 };
 
-// Load saved accounts
 const loadAccounts = async () => {
   try {
-    const res = await fetch('/api/accounts');
-    const data = await res.json();
-    if (data.length > 0) {
-      accounts.value = data;
-    } else {
-      // Create initial account if none exist
-      const id = crypto.randomUUID();
-      const newAccount: MaxAccount = {
-        id,
-        name: 'My First Account',
-        googleAdsId: null,
-        facebookAdsId: null,
-        ga4Id: null,
-        shopifyId: null,
-        instagramId: null,
-        facebookPageId: null,
-        gscId: null
-      };
-      await fetch('/api/accounts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newAccount)
-      });
-      accounts.value = [newAccount];
-    }
+    const res = await fetch('/api/accounts', { credentials: 'include' });
+    accounts.value = await res.json();
   } catch (e) {
     console.error("Failed to load accounts", e);
   }
@@ -101,72 +75,23 @@ const startEdit = (account: MaxAccount) => {
 };
 
 const cancelEdit = () => {
-  const idx = accounts.value.findIndex(a => a.id === isEditing.value);
-  if (idx !== -1 && newAccountIds.value.has(isEditing.value as string)) {
-     accounts.value.splice(idx, 1);
-     newAccountIds.value.delete(isEditing.value as string);
-  }
   isEditing.value = null;
 };
 
 const saveEdit = async () => {
   try {
-    const isNew = newAccountIds.value.has(editForm.value.id);
-    
-    if (!isNew) {
-      // Update existing
-      await fetch(`/api/accounts/${editForm.value.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editForm.value)
-      });
-      const idx = accounts.value.findIndex(a => a.id === editForm.value.id);
-      if (idx !== -1) accounts.value[idx] = { ...editForm.value };
-    } else {
-      // Create new
-      await fetch('/api/accounts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editForm.value)
-      });
-      const idx = accounts.value.findIndex(a => a.id === editForm.value.id);
-      if (idx !== -1) accounts.value[idx] = { ...editForm.value };
-      newAccountIds.value.delete(editForm.value.id);
-    }
+    await fetch(`/api/accounts/${editForm.value.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(editForm.value)
+    });
+    const idx = accounts.value.findIndex(a => a.id === editForm.value.id);
+    if (idx !== -1) accounts.value[idx] = { ...editForm.value };
     window.dispatchEvent(new Event('accounts-updated'));
     isEditing.value = null;
   } catch (e) {
     console.error("Failed to save account", e);
-  }
-};
-
-const createAccount = () => {
-  const id = crypto.randomUUID();
-  const newAccount: MaxAccount = {
-    id,
-    name: 'New Account',
-    googleAdsId: null,
-    facebookAdsId: null,
-    ga4Id: null,
-    shopifyId: null,
-    instagramId: null,
-    facebookPageId: null,
-    gscId: null
-  };
-  newAccountIds.value.add(id);
-  accounts.value.push(newAccount);
-  startEdit(newAccount);
-};
-
-const deleteAccount = async (id: string) => {
-  if (confirm("Are you sure you want to delete this account?")) {
-    try {
-      await fetch(`/api/accounts/${id}`, { method: 'DELETE' });
-      accounts.value = accounts.value.filter(a => a.id !== id);
-      window.dispatchEvent(new Event('accounts-updated'));
-    } catch (e) {
-      console.error("Failed to delete account", e);
-    }
   }
 };
 
@@ -179,29 +104,27 @@ onMounted(() => {
 <template>
   <div class="flex-1 p-8 bg-stone-50 overflow-y-auto h-full animate-in fade-in duration-500">
     <div class="max-w-4xl mx-auto">
-      <div class="flex justify-between items-center mb-8">
+      <div class="mb-8">
         <h1 class="text-3xl font-bold text-slate-800">Settings</h1>
-        <button @click="createAccount" class="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center text-sm font-bold hover:bg-indigo-700 transition-colors shadow-sm">
-          <Plus class="w-4 h-4 mr-2" /> Create Account
-        </button>
+        <p class="text-sm text-slate-500 mt-1">Manage platform connections for your accounts.</p>
       </div>
 
       <div class="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
         <div class="p-6 border-b border-stone-100 bg-stone-50/50">
-          <h2 class="font-bold text-slate-800">Account Management</h2>
-          <p class="text-xs text-slate-500 mt-1">Manage your MaxMarketing accounts and link them to ad platforms.</p>
+          <h2 class="font-bold text-slate-800">Platform Connections</h2>
+          <p class="text-xs text-slate-500 mt-1">Link your ad platforms and analytics properties to your accounts.</p>
         </div>
-        
+
         <div class="divide-y divide-stone-100">
           <div v-for="account in accounts" :key="account.id" class="p-6 hover:bg-stone-50 transition-colors">
-            
+
             <!-- Edit Mode -->
             <div v-if="isEditing === account.id" class="space-y-4">
               <div>
                 <label class="block text-xs font-bold text-slate-500 mb-1">Account Name</label>
                 <input v-model="editForm.name" type="text" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
               </div>
-              
+
               <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <label class="block text-xs font-bold text-slate-500 mb-1 flex items-center">
@@ -325,16 +248,15 @@ onMounted(() => {
                   </div>
                 </div>
               </div>
-              <div class="flex gap-2">
-                <button @click="startEdit(account)" class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
-                  <Edit class="w-4 h-4" />
-                </button>
-                <button @click="deleteAccount(account.id)" class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                  <Trash2 class="w-4 h-4" />
-                </button>
-              </div>
+              <button @click="startEdit(account)" class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                <Edit class="w-4 h-4" />
+              </button>
             </div>
 
+          </div>
+
+          <div v-if="accounts.length === 0" class="p-8 text-center text-slate-400 text-sm">
+            No accounts available. Contact your admin to get account access.
           </div>
         </div>
       </div>
