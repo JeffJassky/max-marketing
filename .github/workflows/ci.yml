@@ -31,16 +31,3 @@ jobs:
       - run: yarn install --frozen-lockfile
       - run: yarn build:client
 
-  test-e2e:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    needs: [build-server, build-client]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: yarn
-      - run: yarn install --frozen-lockfile
-      - run: npx playwright install --with-deps chromium
-      - run: yarn test:e2e

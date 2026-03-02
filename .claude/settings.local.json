@@ -18,7 +18,22 @@
       "Bash(npm install:*)",
       "Bash(killall:*)",
       "Bash(npx husky:*)",
-      "Bash(npm ls:*)"
+      "Bash(npm ls:*)",
+      "Bash(npx vite:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(head:*)",
+      "Bash(curl -s \"https://connectors.windsor.ai/instagram?api_key=5f70fa33c11293d29e7688db8eb93ab0048a&fields=date,account_id,account_name,reach,impressions,followers_count,profile_views,follows_count&date_preset=last_7d\" | python3 -c \"\nimport json, sys\ndata = json.load\\(sys.stdin\\)['data']\n# Find a row and print all keys + values\nprint\\('Keys:', list\\(data[0].keys\\(\\)\\) if data else 'no data'\\)\n# Print first 3 rows\nfor row in data[:3]:\n    print\\(row\\)\n\" 2>&1)",
+      "Bash(curl -s \"https://connectors.windsor.ai/instagram?api_key=5f70fa33c11293d29e7688db8eb93ab0048a&fields=date,account_id,account_name,reach,follower_count,page_fans,online_followers,audience_city,audience_country,audience_gender_age,email_contacts,get_directions_clicks,phone_call_clicks,text_message_clicks,website_clicks&date_preset=last_7d\" | python3 -c \"\nimport json, sys\ndata = json.load\\(sys.stdin\\)['data']\nfor row in data[:3]:\n    non_null = {k: v for k, v in row.items\\(\\) if v is not None}\n    print\\(non_null\\)\n\" 2>&1)",
+      "Bash(curl -s \"https://connectors.windsor.ai/instagram?api_key=5f70fa33c11293d29e7688db8eb93ab0048a&fields=date,account_id,account_name,reach,follower_count,online_followers,email_contacts,website_clicks&date_preset=last_7d\" | python3 -c \"\nimport json, sys\nraw = json.load\\(sys.stdin\\)\nprint\\(list\\(raw.keys\\(\\)\\)\\)\nif 'data' in raw:\n    for row in raw['data'][:3]:\n        non_null = {k: v for k, v in row.items\\(\\) if v is not None}\n        print\\(non_null\\)\nelse:\n    print\\(json.dumps\\(raw, indent=2\\)[:500]\\)\n\" 2>&1)",
+      "WebFetch(domain:windsor.ai)",
+      "Bash(curl -s \"https://connectors.windsor.ai/instagram/fields\" | python3 -c \"\nimport json, sys\ndata = json.load\\(sys.stdin\\)\n# Print all field names\nif isinstance\\(data, list\\):\n    for f in data:\n        if isinstance\\(f, dict\\):\n            print\\(f.get\\('name', f.get\\('field', f\\)\\)\\)\n        else:\n            print\\(f\\)\nelif isinstance\\(data, dict\\):\n    print\\(json.dumps\\(data, indent=2\\)[:2000]\\)\n\" 2>&1)",
+      "Bash(yarn add:*)",
+      "Bash(ls:*)",
+      "Bash(node:*)",
+      "Bash(npx playwright:*)",
+      "Bash(yarn test:e2e:*)",
+      "Bash(yarn build:server:*)",
+      "Bash(cat:*)"
     ]
   }
 }
