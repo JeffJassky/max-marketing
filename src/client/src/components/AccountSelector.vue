@@ -29,6 +29,13 @@ const loadMaxAccounts = async () => {
     const res = await fetch('/api/accounts');
     const data = await res.json();
     maxAccounts.value = data;
+
+    // Auto-select an account if none is currently selected
+    if (!selectedAccount?.value && data.length > 0 && selectAccountGlobal) {
+      const savedId = localStorage.getItem('selectedMaxAccountId');
+      const saved = savedId ? data.find((a: MaxAccount) => a.id === savedId) : null;
+      selectAccountGlobal(saved || data[0]);
+    }
   } catch (e) {
     console.error('Failed to load accounts', e);
   }

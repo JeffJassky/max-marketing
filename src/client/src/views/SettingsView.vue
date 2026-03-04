@@ -122,7 +122,7 @@ onMounted(() => {
             <div v-if="isEditing === account.id" class="space-y-4">
               <div>
                 <label class="block text-xs font-bold text-slate-500 mb-1">Account Name</label>
-                <input v-model="editForm.name" type="text" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+                <input v-model="editForm.name" type="text" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none" />
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -130,7 +130,7 @@ onMounted(() => {
                   <label class="block text-xs font-bold text-slate-500 mb-1 flex items-center">
                     <img src="https://www.gstatic.com/images/branding/product/1x/ads_2022_48dp.png" class="w-4 h-4 mr-1"/> Google Ads ID
                   </label>
-                  <select v-model="editForm.googleAdsId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                  <select v-model="editForm.googleAdsId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white">
                     <option :value="null">Select Account...</option>
                     <option v-for="ga in platformAccounts.google" :key="ga.id" :value="ga.id">
                       {{ ga.name }} ({{ ga.id }})
@@ -141,7 +141,7 @@ onMounted(() => {
                   <label class="block text-xs font-bold text-slate-500 mb-1 flex items-center">
                     <div class="w-4 h-4 bg-blue-600 rounded-full mr-1 flex items-center justify-center text-[10px] text-white font-bold">f</div> Facebook Ads ID
                   </label>
-                  <select v-model="editForm.facebookAdsId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                  <select v-model="editForm.facebookAdsId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white">
                     <option :value="null">Select Account...</option>
                     <option v-for="fb in platformAccounts.facebook" :key="fb.id" :value="fb.id">
                       {{ fb.name }} ({{ fb.id }})
@@ -152,7 +152,7 @@ onMounted(() => {
                   <label class="block text-xs font-bold text-slate-500 mb-1 flex items-center">
                     <img src="https://www.gstatic.com/analytics/20140414/common/images/logos/logo_analytics_192px.png" class="w-4 h-4 mr-1"/> GA4 Property ID
                   </label>
-                  <select v-model="editForm.ga4Id" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                  <select v-model="editForm.ga4Id" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white">
                     <option :value="null">Select Property...</option>
                     <option v-for="ga4 in platformAccounts.ga4" :key="ga4.id" :value="ga4.id">
                       {{ ga4.name }} ({{ ga4.id }})
@@ -163,7 +163,7 @@ onMounted(() => {
                   <label class="block text-xs font-bold text-slate-500 mb-1 flex items-center">
                     <img src="https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png" class="w-4 h-4 mr-1"/> Search Console
                   </label>
-                  <select v-model="editForm.gscId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                  <select v-model="editForm.gscId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white">
                     <option :value="null">Select Property...</option>
                     <option v-for="gsc in platformAccounts.gsc" :key="gsc.id" :value="gsc.id">
                       {{ gsc.name }} ({{ gsc.id }})
@@ -174,7 +174,7 @@ onMounted(() => {
                   <label class="block text-xs font-bold text-slate-500 mb-1 flex items-center">
                     <img src="https://cdn.shopify.com/s/files/1/0268/5675/files/shopify_favicon.png" class="w-4 h-4 mr-1"/> Shopify Shop ID
                   </label>
-                  <select v-model="editForm.shopifyId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                  <select v-model="editForm.shopifyId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white">
                     <option :value="null">Select Shop...</option>
                     <option v-for="shop in platformAccounts.shopify" :key="shop.id" :value="shop.id">
                       {{ shop.name }} ({{ shop.id }})
@@ -185,7 +185,7 @@ onMounted(() => {
                   <label class="block text-xs font-bold text-slate-500 mb-1 flex items-center">
                     <img src="https://www.instagram.com/static/images/ico/favicon.ico/36b304827462.ico" class="w-4 h-4 mr-1"/> Instagram ID
                   </label>
-                  <select v-model="editForm.instagramId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                  <select v-model="editForm.instagramId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white">
                     <option :value="null">Select Instagram...</option>
                     <option v-for="inst in platformAccounts.instagram" :key="inst.id" :value="inst.id">
                       {{ inst.name }} ({{ inst.id }})
@@ -196,7 +196,7 @@ onMounted(() => {
                   <label class="block text-xs font-bold text-slate-500 mb-1 flex items-center">
                     <div class="w-4 h-4 bg-blue-800 rounded mr-1 flex items-center justify-center text-[10px] text-white font-bold">f</div> FB Page ID
                   </label>
-                  <select v-model="editForm.facebookPageId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                  <select v-model="editForm.facebookPageId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white">
                     <option :value="null">Select Page...</option>
                     <option v-for="fbo in platformAccounts.facebook_organic" :key="fbo.id" :value="fbo.id">
                       {{ fbo.name }} ({{ fbo.id }})

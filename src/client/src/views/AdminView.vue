@@ -263,54 +263,54 @@ onMounted(() => {
             <div v-if="editingAccountId === account.id" class="space-y-4">
               <div>
                 <label class="block text-xs font-bold text-slate-500 mb-1">Account Name</label>
-                <input v-model="accountForm.name" type="text" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+                <input v-model="accountForm.name" type="text" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none" />
               </div>
               <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <label class="block text-xs font-bold text-slate-500 mb-1">Google Ads</label>
-                  <select v-model="accountForm.googleAdsId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                  <select v-model="accountForm.googleAdsId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white">
                     <option :value="null">Select...</option>
                     <option v-for="g in platformAccounts.google" :key="g.id" :value="g.id">{{ g.name }} ({{ g.id }})</option>
                   </select>
                 </div>
                 <div>
                   <label class="block text-xs font-bold text-slate-500 mb-1">Facebook Ads</label>
-                  <select v-model="accountForm.facebookAdsId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                  <select v-model="accountForm.facebookAdsId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white">
                     <option :value="null">Select...</option>
                     <option v-for="f in platformAccounts.facebook" :key="f.id" :value="f.id">{{ f.name }} ({{ f.id }})</option>
                   </select>
                 </div>
                 <div>
                   <label class="block text-xs font-bold text-slate-500 mb-1">GA4</label>
-                  <select v-model="accountForm.ga4Id" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                  <select v-model="accountForm.ga4Id" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white">
                     <option :value="null">Select...</option>
                     <option v-for="g in platformAccounts.ga4" :key="g.id" :value="g.id">{{ g.name }} ({{ g.id }})</option>
                   </select>
                 </div>
                 <div>
                   <label class="block text-xs font-bold text-slate-500 mb-1">Search Console</label>
-                  <select v-model="accountForm.gscId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                  <select v-model="accountForm.gscId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white">
                     <option :value="null">Select...</option>
                     <option v-for="g in platformAccounts.gsc" :key="g.id" :value="g.id">{{ g.name }} ({{ g.id }})</option>
                   </select>
                 </div>
                 <div>
                   <label class="block text-xs font-bold text-slate-500 mb-1">Shopify</label>
-                  <select v-model="accountForm.shopifyId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                  <select v-model="accountForm.shopifyId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white">
                     <option :value="null">Select...</option>
                     <option v-for="s in platformAccounts.shopify" :key="s.id" :value="s.id">{{ s.name }} ({{ s.id }})</option>
                   </select>
                 </div>
                 <div>
                   <label class="block text-xs font-bold text-slate-500 mb-1">Instagram</label>
-                  <select v-model="accountForm.instagramId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                  <select v-model="accountForm.instagramId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white">
                     <option :value="null">Select...</option>
                     <option v-for="i in platformAccounts.instagram" :key="i.id" :value="i.id">{{ i.name }} ({{ i.id }})</option>
                   </select>
                 </div>
                 <div>
                   <label class="block text-xs font-bold text-slate-500 mb-1">FB Page</label>
-                  <select v-model="accountForm.facebookPageId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+                  <select v-model="accountForm.facebookPageId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white">
                     <option :value="null">Select...</option>
                     <option v-for="f in platformAccounts.facebook_organic" :key="f.id" :value="f.id">{{ f.name }} ({{ f.id }})</option>
                   </select>
@@ -420,19 +420,19 @@ onMounted(() => {
           <div class="p-6 space-y-4">
             <div>
               <label class="block text-xs font-bold text-slate-500 mb-1">Name</label>
-              <input v-model="userForm.name" type="text" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+              <input v-model="userForm.name" type="text" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none" />
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-500 mb-1">Email</label>
-              <input v-model="userForm.email" type="email" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+              <input v-model="userForm.email" type="email" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none" />
             </div>
             <div v-if="!editingUserId">
               <label class="block text-xs font-bold text-slate-500 mb-1">Password</label>
-              <input v-model="userForm.password" type="password" placeholder="Min 8 characters" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
+              <input v-model="userForm.password" type="password" placeholder="Min 8 characters" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none" />
             </div>
             <div>
               <label class="block text-xs font-bold text-slate-500 mb-1">System Role</label>
-              <select v-model="userForm.role" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+              <select v-model="userForm.role" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white">
                 <option value="user">User</option>
                 <option value="admin">Admin</option>
               </select>
