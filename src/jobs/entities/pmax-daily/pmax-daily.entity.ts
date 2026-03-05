@@ -122,16 +122,19 @@ export const pmaxDaily = new (class PMaxDailyEntity extends Entity<
     });
   }
 
-  getTransformQuery(): string {
+  getTransformQuery(options?: { dateFilter?: string }): string {
     const campaignTable = googleAdsCampaignPerformance.fqn;
     const listingTable = googleAdsListingGroupPerformance.fqn;
+    const dateFilter = options?.dateFilter;
+    const listingDateWhere = dateFilter ? ` AND date >= ${dateFilter}` : "";
+    const mainDateWhere = dateFilter ? ` AND c.date >= ${dateFilter}` : "";
 
     return `
-      WITH 
+      WITH
       -- Step 1: Calculate account-level benchmarks from standard campaigns
       -- We look at the last 30 days of data to find the REAL cost of Search vs Display vs Video
       benchmarks AS (
-        SELECT 
+        SELECT
           account_id,
           -- Average CPC for Search
           COALESCE(SAFE_DIVIDE(SUM(CASE WHEN advertising_channel_type = 'SEARCH' THEN spend END), SUM(CASE WHEN advertising_channel_type = 'SEARCH' THEN clicks END)), 1.50) as avg_search_cpc,
@@ -146,19 +149,19 @@ export const pmaxDaily = new (class PMaxDailyEntity extends Entity<
 
       -- Step 2: Extract verified Shopping spend from Listing Groups
       listing_spend AS (
-        SELECT 
-          date, 
-          campaign_id, 
+        SELECT
+          date,
+          campaign_id,
           SUM(spend) as shopping_spend,
           SUM(clicks) as shopping_clicks,
           SUM(conversions) as shopping_conversions
         FROM \`${listingTable}\`
-        WHERE offer_id IS NOT NULL
+        WHERE offer_id IS NOT NULL${listingDateWhere}
         GROUP BY 1, 2
       )
 
       -- Step 3: Final Join and Weighted Split
-      SELECT 
+      SELECT
         c.date,
         c.account_id,
         c.campaign_id,
@@ -166,15 +169,15 @@ export const pmaxDaily = new (class PMaxDailyEntity extends Entity<
         c.ad_network_type,
         SUM(c.spend) as total_spend,
         COALESCE(SUM(l.shopping_spend), 0) as shopping_spend,
-        
+
         -- Remaining spend to be allocated
         GREATEST(SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0), 0) as other_spend,
 
         -- Allocated YouTube Spend
-        CASE 
+        CASE
           WHEN (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) <= 0 THEN 0
-          ELSE 
-            (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) * 
+          ELSE
+            (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) *
             SAFE_DIVIDE(
               SUM(c.video_views) * b.avg_video_cpv,
               (SUM(c.video_views) * b.avg_video_cpv) + (SUM(c.active_view_impressions) * (b.avg_display_cpm / 1000)) + ((SUM(c.clicks) - COALESCE(SUM(l.shopping_clicks), 0)) * b.avg_search_cpc)
@@ -182,10 +185,10 @@ export const pmaxDaily = new (class PMaxDailyEntity extends Entity<
         END as youtube_spend,
 
         -- Allocated Display Spend
-        CASE 
+        CASE
           WHEN (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) <= 0 THEN 0
-          ELSE 
-            (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) * 
+          ELSE
+            (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) *
             SAFE_DIVIDE(
               SUM(c.active_view_impressions) * (b.avg_display_cpm / 1000),
               (SUM(c.video_views) * b.avg_video_cpv) + (SUM(c.active_view_impressions) * (b.avg_display_cpm / 1000)) + ((SUM(c.clicks) - COALESCE(SUM(l.shopping_clicks), 0)) * b.avg_search_cpc)
@@ -193,12 +196,12 @@ export const pmaxDaily = new (class PMaxDailyEntity extends Entity<
         END as display_spend,
 
         -- Allocated Search Spend (The residual or weighted portion)
-        CASE 
+        CASE
           WHEN (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) <= 0 THEN 0
-          WHEN ((SUM(c.video_views) * b.avg_video_cpv) + (SUM(c.active_view_impressions) * (b.avg_display_cpm / 1000)) + ((SUM(c.clicks) - COALESCE(SUM(l.shopping_clicks), 0)) * b.avg_search_cpc)) = 0 
+          WHEN ((SUM(c.video_views) * b.avg_video_cpv) + (SUM(c.active_view_impressions) * (b.avg_display_cpm / 1000)) + ((SUM(c.clicks) - COALESCE(SUM(l.shopping_clicks), 0)) * b.avg_search_cpc)) = 0
             THEN (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0))
-          ELSE 
-            (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) * 
+          ELSE
+            (SUM(c.spend) - COALESCE(SUM(l.shopping_spend), 0)) *
             SAFE_DIVIDE(
               ((SUM(c.clicks) - COALESCE(SUM(l.shopping_clicks), 0)) * b.avg_search_cpc),
               (SUM(c.video_views) * b.avg_video_cpv) + (SUM(c.active_view_impressions) * (b.avg_display_cpm / 1000)) + ((SUM(c.clicks) - COALESCE(SUM(l.shopping_clicks), 0)) * b.avg_search_cpc)
@@ -211,7 +214,7 @@ export const pmaxDaily = new (class PMaxDailyEntity extends Entity<
       FROM \`${campaignTable}\` as c
       LEFT JOIN listing_spend as l ON c.campaign_id = l.campaign_id AND c.date = l.date
       LEFT JOIN benchmarks as b ON c.account_id = b.account_id
-      WHERE UPPER(c.advertising_channel_type) = 'PERFORMANCE_MAX'
+      WHERE UPPER(c.advertising_channel_type) = 'PERFORMANCE_MAX'${mainDateWhere}
       GROUP BY 1, 2, 3, 4, 5, b.avg_video_cpv, b.avg_display_cpm, b.avg_search_cpc
     `;
   }

@@ -80,8 +80,9 @@ export const shopifyProductDaily = new (class ShopifyProductDailyEntity extends 
     });
   }
 
-  getTransformQuery(): string {
+  getTransformQuery(options?: { dateFilter?: string }): string {
     const sourceTable = shopifyProducts.fqn;
+    const dateWhere = options?.dateFilter ? ` AND date >= ${options.dateFilter}` : "";
     return "WITH sales AS (" +
       "  SELECT " +
       "    date, " +
@@ -93,7 +94,7 @@ export const shopifyProductDaily = new (class ShopifyProductDailyEntity extends 
       "    SAFE_CAST(line_item__quantity AS FLOAT64) as quantity, " +
       "    SAFE_CAST(line_item__price AS FLOAT64) as price " +
       "  FROM `" + sourceTable + "` " +
-      "  WHERE order_id IS NOT NULL AND (line_item__quantity > 0 OR line_item__quantity IS NOT NULL)" +
+      "  WHERE order_id IS NOT NULL AND (line_item__quantity > 0 OR line_item__quantity IS NOT NULL)" + dateWhere +
       "), " +
       "metadata AS (" +
       "  SELECT " +

@@ -1,0 +1,16 @@
+export const getRedisConnectionOpts = () => {
+  const url = process.env.REDIS_URL;
+  if (!url) {
+    throw new Error("REDIS_URL is not set. Please configure it in your .env file.");
+  }
+
+  // Parse Redis URL into host/port/password for BullMQ compatibility
+  const parsed = new URL(url);
+  return {
+    host: parsed.hostname,
+    port: parseInt(parsed.port || "6379", 10),
+    password: parsed.password || undefined,
+    username: parsed.username || undefined,
+    maxRetriesPerRequest: null as null,
+  };
+};

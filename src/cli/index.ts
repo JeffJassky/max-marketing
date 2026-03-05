@@ -13,6 +13,8 @@ import { MonitorExecutor } from "../shared/data/monitorExecutor";
 import { SuperlativeExecutor } from "../shared/data/superlativeExecutor";
 import { Monitor } from "../shared/data/monitor";
 import { WindsorImportExecutor } from "../shared/vendors/windsor/windsorPresetExecutor";
+import { runPipeline } from "../queue/pipeline";
+import type { LookbackPreset } from "../queue/types";
 
 loadEnv();
 
@@ -331,6 +333,8 @@ const parseArgs = () => {
     allSuperlatives: false,
     all: false,
     projectId: undefined as string | undefined,
+    lookback: undefined as LookbackPreset | undefined,
+    enqueue: false,
     help: false,
   };
 
@@ -378,6 +382,12 @@ const parseArgs = () => {
       case "--all":
         selected.all = true;
         break;
+      case "--lookback":
+        if (args[i + 1]) selected.lookback = args[++i] as LookbackPreset;
+        break;
+      case "--enqueue":
+        selected.enqueue = true;
+        break;
     }
   }
 
@@ -417,7 +427,48 @@ Options:
   --all-monitors       Run all monitors
   --all-superlatives   Run all superlatives
   --all                Run everything
+  --lookback <preset>  Override import date range (3d, 7d, 14d, 30d, 90d)
+  --enqueue            Push job to BullMQ queue instead of running inline
     `);
+    return;
+  }
+
+  // If --lookback is provided with --all or type flags, use the pipeline runner
+  // This enables the fast daily ingestion path
+  if (selected.lookback && (selected.all || selected.allImports || selected.allEntities || selected.allAggregateReports || selected.allMonitors || selected.allSuperlatives)) {
+    const phases: ("import" | "entity" | "aggregateReport" | "monitor" | "superlative")[] = [];
+    if (selected.all) {
+      phases.push("import", "entity", "aggregateReport", "monitor", "superlative");
+    } else {
+      if (selected.allImports) phases.push("import");
+      if (selected.allEntities) phases.push("entity");
+      if (selected.allAggregateReports) phases.push("aggregateReport");
+      if (selected.allMonitors) phases.push("monitor");
+      if (selected.allSuperlatives) phases.push("superlative");
+    }
+
+    if (selected.enqueue) {
+      const { enqueuePipeline } = await import("../queue/enqueue");
+      const jobId = await enqueuePipeline({
+        lookback: selected.lookback,
+        phase: selected.all ? "full" : phases[0],
+      });
+      console.log(chalk.green(`Enqueued pipeline job: ${jobId}`));
+      return;
+    }
+
+    await runPipeline({ lookback: selected.lookback, phases });
+    return;
+  }
+
+  // If --enqueue is used with --all (no lookback specified), default to 7d
+  if (selected.enqueue && selected.all) {
+    const { enqueuePipeline } = await import("../queue/enqueue");
+    const jobId = await enqueuePipeline({
+      lookback: selected.lookback || "7d",
+      phase: "full",
+    });
+    console.log(chalk.green(`Enqueued pipeline job: ${jobId}`));
     return;
   }
 
@@ -428,7 +479,7 @@ Options:
     // Filter jobs based on flags
     selectedJobs = jobs.filter((job) => {
       if (selected.all) return true;
-      
+
       if (job.type === "import") {
         return selected.allImports || selected.import.has(job.id);
       }
@@ -442,9 +493,6 @@ Options:
         return selected.allMonitors || selected.monitor.has(job.id);
       }
       if (job.type === "superlative") {
-        // Superlative IDs in discovery are often "entityId_superlatives" or similar logic?
-        // In discoverJobs: id: `${jobInstance.id}_superlatives`
-        // So --superlative <id> should match the full ID.
         return selected.allSuperlatives || selected.superlative.has(job.id);
       }
       return false;

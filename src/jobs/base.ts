@@ -248,7 +248,9 @@ export class Entity<S extends BronzeImport<any, any>> extends BaseData {
     return z.object({ ...dims, ...mets });
   }
 
-  getTransformQuery(): string {
+  getTransformQuery(options?: { dateFilter?: string }): string {
+    const dateFilter = options?.dateFilter;
+
     const buildSourceQuery = (source: BronzeImport<any, any>) => {
       const sourceTableFqn = source.fqn;
       const sourceId = source.id;
@@ -260,12 +262,14 @@ export class Entity<S extends BronzeImport<any, any>> extends BaseData {
       if (uniquenessKey && uniquenessKey.length > 0) {
         fromExpression = `(
           SELECT * EXCEPT(rn) FROM (
-            SELECT *, ROW_NUMBER() OVER(PARTITION BY ${uniquenessKey.join(", ")} ORDER BY (SELECT NULL)) as rn 
-            FROM \`${sourceTableFqn}\`
+            SELECT *, ROW_NUMBER() OVER(PARTITION BY ${uniquenessKey.join(", ")} ORDER BY (SELECT NULL)) as rn
+            FROM \`${sourceTableFqn}\`${dateFilter ? `\n            WHERE date >= ${dateFilter}` : ""}
           ) WHERE rn = 1
         )`;
       } else {
-        fromExpression = `\`${sourceTableFqn}\``;
+        fromExpression = dateFilter
+          ? `(SELECT * FROM \`${sourceTableFqn}\` WHERE date >= ${dateFilter})`
+          : `\`${sourceTableFqn}\``;
       }
 
       const grainAndDimensionSelects: (string | import("knex").Knex.Raw)[] = [];
