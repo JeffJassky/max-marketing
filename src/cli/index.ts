@@ -3,7 +3,6 @@ import { config as loadEnv } from "dotenv";
 import { glob } from "glob";
 import inquirer from "inquirer";
 import path from "path";
-import { pathToFileURL } from "url";
 import { VError } from "verror";
 
 import { BronzeImport, Entity, AggregateReport } from "../jobs/base";
@@ -32,16 +31,20 @@ export type LoadedJob = {
   instance: JobInstance;
 };
 
+const isCompiledRuntime = __filename.endsWith(".js");
+const jobRoot = isCompiledRuntime ? "dist/jobs" : "src/jobs";
+const jobExt = isCompiledRuntime ? ".js" : ".ts";
+
 const JOB_PATTERNS = [
-  "src/jobs/**/*.import.ts",
-  "src/jobs/**/*.entity.ts",
-  "src/jobs/**/*.aggregateReport.ts",
-  "src/jobs/**/*.monitor.ts",
+  `${jobRoot}/**/*.import${jobExt}`,
+  `${jobRoot}/**/*.entity${jobExt}`,
+  `${jobRoot}/**/*.aggregateReport${jobExt}`,
+  `${jobRoot}/**/*.monitor${jobExt}`,
 ];
 
 const GLOB_OPTIONS = {
   cwd: process.cwd(),
-  ignore: ["src/jobs/__tests__/**", "src/jobs/**/__fixtures__/**"],
+  ignore: [`${jobRoot}/__tests__/**`, `${jobRoot}/**/__fixtures__/**`],
 };
 
 const isJobInstance = (value: unknown): value is JobInstance =>
@@ -65,8 +68,7 @@ export const loadJobsFromFilePath = async (
     ? filePath
     : path.resolve(process.cwd(), filePath);
 
-  const moduleUrl = pathToFileURL(absolutePath).href;
-  const moduleExports = await import(moduleUrl);
+  const moduleExports = await import(absolutePath);
   const jobInstances = Object.values(moduleExports).filter(isJobInstance);
 
   if (jobInstances.length === 0) {
