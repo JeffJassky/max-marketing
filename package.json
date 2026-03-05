@@ -8,12 +8,16 @@
     "src/client"
   ],
   "scripts": {
+    "dev:server": "nodemon --watch src/server --watch src/shared --exec \"ts-node --transpile-only --compiler-options '{\\\"module\\\":\\\"commonjs\\\",\\\"esModuleInterop\\\":true,\\\"moduleResolution\\\":\\\"node\\\"}' src/server/index.ts\"",
+    "dev:client": "yarn workspace maxed-marketing-client dev",
+    "test:e2e": "npx playwright test --config e2e/playwright.config.ts",
+    "test:e2e:headed": "npx playwright test --config e2e/playwright.config.ts --headed",
+    "test:e2e:debug": "npx playwright test --config e2e/playwright.config.ts --debug",
     "start": "node dist/server/index.js",
+    "start:worker": "node dist/queue/worker.js",
     "build": "yarn build:client && tsc",
     "build:server": "tsc",
     "start:server": "ts-node --transpile-only --compiler-options '{\"module\":\"commonjs\",\"esModuleInterop\":true,\"moduleResolution\":\"node\"}' src/server/index.ts",
-    "dev:server": "nodemon --watch src/server --watch src/shared --exec \"ts-node --transpile-only --compiler-options '{\\\"module\\\":\\\"commonjs\\\",\\\"esModuleInterop\\\":true,\\\"moduleResolution\\\":\\\"node\\\"}' src/server/index.ts\"",
-    "dev:client": "yarn workspace maxed-marketing-client dev",
     "build:client": "yarn workspace maxed-marketing-client build",
     "preview:client": "yarn workspace maxed-marketing-client preview",
     "tsc": "tsc",
@@ -22,10 +26,7 @@
     "scheduler": "npx tsx src/queue/scheduler.ts",
     "enqueue": "npx tsx src/queue/enqueue.ts",
     "analyze-errors": "npx tsx src/cli/analyze-agent-errors.ts",
-    "prepare": "husky",
-    "test:e2e": "npx playwright test --config e2e/playwright.config.ts",
-    "test:e2e:headed": "npx playwright test --config e2e/playwright.config.ts --headed",
-    "test:e2e:debug": "npx playwright test --config e2e/playwright.config.ts --debug"
+    "prepare": "husky"
   },
   "dependencies": {
     "@google-cloud/bigquery": "^8.1.1",
