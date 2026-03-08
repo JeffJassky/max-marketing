@@ -40,7 +40,7 @@ async function setupSchedule() {
 
 setupSchedule().catch((err) => {
   console.error(chalk.red("[Worker] Failed to set up schedule:"), err);
-  process.exit(1);
+  console.error(chalk.yellow("[Worker] Will retry schedule setup when connection is restored."));
 });
 
 const worker = new Worker<PipelineJobData>(
@@ -101,3 +101,13 @@ worker.on("error", (err) => {
 });
 
 console.log(chalk.blue(`[Worker] Listening on queue "${QUEUE_NAME}" (with scheduler)...`));
+
+// --- Graceful shutdown ---
+async function shutdown() {
+  console.log(chalk.yellow("[Worker] Shutting down gracefully..."));
+  await worker.close();
+  process.exit(0);
+}
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
