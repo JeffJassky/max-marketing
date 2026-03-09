@@ -24,7 +24,7 @@ onMounted(() => {
       </div>
       <select
         v-model="selectedMonth"
-        class="appearance-none bg-slate-900 border border-slate-700 text-slate-200 font-bold py-2 pl-10 pr-10 rounded-xl text-sm hover:border-indigo-500 hover:bg-slate-800 shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all cursor-pointer min-w-[200px]"
+        class="appearance-none bg-white border border-slate-300 text-slate-700 font-bold py-2 pl-10 pr-10 rounded-xl text-sm hover:border-indigo-500 hover:bg-slate-50 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all cursor-pointer min-w-[200px]"
       >
         <option
           v-for="m in availableMonths"
