@@ -56,7 +56,7 @@ const worker = new Worker<PipelineJobData>(
 
     const phases =
       phase === "full"
-        ? (["import", "entity", "aggregateReport", "monitor", "superlative"] as const)
+        ? (["import", "thumbnail", "entity", "aggregateReport", "monitor", "superlative"] as const)
         : [phase] as const;
 
     const results = await runPipeline({
