@@ -1,11 +1,37 @@
 import { config as loadEnv } from "dotenv";
 loadEnv();
 
+// --- Global error handlers (must be registered before any async work) ---
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("[Worker] Unhandled promise rejection:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("[Worker] Uncaught exception:", err);
+  process.exit(1);
+});
+
 import { Queue, Worker, Job } from "bullmq";
 import chalk from "chalk";
 import { getRedisConnectionOpts } from "./connection";
 import { QUEUE_NAME, QUEUE_PREFIX, PipelineJobData } from "./types";
 import { runPipeline } from "./pipeline";
+
+// --- Startup environment validation ---
+const REQUIRED_ENV = ["REDIS_URL", "BIGQUERY_PROJECT", "GOOGLE_APPLICATION_CREDENTIALS_BASE64"];
+const missing = REQUIRED_ENV.filter((key) => !process.env[key]);
+if (missing.length > 0) {
+  console.error(`[Worker] Missing required environment variables: ${missing.join(", ")}`);
+  process.exit(1);
+}
+
+// --- Memory usage logging (every 60 seconds) ---
+setInterval(() => {
+  const mem = process.memoryUsage();
+  console.log(
+    `[Worker] Memory: heap=${Math.round(mem.heapUsed / 1024 / 1024)}MB / ${Math.round(mem.heapTotal / 1024 / 1024)}MB, rss=${Math.round(mem.rss / 1024 / 1024)}MB`
+  );
+}, 60_000).unref();
 
 const connection = getRedisConnectionOpts();
 
@@ -98,6 +124,18 @@ worker.on("failed", (job, err) => {
 
 worker.on("error", (err) => {
   console.error(chalk.red(`[Worker] Error: ${err.message}`));
+});
+
+worker.on("ready", () => {
+  console.log(chalk.green("[Worker] Redis connection ready."));
+});
+
+worker.on("closing", () => {
+  console.log(chalk.yellow("[Worker] Redis connection closing."));
+});
+
+worker.on("closed", () => {
+  console.log(chalk.yellow("[Worker] Redis connection closed."));
 });
 
 console.log(chalk.blue(`[Worker] Listening on queue "${QUEUE_NAME}" (with scheduler)...`));
