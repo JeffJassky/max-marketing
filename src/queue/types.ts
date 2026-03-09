@@ -23,7 +23,7 @@ export const QUEUE_PREFIX = "maxmarketing";
 
 export type PipelineJobData = {
   /** Which phase of the pipeline to run */
-  phase: "import" | "entity" | "aggregateReport" | "monitor" | "superlative" | "full";
+  phase: "import" | "thumbnail" | "entity" | "aggregateReport" | "monitor" | "superlative" | "full";
   /** Lookback window for imports (overrides the default date_preset on each import) */
   lookback: LookbackPreset;
   /** Optional: run only specific job IDs within the phase */

@@ -12,7 +12,7 @@ import type { WindsorDatePreset } from "../shared/vendors/windsor/windsor.d";
 
 export interface PipelineRunOptions {
   lookback: LookbackPreset;
-  phases?: ("import" | "entity" | "aggregateReport" | "monitor" | "superlative")[];
+  phases?: ("import" | "thumbnail" | "entity" | "aggregateReport" | "monitor" | "superlative")[];
   jobIds?: string[];
 }
 
@@ -37,10 +37,51 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
     throw new Error("BIGQUERY_PROJECT is not set.");
   }
 
-  const phases = options.phases || ["import", "entity", "aggregateReport", "monitor", "superlative"];
+  const phases = options.phases || ["import", "thumbnail", "entity", "aggregateReport", "monitor", "superlative"];
   const datePreset = LOOKBACK_TO_DATE_PRESET[options.lookback];
 
   for (const phase of phases) {
+    // Thumbnail phase is handled separately — it doesn't use job discovery
+    if (phase === "thumbnail") {
+      if (process.env.S3_BUCKET) {
+        console.log(chalk.cyan(`\n--- Phase: thumbnail (S3 sync) ---`));
+        try {
+          const { syncThumbnails } = await import("../shared/vendors/aws/thumbnailSync");
+          const { socialMediaThumbnailConfigs } = await import("../jobs/thumbnails/socialMedia.thumbnail");
+          const { creativeAdsThumbnailConfigs } = await import("../jobs/thumbnails/creativeAds.thumbnail");
+          const allConfigs = [...socialMediaThumbnailConfigs, ...creativeAdsThumbnailConfigs];
+
+          for (const config of allConfigs) {
+            const stats = await syncThumbnails(config);
+            const result: PipelineResult = {
+              phase: "thumbnail",
+              jobId: `thumbnail_${config.platform}`,
+              success: true,
+              rowCount: stats.uploaded,
+            };
+            results.push(result);
+            console.log(
+              chalk.green(
+                `  [OK] ${config.platform}: ${stats.uploaded} uploaded, ${stats.skipped} skipped, ${stats.failed} failed (${stats.checked} checked)`
+              )
+            );
+          }
+        } catch (error: any) {
+          const result: PipelineResult = {
+            phase: "thumbnail",
+            jobId: "thumbnail_sync",
+            success: false,
+            error: error?.message ?? "Unknown error",
+          };
+          results.push(result);
+          console.log(chalk.red(`  [FAIL] thumbnail sync: ${result.error}`));
+        }
+      } else {
+        console.log(chalk.gray(`\n--- Phase: thumbnail (skipped — S3_BUCKET not configured) ---`));
+      }
+      continue;
+    }
+
     let phaseJobs = allJobs.filter((j) => j.type === phase);
 
     // Filter to specific job IDs if provided

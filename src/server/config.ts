@@ -19,6 +19,13 @@ const envSchema = z.object({
   SENDGRID_FROM_EMAIL: z.string().default("noreply@maxedmarketing.com"),
   GEMINI_API_KEY: z.string().optional(),
   WINDSOR_API_KEY: z.string().optional(),
+
+  // S3 Thumbnail Storage (optional — thumbnails degrade gracefully to original URLs)
+  S3_BUCKET: z.string().optional(),
+  S3_REGION: z.string().default("us-east-1"),
+  S3_PUBLIC_URL: z.string().optional(), // e.g., "https://maxmarketing-thumbnails.s3.amazonaws.com"
+  AWS_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

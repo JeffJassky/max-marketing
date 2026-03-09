@@ -438,9 +438,9 @@ Options:
   // If --lookback is provided with --all or type flags, use the pipeline runner
   // This enables the fast daily ingestion path
   if (selected.lookback && (selected.all || selected.allImports || selected.allEntities || selected.allAggregateReports || selected.allMonitors || selected.allSuperlatives)) {
-    const phases: ("import" | "entity" | "aggregateReport" | "monitor" | "superlative")[] = [];
+    const phases: ("import" | "thumbnail" | "entity" | "aggregateReport" | "monitor" | "superlative")[] = [];
     if (selected.all) {
-      phases.push("import", "entity", "aggregateReport", "monitor", "superlative");
+      phases.push("import", "thumbnail", "entity", "aggregateReport", "monitor", "superlative");
     } else {
       if (selected.allImports) phases.push("import");
       if (selected.allEntities) phases.push("entity");

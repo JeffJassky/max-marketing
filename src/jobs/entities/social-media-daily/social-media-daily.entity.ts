@@ -59,8 +59,16 @@ export const socialMediaDaily = new Entity({
     thumbnail_url: {
       type: z.string(),
       sources: {
-        instagramMedia: { expression: "COALESCE(media_thumbnail_url, media_url)" },
-        facebookOrganicPosts: { expression: "COALESCE(full_picture, post_picture)" },
+        instagramMedia: {
+          expression: process.env.S3_PUBLIC_URL
+            ? `CASE WHEN media_id IS NOT NULL THEN CONCAT('${process.env.S3_PUBLIC_URL}/thumbnails/instagram/', media_id, '.jpg') ELSE COALESCE(media_thumbnail_url, media_url) END`
+            : "COALESCE(media_thumbnail_url, media_url)",
+        },
+        facebookOrganicPosts: {
+          expression: process.env.S3_PUBLIC_URL
+            ? `CASE WHEN post_id IS NOT NULL THEN CONCAT('${process.env.S3_PUBLIC_URL}/thumbnails/facebook_organic/', post_id, '.jpg') ELSE COALESCE(full_picture, post_picture) END`
+            : "COALESCE(full_picture, post_picture)",
+        },
       },
     },
   },

@@ -51,7 +51,11 @@ export const creativeDaily = new Entity({
     thumbnail_url: {
       type: z.string(),
       sources: {
-        facebookAdsCreative: { sourceField: "thumbnail_url" },
+        facebookAdsCreative: {
+          expression: process.env.S3_PUBLIC_URL
+            ? `CASE WHEN creative_id IS NOT NULL THEN CONCAT('${process.env.S3_PUBLIC_URL}/thumbnails/facebook_ads/', creative_id, '.jpg') ELSE thumbnail_url END`
+            : "thumbnail_url",
+        },
         googleAdsCreative: { expression: "CAST(NULL AS STRING)" },
       },
     },
