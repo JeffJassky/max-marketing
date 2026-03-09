@@ -14,7 +14,7 @@
     "test:e2e:headed": "npx playwright test --config e2e/playwright.config.ts --headed",
     "test:e2e:debug": "npx playwright test --config e2e/playwright.config.ts --debug",
     "start": "node dist/server/index.js",
-    "start:worker": "node dist/queue/worker.js",
+    "start:worker": "node --max-old-space-size=768 dist/queue/worker.js",
     "build": "yarn build:client && tsc",
     "build:server": "tsc",
     "start:server": "ts-node --transpile-only --compiler-options '{\"module\":\"commonjs\",\"esModuleInterop\":true,\"moduleResolution\":\"node\"}' src/server/index.ts",
