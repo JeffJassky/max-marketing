@@ -266,7 +266,7 @@ const platformHealth = computed(() => {
       <div class="mb-8 flex justify-between items-end">
         <div>
           <h1 class="text-3xl font-bold text-slate-800">
-            {{ selectedAccount ? `Ready to win, ${selectedAccount.name}?` : 'Welcome to Maxed' }}
+            {{ selectedAccount ? `Let's go, ${selectedAccount.name}!` : 'Welcome to Maxed' }}
           </h1>
           <p class="text-slate-500 mt-1 max-w-2xl" v-if="scorecard">
             Holistic MER is currently
