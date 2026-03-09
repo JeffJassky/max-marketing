@@ -71,24 +71,46 @@ const handleManualInput = () => {
   }
 };
 
+const shortDateRange = computed(() => {
+  if (!startDate.value || !endDate.value) return '';
+  const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const startStr = fmt(startDate.value);
+  const endStr = fmt(endDate.value);
+  const endYear = endDate.value.getFullYear();
+  const startYear = startDate.value.getFullYear();
+  const currentYear = new Date().getFullYear();
+  if (startYear !== endYear || endYear !== currentYear) {
+    return `${startStr}, ${startYear} – ${endStr}, ${endYear}`;
+  }
+  return `${startStr} – ${endStr}`;
+});
+
 const formattedRange = computed(() => {
-  if (selectedPreset.value !== 'Custom Range') return selectedPreset.value;
   if (!startDate.value || !endDate.value) return 'Select Date';
-  
-  return `${startDate.value.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${endDate.value.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  if (selectedPreset.value === 'Custom Range') {
+    return `${startDate.value.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${endDate.value.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  }
+  return selectedPreset.value;
+});
+
+const isPreset = computed(() => {
+  return selectedPreset.value !== 'Custom Range';
 });
 </script>
 
 <template>
   <div class="relative">
     <!-- Trigger Button -->
-    <button 
+    <button
       @click="isOpen = !isOpen"
-      class="flex items-center gap-3 px-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm font-bold text-slate-200 hover:border-indigo-500 hover:bg-slate-800 shadow-lg transition-all group"
+      class="flex items-center gap-3 px-4 py-2 bg-white border border-slate-300 rounded-xl text-sm text-slate-700 hover:border-indigo-500 hover:bg-slate-50 shadow-sm transition-all group"
     >
-      <Calendar class="w-4 h-4 text-indigo-400 group-hover:text-indigo-300" />
-      <span class="tracking-tight">{{ formattedRange }}</span>
-      <ChevronDown class="w-4 h-4 text-slate-500 group-hover:text-slate-300" />
+      <Calendar class="w-4 h-4 text-indigo-500 group-hover:text-indigo-600" />
+      <span class="tracking-tight">
+        <span class="font-bold text-slate-800">{{ formattedRange }}</span>
+        <span v-if="isPreset && shortDateRange" class="font-normal text-slate-400 ml-1.5">({{ shortDateRange }})</span>
+      </span>
+      <ChevronDown class="w-4 h-4 text-slate-400 group-hover:text-slate-600" />
     </button>
 
     <!-- Main Dropdown Panel -->
