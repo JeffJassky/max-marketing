@@ -447,73 +447,303 @@ router.get("/blocks", async (req: Request, res: Response) => {
           })
         : Promise.resolve(null);
 
-    // ───────── 13. Brand Pulse 6-month baseline ─────────
+    // ───────── 13. Brand Pulse: Social accounts reach (current + prev + YoY) ─────────
+    const brandSocialAccountsPromise =
+      socialIds.length > 0
+        ? safe(async () => {
+            const [rows] = await bq.query({
+              query: `
+              WITH curr AS (
+                SELECT SUM(reach) as reach
+                FROM \`entities.social_accounts_daily\`
+                WHERE account_id IN UNNEST(@accountIds)
+                  AND date >= @startDate AND date <= @endDate
+              ),
+              prev AS (
+                SELECT SUM(reach) as reach
+                FROM \`entities.social_accounts_daily\`
+                WHERE account_id IN UNNEST(@accountIds)
+                  AND date >= @prevStartDate AND date <= @prevEndDate
+              ),
+              yoy AS (
+                SELECT SUM(reach) as reach
+                FROM \`entities.social_accounts_daily\`
+                WHERE account_id IN UNNEST(@accountIds)
+                  AND date >= DATE_SUB(PARSE_DATE('%Y-%m-%d', @startDate), INTERVAL 1 YEAR)
+                  AND date <= DATE_SUB(PARSE_DATE('%Y-%m-%d', @endDate), INTERVAL 1 YEAR)
+              )
+              SELECT
+                COALESCE((SELECT reach FROM curr), 0) as curr_reach,
+                COALESCE((SELECT reach FROM prev), 0) as prev_reach,
+                COALESCE((SELECT reach FROM yoy), 0) as yoy_reach
+            `,
+              params: { accountIds: socialIds, ...dateParams },
+            });
+            return rows[0];
+          })
+        : Promise.resolve(null);
+
+    // ───────── 14. Brand Pulse: GA4 direct/organic views + engaged sessions (current + prev + YoY) ─────────
+    const brandGA4Promise =
+      ga4Ids.length > 0
+        ? safe(async () => {
+            const [rows] = await bq.query({
+              query: `
+              WITH curr AS (
+                SELECT
+                  SUM(CASE WHEN channel_group IN ('Direct', 'Organic Search') THEN views ELSE 0 END) as direct_organic_views,
+                  SUM(engaged_sessions) as engaged_sessions
+                FROM \`entities.ga4_daily\`
+                WHERE account_id IN UNNEST(@accountIds)
+                  AND date >= @startDate AND date <= @endDate
+              ),
+              prev AS (
+                SELECT
+                  SUM(CASE WHEN channel_group IN ('Direct', 'Organic Search') THEN views ELSE 0 END) as direct_organic_views,
+                  SUM(engaged_sessions) as engaged_sessions
+                FROM \`entities.ga4_daily\`
+                WHERE account_id IN UNNEST(@accountIds)
+                  AND date >= @prevStartDate AND date <= @prevEndDate
+              ),
+              yoy AS (
+                SELECT
+                  SUM(CASE WHEN channel_group IN ('Direct', 'Organic Search') THEN views ELSE 0 END) as direct_organic_views,
+                  SUM(engaged_sessions) as engaged_sessions
+                FROM \`entities.ga4_daily\`
+                WHERE account_id IN UNNEST(@accountIds)
+                  AND date >= DATE_SUB(PARSE_DATE('%Y-%m-%d', @startDate), INTERVAL 1 YEAR)
+                  AND date <= DATE_SUB(PARSE_DATE('%Y-%m-%d', @endDate), INTERVAL 1 YEAR)
+              )
+              SELECT
+                COALESCE((SELECT direct_organic_views FROM curr), 0) as curr_views,
+                COALESCE((SELECT engaged_sessions FROM curr), 0) as curr_engaged,
+                COALESCE((SELECT direct_organic_views FROM prev), 0) as prev_views,
+                COALESCE((SELECT engaged_sessions FROM prev), 0) as prev_engaged,
+                COALESCE((SELECT direct_organic_views FROM yoy), 0) as yoy_views,
+                COALESCE((SELECT engaged_sessions FROM yoy), 0) as yoy_engaged
+            `,
+              params: { accountIds: ga4Ids, ...dateParams },
+            });
+            return rows[0];
+          })
+        : Promise.resolve(null);
+
+    // ───────── 15. Brand Pulse: YoY for ads (impressions + clicks) ─────────
+    const brandAdsYoYPromise =
+      adsIds.length > 0
+        ? safe(async () => {
+            const [rows] = await bq.query({
+              query: `
+              SELECT SUM(impressions) as impressions, SUM(clicks) as clicks
+              FROM \`entities.ads_daily\`
+              WHERE account_id IN UNNEST(@accountIds)
+                AND date >= DATE_SUB(PARSE_DATE('%Y-%m-%d', @startDate), INTERVAL 1 YEAR)
+                AND date <= DATE_SUB(PARSE_DATE('%Y-%m-%d', @endDate), INTERVAL 1 YEAR)
+            `,
+              params: { accountIds: adsIds, ...dateParams },
+            });
+            return rows[0];
+          })
+        : Promise.resolve(null);
+
+    // ───────── 16. Brand Pulse: YoY for social posts (impressions + engagement) ─────────
+    const brandSocialYoYPromise =
+      socialIds.length > 0
+        ? safe(async () => {
+            const [rows] = await bq.query({
+              query: `
+              SELECT SUM(impressions) as impressions, SUM(engagement) as engagement
+              FROM \`entities.social_media_daily\`
+              WHERE account_id IN UNNEST(@accountIds)
+                AND date >= DATE_SUB(PARSE_DATE('%Y-%m-%d', @startDate), INTERVAL 1 YEAR)
+                AND date <= DATE_SUB(PARSE_DATE('%Y-%m-%d', @endDate), INTERVAL 1 YEAR)
+            `,
+              params: { accountIds: socialIds, ...dateParams },
+            });
+            return rows[0];
+          })
+        : Promise.resolve(null);
+
+    // ───────── 17. Brand Pulse: YoY for GSC (impressions + clicks) ─────────
+    const brandGscYoYPromise =
+      gscIds.length > 0
+        ? safe(async () => {
+            const [rows] = await bq.query({
+              query: `
+              SELECT SUM(impressions) as impressions, SUM(clicks) as clicks
+              FROM \`entities.gsc_daily\`
+              WHERE account_id IN UNNEST(@accountIds)
+                AND date >= DATE_SUB(PARSE_DATE('%Y-%m-%d', @startDate), INTERVAL 1 YEAR)
+                AND date <= DATE_SUB(PARSE_DATE('%Y-%m-%d', @endDate), INTERVAL 1 YEAR)
+            `,
+              params: { accountIds: gscIds, ...dateParams },
+            });
+            return rows[0];
+          })
+        : Promise.resolve(null);
+
+    // ───────── 18. Brand Pulse: YoY for Shopify orders ─────────
+    const brandShopifyYoYPromise =
+      shopifyIds.length > 0
+        ? safe(async () => {
+            const [rows] = await bq.query({
+              query: `
+              SELECT SUM(orders) as orders
+              FROM \`entities.shopify_daily\`
+              WHERE account_id IN UNNEST(@accountIds)
+                AND date >= DATE_SUB(PARSE_DATE('%Y-%m-%d', @startDate), INTERVAL 1 YEAR)
+                AND date <= DATE_SUB(PARSE_DATE('%Y-%m-%d', @endDate), INTERVAL 1 YEAR)
+            `,
+              params: { accountIds: shopifyIds, ...dateParams },
+            });
+            return rows[0];
+          })
+        : Promise.resolve(null);
+
+    // ───────── 19. Brand Pulse: 6-month baseline (all layers) ─────────
     const baselineStart = new Date(endStr);
     baselineStart.setDate(baselineStart.getDate() - 180);
     const baselineStartStr = baselineStart.toISOString().split("T")[0];
 
     const brandBaselinePromise = safe(async () => {
-      const queries: Promise<any>[] = [];
+      const baseParams = { baselineStart: baselineStartStr, endDate: endStr };
+      const queries: Promise<{ earned: number; paid: number; engaged: number; days: number }>[] = [];
 
-      // Paid impressions baseline
+      // Ads: impressions → Paid, clicks → Engaged
       if (adsIds.length > 0) {
         queries.push(
           bq
             .query({
               query: `
-              SELECT SUM(impressions) as impressions
+              SELECT SUM(impressions) as impressions, SUM(clicks) as clicks,
+                COUNT(DISTINCT date) as days_with_data
               FROM \`entities.ads_daily\`
               WHERE account_id IN UNNEST(@accountIds)
                 AND date >= @baselineStart AND date <= @endDate
             `,
-              params: { accountIds: adsIds, baselineStart: baselineStartStr, endDate: endStr },
+              params: { accountIds: adsIds, ...baseParams },
             })
-            .then(([r]) => ({ paid: r[0]?.impressions || 0 }))
+            .then(([r]) => ({ earned: 0, paid: r[0]?.impressions || 0, engaged: r[0]?.clicks || 0, days: r[0]?.days_with_data || 0 }))
         );
       } else {
-        queries.push(Promise.resolve({ paid: 0 }));
+        queries.push(Promise.resolve({ earned: 0, paid: 0, engaged: 0, days: 0 }));
       }
 
-      // Organic social impressions baseline
+      // Social posts: impressions → Earned, engagement → Engaged
       if (socialIds.length > 0) {
         queries.push(
           bq
             .query({
               query: `
-              SELECT SUM(impressions) as impressions
+              SELECT SUM(impressions) as impressions, SUM(engagement) as engagement,
+                COUNT(DISTINCT date) as days_with_data
               FROM \`entities.social_media_daily\`
               WHERE account_id IN UNNEST(@accountIds)
                 AND date >= @baselineStart AND date <= @endDate
             `,
-              params: { accountIds: socialIds, baselineStart: baselineStartStr, endDate: endStr },
+              params: { accountIds: socialIds, ...baseParams },
             })
-            .then(([r]) => ({ organic: r[0]?.impressions || 0 }))
+            .then(([r]) => ({ earned: r[0]?.impressions || 0, paid: 0, engaged: r[0]?.engagement || 0, days: r[0]?.days_with_data || 0 }))
         );
       } else {
-        queries.push(Promise.resolve({ organic: 0 }));
+        queries.push(Promise.resolve({ earned: 0, paid: 0, engaged: 0, days: 0 }));
       }
 
-      // GSC impressions baseline
+      // Social accounts reach → Earned
+      if (socialIds.length > 0) {
+        queries.push(
+          bq
+            .query({
+              query: `
+              SELECT SUM(reach) as reach, COUNT(DISTINCT date) as days_with_data
+              FROM \`entities.social_accounts_daily\`
+              WHERE account_id IN UNNEST(@accountIds)
+                AND date >= @baselineStart AND date <= @endDate
+            `,
+              params: { accountIds: socialIds, ...baseParams },
+            })
+            .then(([r]) => ({ earned: r[0]?.reach || 0, paid: 0, engaged: 0, days: r[0]?.days_with_data || 0 }))
+        );
+      } else {
+        queries.push(Promise.resolve({ earned: 0, paid: 0, engaged: 0, days: 0 }));
+      }
+
+      // GSC: impressions → Earned, clicks → Engaged
       if (gscIds.length > 0) {
         queries.push(
           bq
             .query({
               query: `
-              SELECT SUM(impressions) as impressions
+              SELECT SUM(impressions) as impressions, SUM(clicks) as clicks,
+                COUNT(DISTINCT date) as days_with_data
               FROM \`entities.gsc_daily\`
               WHERE account_id IN UNNEST(@accountIds)
                 AND date >= @baselineStart AND date <= @endDate
             `,
-              params: { accountIds: gscIds, baselineStart: baselineStartStr, endDate: endStr },
+              params: { accountIds: gscIds, ...baseParams },
             })
-            .then(([r]) => ({ search: r[0]?.impressions || 0 }))
+            .then(([r]) => ({ earned: r[0]?.impressions || 0, paid: 0, engaged: r[0]?.clicks || 0, days: r[0]?.days_with_data || 0 }))
         );
       } else {
-        queries.push(Promise.resolve({ search: 0 }));
+        queries.push(Promise.resolve({ earned: 0, paid: 0, engaged: 0, days: 0 }));
+      }
+
+      // GA4: direct/organic views → Engaged, engaged_sessions → Engaged
+      if (ga4Ids.length > 0) {
+        queries.push(
+          bq
+            .query({
+              query: `
+              SELECT
+                SUM(CASE WHEN channel_group IN ('Direct', 'Organic Search') THEN views ELSE 0 END) as direct_organic_views,
+                SUM(engaged_sessions) as engaged_sessions,
+                COUNT(DISTINCT date) as days_with_data
+              FROM \`entities.ga4_daily\`
+              WHERE account_id IN UNNEST(@accountIds)
+                AND date >= @baselineStart AND date <= @endDate
+            `,
+              params: { accountIds: ga4Ids, ...baseParams },
+            })
+            .then(([r]) => ({
+              earned: 0,
+              paid: 0,
+              engaged: (r[0]?.direct_organic_views || 0) + (r[0]?.engaged_sessions || 0),
+              days: r[0]?.days_with_data || 0,
+            }))
+        );
+      } else {
+        queries.push(Promise.resolve({ earned: 0, paid: 0, engaged: 0, days: 0 }));
+      }
+
+      // Shopify orders → Engaged
+      if (shopifyIds.length > 0) {
+        queries.push(
+          bq
+            .query({
+              query: `
+              SELECT SUM(orders) as orders, COUNT(DISTINCT date) as days_with_data
+              FROM \`entities.shopify_daily\`
+              WHERE account_id IN UNNEST(@accountIds)
+                AND date >= @baselineStart AND date <= @endDate
+            `,
+              params: { accountIds: shopifyIds, ...baseParams },
+            })
+            .then(([r]) => ({ earned: 0, paid: 0, engaged: r[0]?.orders || 0, days: r[0]?.days_with_data || 0 }))
+        );
+      } else {
+        queries.push(Promise.resolve({ earned: 0, paid: 0, engaged: 0, days: 0 }));
       }
 
       const results = await Promise.all(queries);
-      return results.reduce((acc, r) => ({ ...acc, ...r }), {});
+      return results.reduce(
+        (acc, r) => ({
+          earned: acc.earned + r.earned,
+          paid: acc.paid + r.paid,
+          engaged: acc.engaged + r.engaged,
+          days: Math.max(acc.days, r.days), // Use the source with the most history
+        }),
+        { earned: 0, paid: 0, engaged: 0, days: 0 }
+      );
     });
 
     // ═══════ Execute all in parallel ═══════
@@ -530,6 +760,12 @@ router.get("/blocks", async (req: Request, res: Response) => {
       ga4ByChannel,
       ga4Daily,
       socialDaily,
+      brandSocialAccounts,
+      brandGA4,
+      brandAdsYoY,
+      brandSocialYoY,
+      brandGscYoY,
+      brandShopifyYoY,
       brandBaseline,
     ] = await Promise.all([
       adsByPlatformPromise,
@@ -544,6 +780,12 @@ router.get("/blocks", async (req: Request, res: Response) => {
       ga4ByChannelPromise,
       ga4DailyPromise,
       socialDailyPromise,
+      brandSocialAccountsPromise,
+      brandGA4Promise,
+      brandAdsYoYPromise,
+      brandSocialYoYPromise,
+      brandGscYoYPromise,
+      brandShopifyYoYPromise,
       brandBaselinePromise,
     ]);
 
@@ -878,75 +1120,168 @@ router.get("/blocks", async (req: Request, res: Response) => {
 
     // --- Brand Pulse Block ---
     let brandPulseBlock = null;
-    if (brandBaseline) {
-      const bl = brandBaseline as { paid: number; organic: number; search: number };
+    {
+      // ── Earned Layer (Organic Visibility) ──
+      // Social accounts reach (FB page impressions + IG account reach)
+      const currSocialAccountReach = (brandSocialAccounts as any)?.curr_reach || 0;
+      const prevSocialAccountReach = (brandSocialAccounts as any)?.prev_reach || 0;
+      const yoySocialAccountReach = (brandSocialAccounts as any)?.yoy_reach || 0;
+
+      // Social post impressions (IG + FB posts)
+      const currSocialPostImp = socialByPlatform
+        ? (socialByPlatform as any[]).reduce((s: number, r: any) => s + (r.curr_impressions || 0), 0)
+        : 0;
+      const prevSocialPostImp = socialByPlatform
+        ? (socialByPlatform as any[]).reduce((s: number, r: any) => s + (r.prev_impressions || 0), 0)
+        : 0;
+      const yoySocialPostImp = (brandSocialYoY as any)?.impressions || 0;
+
+      // GSC search impressions
+      const currGscImp = gscBranded
+        ? (gscBranded as any[]).reduce((s: number, r: any) => s + (r.curr_impressions || 0), 0)
+        : 0;
+      const prevGscImp = gscBranded
+        ? (gscBranded as any[]).reduce((s: number, r: any) => s + (r.prev_impressions || 0), 0)
+        : 0;
+      const yoyGscImp = (brandGscYoY as any)?.impressions || 0;
+
+      const earnedCurr = currSocialAccountReach + currSocialPostImp + currGscImp;
+      const earnedPrev = prevSocialAccountReach + prevSocialPostImp + prevGscImp;
+      const earnedYoY = yoySocialAccountReach + yoySocialPostImp + yoyGscImp;
+
+      // ── Paid Exposure Layer ──
+      const paidCurr = totalAdsImpressions;
+      const paidPrev = prevTotalAdsImpressions;
+      const paidYoY = (brandAdsYoY as any)?.impressions || 0;
+
+      // ── Engaged Layer ──
+      // GSC clicks
+      const currGscClicks = gscBranded
+        ? (gscBranded as any[]).reduce((s: number, r: any) => s + (r.curr_clicks || 0), 0)
+        : 0;
+      const prevGscClicks = gscBranded
+        ? (gscBranded as any[]).reduce((s: number, r: any) => s + (r.prev_clicks || 0), 0)
+        : 0;
+      const yoyGscClicks = (brandGscYoY as any)?.clicks || 0;
+
+      // Ads clicks
+      const currAdsClicks = adsByPlatform
+        ? (adsByPlatform as any[]).reduce((s: number, r: any) => s + (r.curr_clicks || 0), 0)
+        : 0;
+      const prevAdsClicks = adsByPlatform
+        ? (adsByPlatform as any[]).reduce((s: number, r: any) => s + (r.prev_clicks || 0), 0)
+        : 0;
+      const yoyAdsClicks = (brandAdsYoY as any)?.clicks || 0;
+
+      // Social engagement
+      const currSocialEng = socialByPlatform
+        ? (socialByPlatform as any[]).reduce((s: number, r: any) => s + (r.curr_engagement || 0), 0)
+        : 0;
+      const prevSocialEng = socialByPlatform
+        ? (socialByPlatform as any[]).reduce((s: number, r: any) => s + (r.prev_engagement || 0), 0)
+        : 0;
+      const yoySocialEng = (brandSocialYoY as any)?.engagement || 0;
+
+      // GA4 direct/organic views + engaged sessions
+      const currGA4Views = (brandGA4 as any)?.curr_views || 0;
+      const prevGA4Views = (brandGA4 as any)?.prev_views || 0;
+      const yoyGA4Views = (brandGA4 as any)?.yoy_views || 0;
+      const currGA4Engaged = (brandGA4 as any)?.curr_engaged || 0;
+      const prevGA4Engaged = (brandGA4 as any)?.prev_engaged || 0;
+      const yoyGA4Engaged = (brandGA4 as any)?.yoy_engaged || 0;
+
+      // Shopify orders
+      const currShopifyOrders = (shopifySummary as any)?.curr_orders || 0;
+      const prevShopifyOrders = (shopifySummary as any)?.prev_orders || 0;
+      const yoyShopifyOrders = (brandShopifyYoY as any)?.orders || 0;
+
+      const engagedCurr = currGscClicks + currAdsClicks + currSocialEng + currGA4Views + currGA4Engaged + currShopifyOrders;
+      const engagedPrev = prevGscClicks + prevAdsClicks + prevSocialEng + prevGA4Views + prevGA4Engaged + prevShopifyOrders;
+      const engagedYoY = yoyGscClicks + yoyAdsClicks + yoySocialEng + yoyGA4Views + yoyGA4Engaged + yoyShopifyOrders;
+
+      // ── Totals ──
+      const totalCurr = earnedCurr + paidCurr + engagedCurr;
+      const totalPrev = earnedPrev + paidPrev + engagedPrev;
+      const totalYoY = earnedYoY + paidYoY + engagedYoY;
+
+      // ── Brand Impact Score (0-100, 50 = steady state) ──
+      // Uses 6-month rolling baseline when available (≥150 days of data).
+      // Falls back to MoM comparison when history is limited.
       const periodDays =
         Math.ceil(
           Math.abs(new Date(endStr).getTime() - new Date(startStr).getTime()) /
             (1000 * 60 * 60 * 24)
         ) + 1;
-      const baselineDays = 180;
 
-      // Normalize to daily rates then compare
-      const dailyPaid = bl.paid / baselineDays;
-      const dailyOrganic = bl.organic / baselineDays;
-      const dailySearch = bl.search / baselineDays;
+      let score = 50; // Default for cold start
+      let scoreMethod: "rolling" | "mom" = "mom";
 
-      // Current period daily rates
-      const currPaidImp = totalAdsImpressions;
-      const currOrgImp = socialByPlatform
-        ? (socialByPlatform as any[]).reduce(
-            (s: number, r: any) => s + (r.curr_impressions || 0),
-            0
-          )
-        : 0;
-      const currSearchImp = gscBranded
-        ? (gscBranded as any[]).reduce(
-            (s: number, r: any) => s + (r.curr_impressions || 0),
-            0
-          )
-        : 0;
-      const prevOrgImp = socialByPlatform
-        ? (socialByPlatform as any[]).reduce(
-            (s: number, r: any) => s + (r.prev_impressions || 0),
-            0
-          )
-        : 0;
+      if (brandBaseline) {
+        const bl = brandBaseline as { earned: number; paid: number; engaged: number; days: number };
+        const baselineTotal = bl.earned + bl.paid + bl.engaged;
+        const baselineDataDays = bl.days;
 
-      const currDailyPaid = periodDays > 0 ? currPaidImp / periodDays : 0;
-      const currDailyOrganic = periodDays > 0 ? currOrgImp / periodDays : 0;
-      const currDailySearch = periodDays > 0 ? currSearchImp / periodDays : 0;
+        if (baselineDataDays >= 150) {
+          // Enough history — use rolling 6-month baseline
+          scoreMethod = "rolling";
+          const baselineDailyRate = baselineDataDays > 0 ? baselineTotal / baselineDataDays : 0;
+          const currentDailyRate = periodDays > 0 ? totalCurr / periodDays : 0;
+          const ratio = baselineDailyRate > 0 ? currentDailyRate / baselineDailyRate : 1;
+          score = Math.round(Math.min(100, Math.max(0, ratio * 50)));
+        } else {
+          // Limited history — use MoM (current vs previous period)
+          scoreMethod = "mom";
+          const prevDailyRate = periodDays > 0 ? totalPrev / periodDays : 0;
+          const currentDailyRate = periodDays > 0 ? totalCurr / periodDays : 0;
+          const ratio = prevDailyRate > 0 ? currentDailyRate / prevDailyRate : 1;
+          score = Math.round(Math.min(100, Math.max(0, ratio * 50)));
+        }
+      } else if (totalPrev > 0) {
+        // No baseline at all — pure MoM fallback
+        const ratio = totalPrev > 0 ? totalCurr / totalPrev : 1;
+        score = Math.round(Math.min(100, Math.max(0, ratio * 50)));
+      }
 
-      // Score each ring 0-100 relative to baseline
-      const paidScore = dailyPaid > 0 ? Math.min(100, (currDailyPaid / dailyPaid) * 100) : 50;
-      const earnedScore =
-        dailyOrganic > 0 ? Math.min(100, (currDailyOrganic / dailyOrganic) * 100) : 50;
-      const engagedScore =
-        dailySearch > 0 ? Math.min(100, (currDailySearch / dailySearch) * 100) : 50;
+      // ── Comparisons (null when no comparison data exists) ──
+      const mom = totalPrev > 0 ? pctChange(totalCurr, totalPrev) : null;
+      const yoy = totalYoY > 0 ? pctChange(totalCurr, totalYoY) : null;
 
-      const score = Math.round((paidScore + earnedScore + engagedScore) / 3);
+      // Hero maker: pick the most impressive available comparison
+      const availableComparisons: { type: string; value: number }[] = [];
+      if (mom !== null) availableComparisons.push({ type: "mom", value: mom });
+      if (yoy !== null) availableComparisons.push({ type: "yoy", value: yoy });
+      const heroComparison = availableComparisons.length > 0
+        ? availableComparisons.reduce((best, c) => c.value > best.value ? c : best)
+        : null;
 
-      const totalImpressions = currPaidImp + currOrgImp + currSearchImp;
-      const prevTotalImpressions =
-        prevTotalAdsImpressions + prevOrgImp +
-        (gscBranded
-          ? (gscBranded as any[]).reduce(
-              (s: number, r: any) => s + (r.prev_impressions || 0),
-              0
-            )
-          : 0);
-
-      brandPulseBlock = {
-        score,
-        scoreChange: pctChange(score, 50), // Relative to midpoint baseline
-        rings: {
-          earned: Math.round(earnedScore),
-          paid: Math.round(paidScore),
-          engaged: Math.round(engagedScore),
-        },
-        totalImpressions,
-        totalImpressionsChange: pctChange(totalImpressions, prevTotalImpressions),
-      };
+      // Only emit if we have any data at all
+      if (totalCurr > 0 || totalPrev > 0) {
+        brandPulseBlock = {
+          score,
+          scoreMethod, // "rolling" (6-month baseline) or "mom" (month-over-month)
+          totalImpressions: totalCurr,
+          periodLabel: startStr === endStr
+            ? new Date(startStr).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+            : `${new Date(startStr).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(endStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`,
+          mom: mom !== null ? Math.round(mom * 10) / 10 : null,
+          yoy: yoy !== null ? Math.round(yoy * 10) / 10 : null,
+          heroComparison,
+          rings: {
+            earned: {
+              value: earnedCurr,
+              percent: totalCurr > 0 ? Math.round((earnedCurr / totalCurr) * 100) : 0,
+            },
+            paid: {
+              value: paidCurr,
+              percent: totalCurr > 0 ? Math.round((paidCurr / totalCurr) * 100) : 0,
+            },
+            engaged: {
+              value: engagedCurr,
+              percent: totalCurr > 0 ? Math.round((engagedCurr / totalCurr) * 100) : 0,
+            },
+          },
+        };
+      }
     }
 
     res.json({

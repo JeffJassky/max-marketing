@@ -33,7 +33,9 @@
       "Bash(npx playwright:*)",
       "Bash(yarn test:e2e:*)",
       "Bash(yarn build:server:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(mongosh 'mongodb://influencernetwork:2imWR9104xT875Uy@db-mongodb-nyc3-50944-e16362a7.mongo.ondigitalocean.com:27017/maxed-marketing?retryWrites=true&loadBalanced=false&replicaSet=db-mongodb-nyc3-50944&readPreference=primary&connectTimeoutMS=60000&authSource=admin&authMechanism=SCRAM-SHA-1&tls=true' --eval 'db.adminCommand\\({ listDatabases: 1, nameOnly: false }\\)' --quiet 2>/dev/null)",
+      "Bash(mongosh 'mongodb://influencernetwork:2imWR9104xT875Uy@db-mongodb-nyc3-50944-e16362a7.mongo.ondigitalocean.com:27017/maxed-marketing?retryWrites=true&loadBalanced=false&replicaSet=db-mongodb-nyc3-50944&readPreference=primary&connectTimeoutMS=60000&authSource=admin&authMechanism=SCRAM-SHA-1&tls=true' --eval 'db.adminCommand\\({ listDatabases: 1 }\\)' 2>&1)"
     ]
   }
 }

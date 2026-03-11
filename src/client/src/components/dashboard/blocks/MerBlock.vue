@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowUpRight, ArrowDownRight, EyeOff } from 'lucide-vue-next';
+import { ArrowUpRight, ArrowDownRight } from 'lucide-vue-next';
 import Sparkline from '../../Sparkline.vue';
 
 const props = defineProps<{
@@ -11,8 +11,6 @@ const props = defineProps<{
     totalSpend: number;
   };
 }>();
-
-const emit = defineEmits<{ (e: 'hide'): void }>();
 
 const formatCurrency = (n: number, decimals = 0) => {
   return new Intl.NumberFormat('en-US', {
@@ -39,13 +37,6 @@ const attributionPct = () => {
   <div class="bg-white p-7 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.04)] group/block relative">
     <div class="flex items-center justify-between mb-5">
       <span class="text-[10px] font-bold tracking-[0.1em] uppercase text-gray-500">Marketing Efficiency Ratio</span>
-      <button
-        @click="emit('hide')"
-        class="opacity-0 group-hover/block:opacity-100 transition-opacity text-gray-300 hover:text-gray-500"
-        title="Hide block"
-      >
-        <EyeOff :size="16" />
-      </button>
     </div>
 
     <!-- Hero -->

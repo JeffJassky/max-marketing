@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useAccountSettingsStore } from '../../stores/accountSettings';
 import DashboardBlockSkeleton from './DashboardBlockSkeleton.vue';
 import BrandPulseBlock from './blocks/BrandPulseBlock.vue';
 import MerBlock from './blocks/MerBlock.vue';
@@ -22,12 +21,6 @@ const props = defineProps<{
   loading: boolean;
   account: MaxAccount | null;
 }>();
-
-const emit = defineEmits<{
-  (e: 'reload'): void;
-}>();
-
-const settingsStore = useAccountSettingsStore();
 
 const blockComponentMap: Record<string, any> = {
   brandPulse: BrandPulseBlock,
@@ -51,43 +44,18 @@ const BRAND_ORDER = [
   'reachBreakdown', 'siteTraffic',
 ];
 
-const dashConfig = computed(() => {
-  const s = settingsStore.settings;
-  return s?.sections?.dashboard?.customConfig || {};
-});
-
 const templatePreset = computed(() => {
-  const saved = dashConfig.value.templatePreset;
-  if (saved) return saved;
   return props.account?.shopifyId ? 'shopify' : 'brand';
-});
-
-const hiddenBlocks = computed<string[]>(() => {
-  return dashConfig.value.hiddenBlocks || [];
 });
 
 const visibleBlocks = computed(() => {
   const order = templatePreset.value === 'shopify' ? SHOPIFY_ORDER : BRAND_ORDER;
   return order.filter(id => {
-    if (hiddenBlocks.value.includes(id)) return false;
     // Only show blocks that have data (non-null)
     if (props.data?.blocks && props.data.blocks[id] === null) return false;
     return true;
   });
 });
-
-const hideBlock = async (blockId: string) => {
-  if (!props.account) return;
-  const current = [...hiddenBlocks.value];
-  if (!current.includes(blockId)) {
-    current.push(blockId);
-  }
-  await settingsStore.updateSetting(
-    props.account.id,
-    'sections.dashboard.customConfig' as any,
-    { ...dashConfig.value, hiddenBlocks: current },
-  );
-};
 </script>
 
 <template>
@@ -104,7 +72,6 @@ const hideBlock = async (blockId: string) => {
         :key="blockId"
         :is="blockComponentMap[blockId]"
         :data="data.blocks[blockId]"
-        @hide="hideBlock(blockId)"
       />
     </div>
   </div>
