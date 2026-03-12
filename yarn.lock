@@ -1139,6 +1139,39 @@
     "@sendgrid/client" "^8.1.5"
     "@sendgrid/helpers" "^8.0.0"
 
+"@shopify/admin-api-client@^1.1.2":
+  version "1.1.2"
+  resolved "https://registry.yarnpkg.com/@shopify/admin-api-client/-/admin-api-client-1.1.2.tgz#17f5111227ef0ec25d8e5de7e865cd94957b0f0c"
+  integrity sha512-sV5gS8x4kj0KLULlOJkoBzm+tu6tn+1PCK9a6inySv5qtzmf/JxDWtLgaW9vRXeXHo/Sl/p3mBWhY3//fKA8iw==
+  dependencies:
+    "@shopify/graphql-client" "^1.4.2"
+
+"@shopify/graphql-client@^1.4.2":
+  version "1.4.2"
+  resolved "https://registry.yarnpkg.com/@shopify/graphql-client/-/graphql-client-1.4.2.tgz#bd7242877227c1522704b5393ac81a37a7720de0"
+  integrity sha512-C/fEyx6BZmTGeJv0HSsduhfn5ZbkXk0nePkyo0+xXxorP1I+uvx9pobdFxTfiPnOrh+P6QiKzBgIviksnSo4YA==
+
+"@shopify/shopify-api@^13.0.0":
+  version "13.0.0"
+  resolved "https://registry.yarnpkg.com/@shopify/shopify-api/-/shopify-api-13.0.0.tgz#8201130bec0d8e9ba9e79dcc5a619290643c7b15"
+  integrity sha512-tf55PjnIoDY6wjv9gJB1FMYoRmalUCdB8ayPLlPwmDUzCRCKfbQdKrBEX1jnKRmSm7EvtjkUSqbI60v0/jAk9Q==
+  dependencies:
+    "@shopify/admin-api-client" "^1.1.2"
+    "@shopify/graphql-client" "^1.4.2"
+    "@shopify/storefront-api-client" "^1.0.10"
+    compare-versions "^6.1.1"
+    isbot "^5.1.34"
+    jose "^5.9.6"
+    lossless-json "^4.3.0"
+    tslib "^2.8.1"
+
+"@shopify/storefront-api-client@^1.0.10":
+  version "1.0.10"
+  resolved "https://registry.yarnpkg.com/@shopify/storefront-api-client/-/storefront-api-client-1.0.10.tgz#1e2b7318c00c05572a2c694162f858258cdef8e7"
+  integrity sha512-A0ItFW58L5+y/jnnJDEsmt2YcQSt2BG+pNoQOYRpPBJaOLpTj7A13q1QVrE5XYVGZCA6ZQ6FqAtgosHHrkut0Q==
+  dependencies:
+    "@shopify/graphql-client" "^1.4.2"
+
 "@smithy/abort-controller@^4.2.11":
   version "4.2.11"
   resolved "https://registry.yarnpkg.com/@smithy/abort-controller/-/abort-controller-4.2.11.tgz#b989e63615e5449c2ba90d80fcbe4fdd71123c54"
@@ -2834,6 +2867,11 @@ commondir@^1.0.1:
   resolved "https://registry.yarnpkg.com/commondir/-/commondir-1.0.1.tgz#ddd800da0c66127393cca5950ea968a3aaf1253b"
   integrity sha512-W9pAhw0ja1Edb5GVdIF1mjZw/ASI0AlShXM83UUGe2DVr5TdAPEA1OA8m/g8zWp9x6On7gqufY+FatDbC3MDQg==
 
+compare-versions@^6.1.1:
+  version "6.1.1"
+  resolved "https://registry.yarnpkg.com/compare-versions/-/compare-versions-6.1.1.tgz#7af3cc1099ba37d244b3145a9af5201b629148a9"
+  integrity sha512-4hm4VPpIecmlg59CHXnRDnqGplJFrbLG4aFEl5vl6cK1u76ws3LLvX7ikFnTDl5vo39sjWD6AaDPYodJp/NNHg==
+
 concat-map@0.0.1:
   version "0.0.1"
   resolved "https://registry.npmjs.org/concat-map/-/concat-map-0.0.1.tgz"
@@ -3781,6 +3819,11 @@ is-unicode-supported@^0.1.0:
   resolved "https://registry.npmjs.org/is-unicode-supported/-/is-unicode-supported-0.1.0.tgz"
   integrity sha512-knxG2q4UC3u8stRGyAVJCOdxFmv5DZiRcdlIaAQXAbSfJya+OhopNotLQrstBhququ4ZpuKbDc/8S6mgXgPFPw==
 
+isbot@^5.1.34:
+  version "5.1.36"
+  resolved "https://registry.yarnpkg.com/isbot/-/isbot-5.1.36.tgz#139dcc056f0a4042f3d7f39f011a1e328e9c7863"
+  integrity sha512-C/ZtXyJqDPZ7G7JPr06ApWyYoHjYexQbS6hPYD4WYCzpv2Qes6Z+CCEfTX4Owzf+1EJ933PoI2p+B9v7wpGZBQ==
+
 isexe@^2.0.0:
   version "2.0.0"
   resolved "https://registry.npmjs.org/isexe/-/isexe-2.0.0.tgz"
@@ -3799,6 +3842,11 @@ jiti@^1.21.7:
   version "1.21.7"
   resolved "https://registry.npmjs.org/jiti/-/jiti-1.21.7.tgz"
   integrity sha512-/imKNG4EbWNrVjoNC/1H5/9GFy+tqjGBHCaSsN+P2RnPqjsLmv6UD3Ej+Kj8nBWaRAwyk7kK5ZUc+OEatnTR3A==
+
+jose@^5.9.6:
+  version "5.10.0"
+  resolved "https://registry.yarnpkg.com/jose/-/jose-5.10.0.tgz#c37346a099d6467c401351a9a0c2161e0f52c4be"
+  integrity sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==
 
 joycon@^3.1.1:
   version "3.1.1"
@@ -3917,6 +3965,11 @@ log-symbols@^4.1.0:
   dependencies:
     chalk "^4.1.0"
     is-unicode-supported "^0.1.0"
+
+lossless-json@^4.3.0:
+  version "4.3.0"
+  resolved "https://registry.yarnpkg.com/lossless-json/-/lossless-json-4.3.0.tgz#7d26864820ecf08aee800213fc193666e794802a"
+  integrity sha512-ToxOC+SsduRmdSuoLZLYAr5zy1Qu7l5XhmPWM3zefCZ5IcrzW/h108qbJUKfOlDlhvhjUK84+8PSVX0kxnit0g==
 
 lru-cache@^10.2.0:
   version "10.4.3"

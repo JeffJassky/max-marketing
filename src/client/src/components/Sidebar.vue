@@ -1,22 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   LayoutDashboard,
   BarChart3,
-  Sparkles,
-  MapPin,
   Settings,
   ChevronRight,
-  ChevronDown,
-  Lock,
-  MessageSquare,
   HelpCircle,
-  Search,
-  Hash,
-  Star,
-  Globe,
-  Activity,
   Trophy,
   Image as ImageIcon,
   FileText,
@@ -32,31 +21,13 @@ const authStore = useAuthStore();
 const navItems = [
   { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', path: '/' },
   { id: 'overviews', icon: BarChart3, label: 'Overviews', path: '/overviews' },
-  { id: 'monitors', icon: Activity, label: 'Monitors', path: '/monitors' },
   { id: 'superlatives', icon: Trophy, label: 'Hall of Fame', path: '/superlatives' },
   { id: 'creative-lab', icon: ImageIcon, label: 'Creative Lab', path: '/creative-lab' },
   { id: 'report-builder', icon: FileText, label: 'Report Builder', path: '/report-builder' },
-  {
-    id: 'brand-voice',
-    icon: MessageSquare,
-    label: 'Brand Voice Tracker',
-    path: '/brand-voice',
-    children: [
-      { id: 'brand-voice-overview', label: 'Overview', path: '/brand-voice' },
-      { id: 'brand-voice-search', label: 'Search', path: '/brand-voice/search', icon: Search },
-      { id: 'brand-voice-social', label: 'Social', path: '/brand-voice/social', icon: Hash },
-      { id: 'brand-voice-reviews', label: 'Reviews', path: '/brand-voice/reviews', icon: Star },
-      { id: 'brand-voice-website', label: 'Website', path: '/brand-voice/website', icon: Globe }
-    ]
-  },
-  { id: 'google-ads', icon: BarChart3, label: 'Google Ads Suite', path: '/google-ads' },
-  { id: 'social-spark', icon: Hash, label: 'Social Spark', path: '/social-spark' },
-  { id: 'local-seo', icon: MapPin, label: 'Local SEO', path: '/local-seo', locked: true },
   { id: 'settings', icon: Settings, label: 'Settings', path: '/settings' }
 ];
 
 const setView = (item: typeof navItems[number]) => {
-  if (item.locked) return;
   router.push(item.path);
 };
 
@@ -66,8 +37,6 @@ const isActive = (item: typeof navItems[number]) => {
   return route.path.startsWith(item.path);
 };
 
-const isBrandVoiceOpen = computed(() => route.path.startsWith('/brand-voice'));
-const isChildActive = (childPath: string) => route.path === childPath;
 </script>
 
 <template>
@@ -96,8 +65,7 @@ const isChildActive = (childPath: string) => route.path === childPath;
           :class="[
             isActive(item)
               ? 'bg-slate-800 text-amplify-green border border-slate-700'
-              : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border border-transparent',
-            item.locked ? 'opacity-50 cursor-not-allowed' : ''
+              : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border border-transparent'
           ]"
         >
           <div class="flex items-center gap-3">
@@ -109,27 +77,7 @@ const isChildActive = (childPath: string) => route.path === childPath;
             />
             <span class="text-sm" :class="isActive(item) ? 'font-bold' : 'font-medium'">{{ item.label }}</span>
           </div>
-          <div class="flex items-center gap-2">
-            <ChevronDown v-if="item.children" :size="16" :class="isBrandVoiceOpen ? 'text-amplify-green' : 'text-slate-500'" />
-            <ChevronRight v-else-if="isActive(item)" :size="14" class="text-amplify-green" />
-            <Lock v-if="item.locked" :size="12" class="text-slate-600" />
-          </div>
-        </div>
-
-        <div
-          v-if="item.children && isBrandVoiceOpen"
-          class="ml-2 pl-4 border-l border-slate-800 space-y-1"
-        >
-          <button
-            v-for="child in item.children"
-            :key="child.id"
-            class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors"
-            :class="isChildActive(child.path) ? 'text-amplify-green bg-slate-800/60' : 'text-slate-500 hover:text-slate-200 hover:bg-slate-800/40'"
-            @click="router.push(child.path)"
-          >
-            <component v-if="child.icon" :is="child.icon" :size="14" />
-            <span>{{ child.label }}</span>
-          </button>
+          <ChevronRight v-if="isActive(item)" :size="14" class="text-amplify-green" />
         </div>
       </div>
 

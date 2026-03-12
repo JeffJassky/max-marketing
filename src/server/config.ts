@@ -20,6 +20,10 @@ const envSchema = z.object({
   GEMINI_API_KEY: z.string().optional(),
   WINDSOR_API_KEY: z.string().optional(),
 
+  // Shopify OAuth
+  SHOPIFY_API_KEY: z.string().min(1, "SHOPIFY_API_KEY is required"),
+  SHOPIFY_API_SECRET: z.string().min(1, "SHOPIFY_API_SECRET is required"),
+
   // S3 Thumbnail Storage (optional — thumbnails degrade gracefully to original URLs)
   S3_BUCKET: z.string().optional(),
   S3_REGION: z.string().default("us-east-1"),

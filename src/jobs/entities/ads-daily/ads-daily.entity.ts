@@ -1,6 +1,6 @@
 import { Entity } from "../../base";
-import { googleAdsCampaignPerformance } from "../../imports/google_ads/campaign-performance.import";
-import { facebookAdsInsights } from "../../imports/facebook_ads/insights.import";
+import { googleAdsAdPerformance } from "../../imports/google_ads/ad-performance.import";
+import { facebookAdsAdPerformance } from "../../imports/facebook_ads/ad-performance.import";
 import { z } from "zod";
 import {
   RocketShipAward,
@@ -19,19 +19,19 @@ import { AwardDefinition } from "../../../shared/data/types";
 export const adsDaily = new Entity({
   id: "adsDaily",
   label: "Ads Performance",
-  description: "Unified daily performance across Google and Meta Ads.",
-  sources: [googleAdsCampaignPerformance, facebookAdsInsights],
+  description: "Unified daily ad-level performance across Google and Meta Ads.",
+  sources: [googleAdsAdPerformance, facebookAdsAdPerformance],
   partitionBy: "date",
-  clusterBy: ["platform", "account_id", "campaign_id", "adset_id"],
-  grain: ["date", "account_id", "campaign_id", "adset_id", "platform"],
+  clusterBy: ["platform", "account_id", "campaign_id", "ad_id"],
+  grain: ["date", "account_id", "campaign_id", "adset_id", "ad_id", "platform"],
   dimensions: {
     date: { type: z.string() },
     account_id: { type: z.string() },
     platform: {
       type: z.string(),
       sources: {
-        campaignPerformance: { expression: "'google'" },
-        facebookAdsInsights: { expression: "'facebook'" },
+        googleAdsAdPerformance: { expression: "'google'" },
+        facebookAdsAdPerformance: { expression: "'facebook'" },
       },
     },
     campaign_id: { type: z.string() },
@@ -39,31 +39,46 @@ export const adsDaily = new Entity({
       type: z.string(),
       sourceField: "campaign_name",
       sources: {
-        campaignPerformance: { sourceField: "campaign" },
+        googleAdsAdPerformance: { sourceField: "campaign" },
       },
     },
     adset_id: {
       type: z.string(),
       sources: {
-        campaignPerformance: { expression: "CAST(NULL AS STRING)" },
-        facebookAdsInsights: { sourceField: "adset_id" },
+        googleAdsAdPerformance: { sourceField: "ad_group_id" },
+        facebookAdsAdPerformance: { sourceField: "adset_id" },
       },
     },
     adset_name: {
       type: z.string(),
       sources: {
-        campaignPerformance: { expression: "CAST(NULL AS STRING)" },
-        facebookAdsInsights: { sourceField: "adset_name" },
+        googleAdsAdPerformance: { sourceField: "ad_group" },
+        facebookAdsAdPerformance: { sourceField: "adset_name" },
+      },
+    },
+    ad_id: {
+      type: z.string(),
+      sourceField: "ad_id",
+    },
+    ad_name: {
+      type: z.string(),
+      sourceField: "ad_name",
+    },
+    ad_preview_url: {
+      type: z.string(),
+      sources: {
+        facebookAdsAdPerformance: { sourceField: "desktop_feed_standard_preview_url" },
+        googleAdsAdPerformance: { expression: "CAST(NULL AS STRING)" },
       },
     },
     channel_group: {
       type: z.string(),
       sourceField: "publisher_platform",
       sources: {
-        campaignPerformance: { sourceField: "advertising_channel_type" },
-        facebookAdsInsights: {
+        googleAdsAdPerformance: { sourceField: "advertising_channel_type" },
+        facebookAdsAdPerformance: {
           expression: `
-            CASE 
+            CASE
               WHEN platform_position LIKE '%story%' THEN 'Stories'
               WHEN platform_position LIKE '%reels%' THEN 'Reels'
               WHEN platform_position LIKE '%feed%' THEN 'Feed'
@@ -88,7 +103,7 @@ export const adsDaily = new Entity({
       aggregation: "sum",
       sourceField: "reach",
       sources: {
-        campaignPerformance: { expression: "0" },
+        googleAdsAdPerformance: { expression: "0" },
       },
     },
     video_views: {
@@ -96,7 +111,7 @@ export const adsDaily = new Entity({
       aggregation: "sum",
       sourceField: "video_views",
       sources: {
-        facebookAdsInsights: {
+        facebookAdsAdPerformance: {
           expression:
             "SUM((SELECT SUM(SAFE_CAST(value AS FLOAT64)) FROM UNNEST(actions) WHERE action_type = 'video_view'))",
         },
@@ -108,7 +123,7 @@ export const adsDaily = new Entity({
       aggregation: "sum",
       sourceField: "conversions",
       sources: {
-        facebookAdsInsights: {
+        facebookAdsAdPerformance: {
           expression:
             "SUM((SELECT SUM(SAFE_CAST(value AS FLOAT64)) FROM UNNEST(actions) WHERE action_type = 'purchase'))",
         },
@@ -119,7 +134,7 @@ export const adsDaily = new Entity({
       aggregation: "sum",
       sourceField: "conversions_value",
       sources: {
-        facebookAdsInsights: {
+        facebookAdsAdPerformance: {
           expression:
             "SUM((SELECT SUM(SAFE_CAST(value AS FLOAT64)) FROM UNNEST(action_values) WHERE action_type = 'purchase'))",
         },

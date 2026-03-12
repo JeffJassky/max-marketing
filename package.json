@@ -26,7 +26,8 @@
     "scheduler": "npx tsx src/queue/scheduler.ts",
     "enqueue": "npx tsx src/queue/enqueue.ts",
     "analyze-errors": "npx tsx src/cli/analyze-agent-errors.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "shopify:tunnel": "shopify app dev"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1006.0",
@@ -34,6 +35,7 @@
     "@google-cloud/bigquery": "^8.1.1",
     "@google/generative-ai": "^0.24.1",
     "@sendgrid/mail": "^8.1.6",
+    "@shopify/shopify-api": "^13.0.0",
     "@types/glob": "^9.0.0",
     "@types/inquirer": "8.2.4",
     "@types/lodash": "^4.17.21",

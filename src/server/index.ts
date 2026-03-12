@@ -65,6 +65,7 @@ import { requireAuth, requireAccountAccess } from "./auth/middleware";
 import authRoutes from "./routes/auth";
 import adminRoutes from "./routes/admin";
 import dashboardRoutes from "./routes/dashboard";
+import shopifyRoutes from "./routes/shopify";
 import { AccountMembership } from "./models/AccountMembership";
 import { IUser } from "./models/User";
 
@@ -106,6 +107,9 @@ app.use("/api/auth/forgot-password", authLimiter);
 
 // --- Auth Routes (public) ---
 app.use("/api/auth", authRoutes);
+
+// --- Shopify OAuth Routes (public — called by Shopify during install) ---
+app.use("/api/shopify", shopifyRoutes);
 
 // --- Admin Routes (requires admin) ---
 app.use("/api/admin", adminRoutes);

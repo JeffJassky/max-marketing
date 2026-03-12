@@ -56,6 +56,13 @@ export const socialMediaDaily = new Entity({
         facebookOrganicPosts: { expression: "CONCAT('https://facebook.com/', post_id)" },
       },
     },
+    published_at: {
+      type: z.string(),
+      sources: {
+        instagramMedia: { expression: "CAST(date AS STRING)" },
+        facebookOrganicPosts: { sourceField: "post_created_time" },
+      },
+    },
     thumbnail_url: {
       type: z.string(),
       sources: {

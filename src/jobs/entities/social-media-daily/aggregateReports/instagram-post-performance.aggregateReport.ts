@@ -14,7 +14,7 @@ export const instagramPostPerformance = new AggregateReport({
   },
   output: {
     grain: ["account_id", "thumbnail_url", "caption"],
-    includeDimensions: ["permalink", "media_type"],
+    includeDimensions: ["permalink", "media_type", "published_at"],
     metrics: {
       impressions: { aggregation: "sum", display: { format: "number", description: "Total times your organic posts were displayed to users across social platforms." } },
       likes: { aggregation: "sum", display: { format: "number", description: "Total likes on your posts. A basic engagement indicator showing content appreciation." } },

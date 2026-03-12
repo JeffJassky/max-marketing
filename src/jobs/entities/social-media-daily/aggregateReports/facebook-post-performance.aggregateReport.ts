@@ -14,7 +14,7 @@ export const facebookPostPerformance = new AggregateReport({
   },
   output: {
     grain: ["account_id", "thumbnail_url", "caption"],
-    includeDimensions: ["permalink"],
+    includeDimensions: ["permalink", "published_at"],
     metrics: {
       impressions: { aggregation: "sum", display: { format: "number", description: "Total times your organic posts were displayed to users across social platforms." } },
       likes: { aggregation: "sum", display: { format: "number", description: "Total likes on your posts. A basic engagement indicator showing content appreciation." } },
