@@ -82,6 +82,21 @@ export class EntityExecutor {
 
 	private async runIncremental(bq: any, entity: Entity<any>, fullTableId: string, location: string, days: number): Promise<void> {
 		const dateFilter = `DATE_SUB(CURRENT_DATE(), INTERVAL ${days} DAY)`;
+		const transformQuery = entity.getTransformQuery({ dateFilter });
+
+		// Dry-run the INSERT to detect schema mismatches before deleting any data
+		const insertSql = `INSERT INTO \`${fullTableId}\`\n${transformQuery}`;
+		try {
+			await bq.createQueryJob({ query: insertSql, location, dryRun: true });
+		} catch (dryRunError: any) {
+			if (dryRunError.message?.includes('column count') || dryRunError.message?.includes('wrong column')) {
+				console.log(`Schema mismatch detected for ${entity.id} — falling back to full rebuild.`);
+				await this.runFullRebuild(bq, entity, fullTableId, location);
+				return;
+			}
+			// Other dry-run errors are unexpected — let them propagate
+			throw dryRunError;
+		}
 
 		// Step 1: DELETE recent partitions
 		const deleteSql = `DELETE FROM \`${fullTableId}\` WHERE date >= ${dateFilter}`;
@@ -95,9 +110,6 @@ export class EntityExecutor {
 		console.log(`Delete job ${deleteJob.id} completed.`);
 
 		// Step 2: INSERT new data for the recent window
-		const transformQuery = entity.getTransformQuery({ dateFilter });
-		const insertSql = `INSERT INTO \`${fullTableId}\`\n${transformQuery}`;
-
 		console.log(`Step 2: INSERT recent data`);
 
 		const [insertJob] = await bq.createQueryJob({ query: insertSql, location });
