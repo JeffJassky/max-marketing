@@ -8,13 +8,11 @@ interface RingData {
 
 const props = defineProps<{
   data: {
-    score: number;
-    scoreMethod: 'rolling' | 'mom';
     totalImpressions: number;
     periodLabel: string;
-    mom: number | null;
-    yoy: number | null;
-    heroComparison: { type: string; value: number } | null;
+    vsPrior: number | null;
+    vsThreeMonthAvg: number | null;
+    vsYoY: number | null;
     rings: {
       earned: RingData;
       paid: RingData;
@@ -32,8 +30,8 @@ const formatNum = (n: number) => {
 // Only show rings that actually have data
 const activeRingConfig = computed(() => {
   const all = [
-    { key: 'earned' as const, radius: 120, strokeWidth: 18, color: '#84CC16', glowColor: '#84CC1660', label: 'Earned\n(Organic)' },
-    { key: 'paid' as const, radius: 94, strokeWidth: 16, color: '#06B6D4', glowColor: '#06B6D460', label: 'Paid\nExposure' },
+    { key: 'earned' as const, radius: 120, strokeWidth: 18, color: '#84CC16', glowColor: '#84CC1660', label: 'Earned (Organic)' },
+    { key: 'paid' as const, radius: 94, strokeWidth: 16, color: '#06B6D4', glowColor: '#06B6D460', label: 'Paid Exposure' },
     { key: 'engaged' as const, radius: 70, strokeWidth: 14, color: '#7C3AED', glowColor: '#7C3AED60', label: 'Engaged' },
   ];
   return all.filter(cfg => props.data.rings[cfg.key].value > 0);
@@ -76,16 +74,18 @@ const bgRings = computed(() =>
   })
 );
 
-const hasComparisons = computed(() => props.data.mom !== null || props.data.yoy !== null);
-
-const scoreLabel = computed(() => {
-  if (props.data.scoreMethod === 'rolling') return 'Brand Impact Score';
-  return 'Brand Impact Score';
-});
-
-const scoreSubtext = computed(() => {
-  if (props.data.scoreMethod === 'rolling') return 'vs 6-month baseline';
-  return 'vs prior period';
+const comparisons = computed(() => {
+  const lines: { pct: number; aboveLabel: string; belowLabel: string }[] = [];
+  if (props.data.vsPrior !== null) {
+    lines.push({ pct: props.data.vsPrior, aboveLabel: 'vs. prior period', belowLabel: 'vs. prior period' });
+  }
+  if (props.data.vsThreeMonthAvg !== null) {
+    lines.push({ pct: props.data.vsThreeMonthAvg, aboveLabel: 'above 3-month average', belowLabel: 'below 3-month average' });
+  }
+  if (props.data.vsYoY !== null) {
+    lines.push({ pct: props.data.vsYoY, aboveLabel: 'higher than same period last year', belowLabel: 'lower than same period last year' });
+  }
+  return lines;
 });
 
 const svgSize = 300;
@@ -93,7 +93,7 @@ const center = svgSize / 2;
 </script>
 
 <template>
-  <div class="bg-[#0B1120] p-8 pb-10 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.04)] group/block relative lg:col-span-2 overflow-hidden">
+  <div class="bg-[#0B1120] p-8 pb-10 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.04)] group/block relative overflow-hidden">
     <!-- Radial glow behind the donut -->
     <div class="absolute top-1/2 left-[170px] -translate-y-1/2 w-[360px] h-[360px] bg-emerald-500/[0.03] rounded-full blur-[80px] pointer-events-none" />
 
@@ -158,35 +158,22 @@ const center = svgSize / 2;
         </div>
       </div>
 
-      <!-- Score + Layer Breakdown -->
+      <!-- Momentum + Layer Breakdown -->
       <div class="flex-shrink-0 w-[280px]">
-        <!-- Brand Impact Score -->
-        <div :class="hasComparisons ? 'mb-7' : 'mb-5'">
-          <div class="text-[13px] font-semibold tracking-[0.1em] uppercase text-gray-500 mb-1.5">{{ scoreLabel }}</div>
-          <div class="flex items-baseline gap-1.5">
-            <span class="font-mono text-[52px] font-bold text-white leading-none">{{ data.score }}</span>
-            <span class="text-lg text-gray-500 font-medium">/100</span>
-          </div>
-          <div class="text-xs text-gray-600 mt-1">{{ scoreSubtext }}</div>
-
-          <!-- MoM and YoY — only shown when data exists -->
-          <div v-if="hasComparisons" class="flex items-center gap-5 mt-2.5">
-            <span
-              v-if="data.mom !== null"
-              class="text-[13px] font-semibold flex items-center gap-1"
-              :class="data.mom >= 0 ? 'text-emerald-400' : 'text-red-400'"
+        <!-- Momentum Comparisons -->
+        <div v-if="comparisons.length > 0" class="mb-7">
+          <div class="text-[13px] font-semibold tracking-[0.1em] uppercase text-gray-500 mb-3">Momentum</div>
+          <div class="space-y-2">
+            <div
+              v-for="(comp, idx) in comparisons"
+              :key="idx"
+              class="flex items-center gap-2 font-medium"
+              :class="comp.pct >= 0 ? 'text-emerald-400' : 'text-red-400'"
             >
-              <span class="text-[11px]">{{ data.mom >= 0 ? '&#9650;' : '&#9660;' }}</span>
-              {{ Math.abs(data.mom).toFixed(0) }}% MoM
-            </span>
-            <span
-              v-if="data.yoy !== null"
-              class="text-[13px] font-semibold flex items-center gap-1"
-              :class="data.yoy >= 0 ? 'text-emerald-400' : 'text-red-400'"
-            >
-              <span class="text-[11px]">{{ data.yoy >= 0 ? '&#9650;' : '&#9660;' }}</span>
-              {{ Math.abs(data.yoy).toFixed(0) }}% YoY
-            </span>
+              <span class="text-[28px] leading-none" v-html="comp.pct >= 0 ? '&#9650;' : '&#9660;'" />
+              <span class="text-[30px] font-bold leading-none">{{ Math.abs(comp.pct).toFixed(0) }}%</span>
+              <span class="text-[13px] text-gray-500">{{ comp.pct >= 0 ? comp.aboveLabel : comp.belowLabel }}</span>
+            </div>
           </div>
         </div>
 
@@ -202,7 +189,7 @@ const center = svgSize / 2;
                 class="w-3 h-3 rounded-full flex-shrink-0"
                 :style="{ backgroundColor: ring.color, boxShadow: `0 0 8px ${ring.glowColor}` }"
               />
-              <span class="text-[13px] font-medium text-gray-400 leading-tight whitespace-pre-line">{{ ring.label }}</span>
+              <span class="text-[13px] font-medium text-gray-400 leading-tight whitespace-nowrap">{{ ring.label }}</span>
             </div>
             <div class="flex items-center gap-3">
               <span class="text-[12px] text-gray-500 font-mono">{{ ring.percent }}%</span>

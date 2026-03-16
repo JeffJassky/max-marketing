@@ -333,6 +333,7 @@ const parseArgs = () => {
     allAggregateReports: false,
     allMonitors: false,
     allSuperlatives: false,
+    thumbnail: false,
     all: false,
     projectId: undefined as string | undefined,
     lookback: undefined as LookbackPreset | undefined,
@@ -381,6 +382,9 @@ const parseArgs = () => {
       case "--all-superlatives":
         selected.allSuperlatives = true;
         break;
+      case "--thumbnail":
+        selected.thumbnail = true;
+        break;
       case "--all":
         selected.all = true;
         break;
@@ -404,6 +408,7 @@ const parseArgs = () => {
     selected.allAggregateReports ||
     selected.allMonitors ||
     selected.allSuperlatives ||
+    selected.thumbnail ||
     selected.all;
 
   return { selected, hasSelection };
@@ -423,6 +428,7 @@ Options:
   --report <id>        Run specific aggregate report
   --monitor <id>       Run specific monitor
   --superlative <id>   Run specific superlative
+  --thumbnail          Run thumbnail S3 sync
   --all-imports        Run all imports
   --all-entities       Run all entities
   --all-reports        Run all aggregate reports
@@ -435,16 +441,22 @@ Options:
     return;
   }
 
+  // Default lookback for thumbnail-only runs (thumbnail sync uses its own lookbackDays config)
+  if (selected.thumbnail && !selected.lookback) {
+    selected.lookback = "7d" as LookbackPreset;
+  }
+
   // If --lookback is provided, use the pipeline runner so date_preset is respected
   if (selected.lookback && hasSelection) {
     const phases: ("import" | "thumbnail" | "entity" | "aggregateReport" | "monitor" | "superlative")[] = [];
     const jobIds: string[] = [];
 
     if (selected.all) {
-      phases.push("import", "thumbnail", "entity", "aggregateReport", "monitor", "superlative");
+      phases.push("import", "entity", "thumbnail", "aggregateReport", "monitor", "superlative");
     } else {
       if (selected.allImports || selected.import.size > 0) phases.push("import");
       if (selected.allEntities || selected.entity.size > 0) phases.push("entity");
+      if (selected.thumbnail) phases.push("thumbnail");
       if (selected.allAggregateReports || selected.aggregateReport.size > 0) phases.push("aggregateReport");
       if (selected.allMonitors || selected.monitor.size > 0) phases.push("monitor");
       if (selected.allSuperlatives || selected.superlative.size > 0) phases.push("superlative");

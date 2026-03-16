@@ -78,6 +78,28 @@ router.get("/blocks", async (req: Request, res: Response) => {
     prevEndStr = prevEnd.toISOString().split("T")[0];
   }
 
+  // 3-month average date ranges (calendar-based, independent of selected date range)
+  const today = new Date();
+  const todayDay = today.getDate();
+  const todayYear = today.getFullYear();
+  const todayMonth = today.getMonth(); // 0-indexed
+
+  const mtdStart = `${todayYear}-${String(todayMonth + 1).padStart(2, "0")}-01`;
+  const mtdEnd = today.toISOString().split("T")[0];
+
+  const priorMonthRanges: { start: string; end: string }[] = [];
+  for (let i = 1; i <= 3; i++) {
+    const m = new Date(todayYear, todayMonth - i, 1);
+    const year = m.getFullYear();
+    const month = m.getMonth();
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const clampedDay = Math.min(todayDay, lastDay);
+    priorMonthRanges.push({
+      start: `${year}-${String(month + 1).padStart(2, "0")}-01`,
+      end: `${year}-${String(month + 1).padStart(2, "0")}-${String(clampedDay).padStart(2, "0")}`,
+    });
+  }
+
   try {
     const bq = createBigQueryClient();
 
@@ -600,150 +622,180 @@ router.get("/blocks", async (req: Request, res: Response) => {
           })
         : Promise.resolve(null);
 
-    // ───────── 19. Brand Pulse: 6-month baseline (all layers) ─────────
-    const baselineStart = new Date(endStr);
-    baselineStart.setDate(baselineStart.getDate() - 180);
-    const baselineStartStr = baselineStart.toISOString().split("T")[0];
+    // ───────── 19. Brand Pulse: 3-month average comparison ─────────
+    const threeMonthDateParams = {
+      mtdStart,
+      mtdEnd,
+      m1Start: priorMonthRanges[0].start,
+      m1End: priorMonthRanges[0].end,
+      m2Start: priorMonthRanges[1].start,
+      m2End: priorMonthRanges[1].end,
+      m3Start: priorMonthRanges[2].start,
+      m3End: priorMonthRanges[2].end,
+    };
 
-    const brandBaselinePromise = safe(async () => {
-      const baseParams = { baselineStart: baselineStartStr, endDate: endStr };
-      const queries: Promise<{ earned: number; paid: number; engaged: number; days: number }>[] = [];
+    const brandThreeMonthAvgPromise = safe(async () => {
+      const bucketCase = `
+        CASE
+          WHEN date >= @mtdStart AND date <= @mtdEnd THEN 'current'
+          ELSE 'prior'
+        END
+      `;
+      const dateFilter = `
+        (date >= @mtdStart AND date <= @mtdEnd)
+        OR (date >= @m1Start AND date <= @m1End)
+        OR (date >= @m2Start AND date <= @m2End)
+        OR (date >= @m3Start AND date <= @m3End)
+      `;
 
-      // Ads: impressions → Paid, clicks → Engaged
+      const queries: Promise<{ current: number; prior: number }>[] = [];
+
+      // Ads: impressions + clicks
       if (adsIds.length > 0) {
         queries.push(
-          bq
-            .query({
-              query: `
-              SELECT SUM(impressions) as impressions, SUM(clicks) as clicks,
-                COUNT(DISTINCT date) as days_with_data
+          bq.query({
+            query: `
+              SELECT ${bucketCase} as bucket,
+                SUM(impressions) + SUM(clicks) as total
               FROM \`entities.ads_daily\`
-              WHERE account_id IN UNNEST(@accountIds)
-                AND date >= @baselineStart AND date <= @endDate
+              WHERE account_id IN UNNEST(@accountIds) AND (${dateFilter})
+              GROUP BY bucket
             `,
-              params: { accountIds: adsIds, ...baseParams },
-            })
-            .then(([r]) => ({ earned: 0, paid: r[0]?.impressions || 0, engaged: r[0]?.clicks || 0, days: r[0]?.days_with_data || 0 }))
+            params: { accountIds: adsIds, ...threeMonthDateParams },
+          }).then(([rows]) => {
+            let current = 0, prior = 0;
+            for (const r of rows as any[]) {
+              if (r.bucket === "current") current = r.total || 0;
+              else if (r.bucket === "prior") prior = r.total || 0;
+            }
+            return { current, prior };
+          })
         );
-      } else {
-        queries.push(Promise.resolve({ earned: 0, paid: 0, engaged: 0, days: 0 }));
       }
 
-      // Social posts: impressions → Earned, engagement → Engaged
+      // Social posts: impressions + engagement
       if (socialIds.length > 0) {
         queries.push(
-          bq
-            .query({
-              query: `
-              SELECT SUM(impressions) as impressions, SUM(engagement) as engagement,
-                COUNT(DISTINCT date) as days_with_data
+          bq.query({
+            query: `
+              SELECT ${bucketCase} as bucket,
+                SUM(impressions) + SUM(engagement) as total
               FROM \`entities.social_media_daily\`
-              WHERE account_id IN UNNEST(@accountIds)
-                AND date >= @baselineStart AND date <= @endDate
+              WHERE account_id IN UNNEST(@accountIds) AND (${dateFilter})
+              GROUP BY bucket
             `,
-              params: { accountIds: socialIds, ...baseParams },
-            })
-            .then(([r]) => ({ earned: r[0]?.impressions || 0, paid: 0, engaged: r[0]?.engagement || 0, days: r[0]?.days_with_data || 0 }))
+            params: { accountIds: socialIds, ...threeMonthDateParams },
+          }).then(([rows]) => {
+            let current = 0, prior = 0;
+            for (const r of rows as any[]) {
+              if (r.bucket === "current") current = r.total || 0;
+              else if (r.bucket === "prior") prior = r.total || 0;
+            }
+            return { current, prior };
+          })
         );
-      } else {
-        queries.push(Promise.resolve({ earned: 0, paid: 0, engaged: 0, days: 0 }));
       }
 
-      // Social accounts reach → Earned
+      // Social accounts: reach
       if (socialIds.length > 0) {
         queries.push(
-          bq
-            .query({
-              query: `
-              SELECT SUM(reach) as reach, COUNT(DISTINCT date) as days_with_data
+          bq.query({
+            query: `
+              SELECT ${bucketCase} as bucket,
+                SUM(reach) as total
               FROM \`entities.social_accounts_daily\`
-              WHERE account_id IN UNNEST(@accountIds)
-                AND date >= @baselineStart AND date <= @endDate
+              WHERE account_id IN UNNEST(@accountIds) AND (${dateFilter})
+              GROUP BY bucket
             `,
-              params: { accountIds: socialIds, ...baseParams },
-            })
-            .then(([r]) => ({ earned: r[0]?.reach || 0, paid: 0, engaged: 0, days: r[0]?.days_with_data || 0 }))
+            params: { accountIds: socialIds, ...threeMonthDateParams },
+          }).then(([rows]) => {
+            let current = 0, prior = 0;
+            for (const r of rows as any[]) {
+              if (r.bucket === "current") current = r.total || 0;
+              else if (r.bucket === "prior") prior = r.total || 0;
+            }
+            return { current, prior };
+          })
         );
-      } else {
-        queries.push(Promise.resolve({ earned: 0, paid: 0, engaged: 0, days: 0 }));
       }
 
-      // GSC: impressions → Earned, clicks → Engaged
+      // GSC: impressions + clicks
       if (gscIds.length > 0) {
         queries.push(
-          bq
-            .query({
-              query: `
-              SELECT SUM(impressions) as impressions, SUM(clicks) as clicks,
-                COUNT(DISTINCT date) as days_with_data
+          bq.query({
+            query: `
+              SELECT ${bucketCase} as bucket,
+                SUM(impressions) + SUM(clicks) as total
               FROM \`entities.gsc_daily\`
-              WHERE account_id IN UNNEST(@accountIds)
-                AND date >= @baselineStart AND date <= @endDate
+              WHERE account_id IN UNNEST(@accountIds) AND (${dateFilter})
+              GROUP BY bucket
             `,
-              params: { accountIds: gscIds, ...baseParams },
-            })
-            .then(([r]) => ({ earned: r[0]?.impressions || 0, paid: 0, engaged: r[0]?.clicks || 0, days: r[0]?.days_with_data || 0 }))
+            params: { accountIds: gscIds, ...threeMonthDateParams },
+          }).then(([rows]) => {
+            let current = 0, prior = 0;
+            for (const r of rows as any[]) {
+              if (r.bucket === "current") current = r.total || 0;
+              else if (r.bucket === "prior") prior = r.total || 0;
+            }
+            return { current, prior };
+          })
         );
-      } else {
-        queries.push(Promise.resolve({ earned: 0, paid: 0, engaged: 0, days: 0 }));
       }
 
-      // GA4: direct/organic views → Engaged, engaged_sessions → Engaged
+      // GA4: views + engaged_sessions
       if (ga4Ids.length > 0) {
         queries.push(
-          bq
-            .query({
-              query: `
-              SELECT
-                SUM(CASE WHEN channel_group IN ('Direct', 'Organic Search') THEN views ELSE 0 END) as direct_organic_views,
-                SUM(engaged_sessions) as engaged_sessions,
-                COUNT(DISTINCT date) as days_with_data
+          bq.query({
+            query: `
+              SELECT ${bucketCase} as bucket,
+                SUM(CASE WHEN channel_group IN ('Direct', 'Organic Search') THEN views ELSE 0 END)
+                  + SUM(engaged_sessions) as total
               FROM \`entities.ga4_daily\`
-              WHERE account_id IN UNNEST(@accountIds)
-                AND date >= @baselineStart AND date <= @endDate
+              WHERE account_id IN UNNEST(@accountIds) AND (${dateFilter})
+              GROUP BY bucket
             `,
-              params: { accountIds: ga4Ids, ...baseParams },
-            })
-            .then(([r]) => ({
-              earned: 0,
-              paid: 0,
-              engaged: (r[0]?.direct_organic_views || 0) + (r[0]?.engaged_sessions || 0),
-              days: r[0]?.days_with_data || 0,
-            }))
+            params: { accountIds: ga4Ids, ...threeMonthDateParams },
+          }).then(([rows]) => {
+            let current = 0, prior = 0;
+            for (const r of rows as any[]) {
+              if (r.bucket === "current") current = r.total || 0;
+              else if (r.bucket === "prior") prior = r.total || 0;
+            }
+            return { current, prior };
+          })
         );
-      } else {
-        queries.push(Promise.resolve({ earned: 0, paid: 0, engaged: 0, days: 0 }));
       }
 
-      // Shopify orders → Engaged
+      // Shopify: orders
       if (shopifyIds.length > 0) {
         queries.push(
-          bq
-            .query({
-              query: `
-              SELECT SUM(orders) as orders, COUNT(DISTINCT date) as days_with_data
+          bq.query({
+            query: `
+              SELECT ${bucketCase} as bucket,
+                SUM(orders) as total
               FROM \`entities.shopify_daily\`
-              WHERE account_id IN UNNEST(@accountIds)
-                AND date >= @baselineStart AND date <= @endDate
+              WHERE account_id IN UNNEST(@accountIds) AND (${dateFilter})
+              GROUP BY bucket
             `,
-              params: { accountIds: shopifyIds, ...baseParams },
-            })
-            .then(([r]) => ({ earned: 0, paid: 0, engaged: r[0]?.orders || 0, days: r[0]?.days_with_data || 0 }))
+            params: { accountIds: shopifyIds, ...threeMonthDateParams },
+          }).then(([rows]) => {
+            let current = 0, prior = 0;
+            for (const r of rows as any[]) {
+              if (r.bucket === "current") current = r.total || 0;
+              else if (r.bucket === "prior") prior = r.total || 0;
+            }
+            return { current, prior };
+          })
         );
-      } else {
-        queries.push(Promise.resolve({ earned: 0, paid: 0, engaged: 0, days: 0 }));
       }
 
+      if (queries.length === 0) return null;
+
       const results = await Promise.all(queries);
-      return results.reduce(
-        (acc, r) => ({
-          earned: acc.earned + r.earned,
-          paid: acc.paid + r.paid,
-          engaged: acc.engaged + r.engaged,
-          days: Math.max(acc.days, r.days), // Use the source with the most history
-        }),
-        { earned: 0, paid: 0, engaged: 0, days: 0 }
-      );
+      const currentTotal = results.reduce((s, r) => s + r.current, 0);
+      const priorTotal = results.reduce((s, r) => s + r.prior, 0);
+      // Prior total is sum of 3 months — divide by 3 to get the average
+      return { currentTotal, avgTotal: priorTotal / 3 };
     });
 
     // ═══════ Execute all in parallel ═══════
@@ -766,7 +818,7 @@ router.get("/blocks", async (req: Request, res: Response) => {
       brandSocialYoY,
       brandGscYoY,
       brandShopifyYoY,
-      brandBaseline,
+      brandThreeMonthAvg,
     ] = await Promise.all([
       adsByPlatformPromise,
       adsDailyPromise,
@@ -786,7 +838,7 @@ router.get("/blocks", async (req: Request, res: Response) => {
       brandSocialYoYPromise,
       brandGscYoYPromise,
       brandShopifyYoYPromise,
-      brandBaselinePromise,
+      brandThreeMonthAvgPromise,
     ]);
 
     // ═══════ Assemble block responses ═══════
@@ -1204,68 +1256,26 @@ router.get("/blocks", async (req: Request, res: Response) => {
       const totalPrev = earnedPrev + paidPrev + engagedPrev;
       const totalYoY = earnedYoY + paidYoY + engagedYoY;
 
-      // ── Brand Impact Score (0-100, 50 = steady state) ──
-      // Uses 6-month rolling baseline when available (≥150 days of data).
-      // Falls back to MoM comparison when history is limited.
-      const periodDays =
-        Math.ceil(
-          Math.abs(new Date(endStr).getTime() - new Date(startStr).getTime()) /
-            (1000 * 60 * 60 * 24)
-        ) + 1;
-
-      let score = 50; // Default for cold start
-      let scoreMethod: "rolling" | "mom" = "mom";
-
-      if (brandBaseline) {
-        const bl = brandBaseline as { earned: number; paid: number; engaged: number; days: number };
-        const baselineTotal = bl.earned + bl.paid + bl.engaged;
-        const baselineDataDays = bl.days;
-
-        if (baselineDataDays >= 150) {
-          // Enough history — use rolling 6-month baseline
-          scoreMethod = "rolling";
-          const baselineDailyRate = baselineDataDays > 0 ? baselineTotal / baselineDataDays : 0;
-          const currentDailyRate = periodDays > 0 ? totalCurr / periodDays : 0;
-          const ratio = baselineDailyRate > 0 ? currentDailyRate / baselineDailyRate : 1;
-          score = Math.round(Math.min(100, Math.max(0, ratio * 50)));
-        } else {
-          // Limited history — use MoM (current vs previous period)
-          scoreMethod = "mom";
-          const prevDailyRate = periodDays > 0 ? totalPrev / periodDays : 0;
-          const currentDailyRate = periodDays > 0 ? totalCurr / periodDays : 0;
-          const ratio = prevDailyRate > 0 ? currentDailyRate / prevDailyRate : 1;
-          score = Math.round(Math.min(100, Math.max(0, ratio * 50)));
-        }
-      } else if (totalPrev > 0) {
-        // No baseline at all — pure MoM fallback
-        const ratio = totalPrev > 0 ? totalCurr / totalPrev : 1;
-        score = Math.round(Math.min(100, Math.max(0, ratio * 50)));
-      }
-
       // ── Comparisons (null when no comparison data exists) ──
-      const mom = totalPrev > 0 ? pctChange(totalCurr, totalPrev) : null;
-      const yoy = totalYoY > 0 ? pctChange(totalCurr, totalYoY) : null;
+      const vsPrior = totalPrev > 0 ? pctChange(totalCurr, totalPrev) : null;
+      const vsYoY = totalYoY > 0 ? pctChange(totalCurr, totalYoY) : null;
 
-      // Hero maker: pick the most impressive available comparison
-      const availableComparisons: { type: string; value: number }[] = [];
-      if (mom !== null) availableComparisons.push({ type: "mom", value: mom });
-      if (yoy !== null) availableComparisons.push({ type: "yoy", value: yoy });
-      const heroComparison = availableComparisons.length > 0
-        ? availableComparisons.reduce((best, c) => c.value > best.value ? c : best)
+      // 3-month average comparison (calendar-based, independent of selection)
+      const threeMonthAvgData = brandThreeMonthAvg as { currentTotal: number; avgTotal: number } | null;
+      const vsThreeMonthAvg = threeMonthAvgData && threeMonthAvgData.avgTotal > 0
+        ? pctChange(threeMonthAvgData.currentTotal, threeMonthAvgData.avgTotal)
         : null;
 
       // Only emit if we have any data at all
       if (totalCurr > 0 || totalPrev > 0) {
         brandPulseBlock = {
-          score,
-          scoreMethod, // "rolling" (6-month baseline) or "mom" (month-over-month)
           totalImpressions: totalCurr,
           periodLabel: startStr === endStr
-            ? new Date(startStr).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
-            : `${new Date(startStr).toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(endStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`,
-          mom: mom !== null ? Math.round(mom * 10) / 10 : null,
-          yoy: yoy !== null ? Math.round(yoy * 10) / 10 : null,
-          heroComparison,
+            ? new Date(startStr + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+            : `${new Date(startStr + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${new Date(endStr + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`,
+          vsPrior: vsPrior !== null ? Math.round(vsPrior * 10) / 10 : null,
+          vsThreeMonthAvg: vsThreeMonthAvg !== null ? Math.round(vsThreeMonthAvg * 10) / 10 : null,
+          vsYoY: vsYoY !== null ? Math.round(vsYoY * 10) / 10 : null,
           rings: {
             earned: {
               value: earnedCurr,

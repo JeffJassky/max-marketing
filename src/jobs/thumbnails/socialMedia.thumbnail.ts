@@ -10,13 +10,23 @@ export const socialMediaThumbnailConfigs: ThumbnailSyncConfig[] = [
     importTable: "imports.instagram_media",
     mediaIdField: "media_id",
     thumbnailUrlFields: ["media_thumbnail_url", "media_url"],
-    lookbackDays: 7,
+    lookbackDays: 30,
+    entityUpdate: {
+      table: "entities.social_media_daily",
+      mediaIdField: "media_id",
+      platformFilter: "instagram",
+    },
   },
   {
     platform: "facebook_organic",
     importTable: "imports.facebook_organic_posts",
     mediaIdField: "post_id",
     thumbnailUrlFields: ["full_picture", "post_picture"],
-    lookbackDays: 7,
+    lookbackDays: 30,
+    entityUpdate: {
+      table: "entities.social_media_daily",
+      mediaIdField: "media_id",
+      platformFilter: "facebook",
+    },
   },
 ];

@@ -28,7 +28,7 @@ interface PipelineResult {
  * Runs the full data pipeline (or specific phases) with a configurable lookback window.
  * This is the core logic shared by both the BullMQ worker and the CLI.
  *
- * Dependency chain: import → entity → aggregateReport / monitor / superlative
+ * Dependency chain: import → entity → thumbnail (S3 sync + entity URL update) → aggregateReport / monitor / superlative
  * If upstream jobs fail or return no data, downstream jobs that depend on them
  * are skipped to protect existing data from being deleted and replaced with nothing.
  */
@@ -41,7 +41,7 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
     throw new Error("BIGQUERY_PROJECT is not set.");
   }
 
-  const phases = options.phases || ["import", "thumbnail", "entity", "aggregateReport", "monitor", "superlative"];
+  const phases = options.phases || ["import", "entity", "thumbnail", "aggregateReport", "monitor", "superlative"];
   const datePreset = LOOKBACK_TO_DATE_PRESET[options.lookback];
 
   // Cascade tracking: upstream failures propagate to downstream phases
@@ -71,7 +71,7 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
             results.push(result);
             console.log(
               chalk.green(
-                `  [OK] ${config.platform}: ${stats.uploaded} uploaded, ${stats.skipped} skipped, ${stats.failed} failed (${stats.checked} checked)`
+                `  [OK] ${config.platform}: ${stats.uploaded} uploaded, ${stats.skipped} skipped, ${stats.failed} failed (${stats.checked} checked)${stats.entityUpdated > 0 ? `, ${stats.entityUpdated} entity rows updated` : ""}`
               )
             );
           }

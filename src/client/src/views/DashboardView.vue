@@ -268,23 +268,11 @@ const platformHealth = computed(() => {
           <h1 class="text-3xl font-bold text-slate-800">
             {{ selectedAccount ? `Let's go, ${selectedAccount.name}!` : 'Welcome to Maxed' }}
           </h1>
-          <p class="text-slate-500 mt-1 max-w-2xl" v-if="scorecard">
-            Holistic MER is currently
-            <span class="font-bold text-indigo-600"
-              >{{ scorecard.scorecard.mer.value.toFixed(2) }}x</span
-            >. We found
-            <span class="font-bold text-slate-800"
-              >{{ anomalies.length }} optimization opportunities</span
-            >
-            for you today.
-          </p>
-        </div>
-        <div class="text-xs text-indigo-400 font-mono">
-          DASHBOARD_V1_LIVE
         </div>
       </div>
 
-      <!-- Questions Panel -->
+      <!-- Questions Panel (hidden for now) -->
+      <!--
       <QuestionsPanel
         v-if="questions.length > 0 || questionsLoading"
         :questions="questions"
@@ -293,6 +281,7 @@ const platformHealth = computed(() => {
         class="mb-8"
         @ask="(q) => console.log('Ask question:', q)"
       />
+      -->
 
       <!-- Executive Scorecard -->
       <div
@@ -396,6 +385,10 @@ const platformHealth = computed(() => {
 
 
 
+
+
+
+
               }}%</span
             >
             <span class="text-slate-400 font-normal ml-1">growth</span>
@@ -434,6 +427,10 @@ const platformHealth = computed(() => {
             />
             <span class="font-bold"
               >{{ Math.abs(scorecard.scorecard.acquisition.change).toFixed(1)
+
+
+
+
 
 
 
@@ -535,6 +532,10 @@ const platformHealth = computed(() => {
 
 
 
+
+
+
+
                 }}%
               </span>
               on average compared to your Shopify new customer file.
@@ -602,7 +603,15 @@ const platformHealth = computed(() => {
 
 
 
+
+
+
+
                 }}{{ (scorecard.scorecard.tcac.efficiencyGap ?? (scorecard.scorecard.mer.value - scorecard.scorecard.tcac.platformRoas)).toFixed(2)
+
+
+
+
 
 
 
@@ -614,6 +623,10 @@ const platformHealth = computed(() => {
 
 
 
+
+
+
+
                 }}x
               </div>
             </div>
@@ -621,7 +634,8 @@ const platformHealth = computed(() => {
         </div>
       </div>
 
-      <!-- Spend Breakdown -->
+      <!-- Spend Breakdown (hidden for now) -->
+      <!--
       <div
         class="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm mb-8 group/tooltip relative"
       >
@@ -637,7 +651,6 @@ const platformHealth = computed(() => {
               Holistic allocation across search and social channels.
             </p>
           </div>
-          <!-- Tooltip -->
           <div
             class="absolute top-20 left-4 right-4 bg-slate-900 text-white text-xs p-3 rounded-xl opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50"
           >
@@ -768,226 +781,7 @@ const platformHealth = computed(() => {
           </div>
         </template>
       </div>
-
-      <!-- Opportunity Feed & Health -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div class="lg:col-span-2">
-          <div class="flex items-center justify-between mb-6">
-            <h3
-              class="text-xl font-bold text-slate-800 flex items-center gap-2"
-            >
-              <Zap :size="24" class="text-amber-500" />
-              Optimization Opportunities
-            </h3>
-            <span
-              class="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full uppercase"
-              >{{ anomalies.length }} Detected</span
-            >
-          </div>
-
-          <div v-if="loading" class="space-y-4">
-            <div
-              v-for="i in 3"
-              :key="i"
-              class="h-32 bg-white rounded-3xl animate-pulse border border-slate-100"
-            />
-          </div>
-
-          <div v-else class="space-y-4">
-            <div
-              v-for="a in anomalies"
-              :key="a.id"
-              class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm hover:shadow-md transition-all group flex items-start gap-6"
-            >
-              <div
-                class="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-                :class="a.severity === 'critical' ? 'bg-red-50 text-red-500' : 'bg-amber-50 text-amber-500'"
-              >
-                <AlertCircle :size="24" />
-              </div>
-              <div class="flex-1">
-                <div class="flex items-center justify-between mb-1">
-                  <span
-                    class="text-xs font-black uppercase tracking-tighter"
-                    :class="a.severity === 'critical' ? 'text-red-400' : 'text-amber-400'"
-                    >{{ a.severity }} Priority</span
-                  >
-                  <span
-                    class="text-xs text-slate-400 flex items-center gap-1"
-                    ><Clock size="10" />
-                    {{ new Date(a.detected_at).toLocaleDateString() }}</span
-                  >
-                </div>
-                <h4
-                  class="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors"
-                >
-                  {{ a.message }}
-                </h4>
-                <p class="text-xs text-slate-500 mt-2 line-clamp-2">
-                  {{ a.payload?.details || 'Performance deviation detected in ' + a.measure_id }}
-                </p>
-              </div>
-              <div class="self-center">
-                <button
-                  class="w-10 h-10 rounded-full bg-slate-50 text-slate-400 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all"
-                >
-                  <ArrowRight :size="18" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div
-            class="bg-white p-8 rounded-[2.5rem] border border-stone-100 shadow-sm sticky top-8"
-          >
-            <h3 class="text-lg font-bold text-slate-800 mb-6">
-              Platform Health
-            </h3>
-            <div class="space-y-8">
-              <!-- Google -->
-              <div
-                class="flex items-center justify-between"
-                v-if="selectedAccount?.googleAdsId"
-              >
-                <div class="flex items-center gap-3">
-                  <div
-                    class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600"
-                  >
-                    <Target size="20" />
-                  </div>
-                  <div>
-                    <p class="text-sm font-bold text-slate-800">Google Ads</p>
-                    <p class="text-xs text-slate-400 uppercase font-black">
-                      Score: {{ platformHealth.google }}%
-                    </p>
-                  </div>
-                </div>
-                <div
-                  class="w-12 h-1.5 bg-slate-100 rounded-full overflow-hidden"
-                >
-                  <div
-                    class="h-full transition-all duration-500"
-                    :class="platformHealth.google > 80 ? 'bg-green-500' : platformHealth.google > 50 ? 'bg-orange-500' : 'bg-red-500'"
-                    :style="{ width: `${platformHealth.google}%` }"
-                  />
-                </div>
-              </div>
-
-              <!-- Meta -->
-              <div
-                class="flex items-center justify-between"
-                v-if="selectedAccount?.facebookAdsId"
-              >
-                <div class="flex items-center gap-3">
-                  <div
-                    class="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600"
-                  >
-                    <LayoutGrid size="20" />
-                  </div>
-                  <div>
-                    <p class="text-sm font-bold text-slate-800">
-                      Meta Universe
-                    </p>
-                    <p class="text-xs text-slate-400 uppercase font-black">
-                      Score: {{ platformHealth.meta }}%
-                    </p>
-                  </div>
-                </div>
-                <div
-                  class="w-12 h-1.5 bg-slate-100 rounded-full overflow-hidden"
-                >
-                  <div
-                    class="h-full transition-all duration-500"
-                    :class="platformHealth.meta > 80 ? 'bg-green-500' : platformHealth.meta > 50 ? 'bg-orange-500' : 'bg-red-500'"
-                    :style="{ width: `${platformHealth.meta}%` }"
-                  />
-                </div>
-              </div>
-
-              <!-- GA4 -->
-              <div
-                class="flex items-center justify-between"
-                v-if="selectedAccount?.ga4Id"
-              >
-                <div class="flex items-center gap-3">
-                  <div
-                    class="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600"
-                  >
-                    <Globe size="20" />
-                  </div>
-                  <div>
-                    <p class="text-sm font-bold text-slate-800">GA4 Insights</p>
-                    <p class="text-xs text-slate-400 uppercase font-black">
-                      Score: {{ platformHealth.ga4 }}%
-                    </p>
-                  </div>
-                </div>
-                <div
-                  class="w-12 h-1.5 bg-slate-100 rounded-full overflow-hidden"
-                >
-                  <div
-                    class="h-full transition-all duration-500"
-                    :class="platformHealth.ga4 > 80 ? 'bg-green-500' : platformHealth.ga4 > 50 ? 'bg-orange-500' : 'bg-red-500'"
-                    :style="{ width: `${platformHealth.ga4}%` }"
-                  />
-                </div>
-              </div>
-
-              <!-- Shopify -->
-              <div
-                class="flex items-center justify-between"
-                v-if="selectedAccount?.shopifyId"
-              >
-                <div class="flex items-center gap-3">
-                  <div
-                    class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600"
-                  >
-                    <ShoppingBag size="20" />
-                  </div>
-                  <div>
-                    <p class="text-sm font-bold text-slate-800">
-                      Shopify Store
-                    </p>
-                    <p class="text-xs text-slate-400 uppercase font-black">
-                      Score: {{ platformHealth.shopify }}%
-                    </p>
-                  </div>
-                </div>
-                <div
-                  class="w-12 h-1.5 bg-slate-100 rounded-full overflow-hidden"
-                >
-                  <div
-                    class="h-full transition-all duration-500"
-                    :class="platformHealth.shopify > 80 ? 'bg-green-500' : platformHealth.shopify > 50 ? 'bg-orange-500' : 'bg-red-500'"
-                    :style="{ width: `${platformHealth.shopify}%` }"
-                  />
-                </div>
-              </div>
-
-              <div
-                class="flex items-center gap-3 opacity-40 grayscale"
-                v-if="!selectedAccount?.shopifyId"
-              >
-                <div
-                  class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600"
-                >
-                  <Zap size="20" />
-                </div>
-                <div>
-                  <p class="text-sm font-bold text-slate-800">
-                    Email (Klaviyo)
-                  </p>
-                  <p class="text-xs text-slate-400 uppercase font-black">
-                    Not Connected
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      -->
     </section>
   </div>
 </template>

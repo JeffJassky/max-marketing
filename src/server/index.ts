@@ -202,6 +202,53 @@ app.use("/api/chat", chatLimiter);
 // --- Auth guard for all remaining /api routes ---
 app.use("/api", requireAuth);
 
+// --- Thumbnail proxy (streams from private S3 bucket) ---
+app.get("/api/thumbnails/:platform/:fileKey", async (req: Request, res: Response) => {
+  const { platform, fileKey } = req.params;
+
+  // Whitelist platforms to prevent path traversal
+  const allowedPlatforms = ["instagram", "facebook_organic", "facebook_ads"];
+  if (!allowedPlatforms.includes(platform) || !fileKey.match(/^[\w.-]+$/)) {
+    return res.status(400).json({ error: "Invalid thumbnail path" });
+  }
+
+  const bucket = process.env.S3_BUCKET;
+  if (!bucket) {
+    return res.status(503).json({ error: "S3 not configured" });
+  }
+
+  try {
+    const { S3Client, GetObjectCommand } = await import("@aws-sdk/client-s3");
+    const s3 = new S3Client({
+      region: process.env.S3_REGION || "us-east-1",
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      },
+    });
+
+    const response = await s3.send(
+      new GetObjectCommand({
+        Bucket: bucket,
+        Key: `thumbnails/${platform}/${fileKey}`,
+      })
+    );
+
+    res.set("Content-Type", response.ContentType || "image/jpeg");
+    res.set("Cache-Control", "public, max-age=31536000, immutable");
+
+    // Pipe the S3 stream to the response
+    const stream = response.Body as NodeJS.ReadableStream;
+    stream.pipe(res);
+  } catch (err: any) {
+    if (err.name === "NoSuchKey" || err.$metadata?.httpStatusCode === 404) {
+      return res.status(404).json({ error: "Thumbnail not found" });
+    }
+    logger.error({ err, platform, fileKey }, "Thumbnail proxy error");
+    return res.status(500).json({ error: "Failed to fetch thumbnail" });
+  }
+});
+
 // --- Dashboard Routes ---
 app.use("/api/dashboard", dashboardRoutes);
 

@@ -10,6 +10,11 @@ export const creativeAdsThumbnailConfigs: ThumbnailSyncConfig[] = [
     importTable: "imports.facebook_ads_creative",
     mediaIdField: "creative_id",
     thumbnailUrlFields: ["thumbnail_url"],
-    lookbackDays: 7,
+    lookbackDays: 30,
+    entityUpdate: {
+      table: "entities.creative_daily",
+      mediaIdField: "creative_id",
+      platformFilter: "facebook",
+    },
   },
 ];
