@@ -9,7 +9,8 @@ import {
   Trophy,
   Image as ImageIcon,
   FileText,
-  ShieldCheck
+  ShieldCheck,
+  ListChecks
 } from 'lucide-vue-next';
 import AccountSelector from './AccountSelector.vue';
 import { useAuthStore } from '../stores/auth';
@@ -99,6 +100,16 @@ const isActive = (item: typeof navItems[number]) => {
           </div>
           <ChevronRight v-if="route.path === '/admin'" :size="14" class="text-amplify-green" />
         </div>
+        <a
+          href="/admin/queues"
+          target="_blank"
+          class="flex items-center justify-between px-3 py-3 rounded-xl transition-all cursor-pointer group text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border border-transparent"
+        >
+          <div class="flex items-center gap-3">
+            <ListChecks :size="20" class="transition-colors text-slate-500 group-hover:text-slate-300" />
+            <span class="text-sm font-medium">Job Queue</span>
+          </div>
+        </a>
       </div>
     </nav>
 

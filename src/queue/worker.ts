@@ -58,6 +58,8 @@ async function setupSchedule() {
       repeat: { pattern: "0 6 * * *" },
       removeOnComplete: { count: 30 },
       removeOnFail: { count: 50 },
+      attempts: 3,
+      backoff: { type: "exponential", delay: 300_000 }, // 5min, 10min, 20min
     }
   );
 
@@ -92,6 +94,8 @@ const worker = new Worker<PipelineJobData>(
     });
 
     const failed = results.filter((r) => !r.success);
+    const importFailures = failed.filter((f) => f.phase === "import");
+
     if (failed.length > 0) {
       console.warn(
         chalk.yellow(
@@ -100,12 +104,24 @@ const worker = new Worker<PipelineJobData>(
       );
     }
 
-    return {
+    const summary = {
       total: results.length,
       succeeded: results.filter((r) => r.success).length,
       failed: failed.length,
       failures: failed.map((f) => ({ jobId: f.jobId, error: f.error })),
     };
+
+    // If import jobs failed, throw so BullMQ marks the job as failed and retries
+    if (importFailures.length > 0) {
+      const err = new Error(
+        `${importFailures.length} import(s) failed: ${importFailures.map((f) => f.jobId).join(", ")}. ` +
+        `Pipeline completed ${summary.succeeded}/${summary.total} jobs.`
+      );
+      (err as any).summary = summary;
+      throw err;
+    }
+
+    return summary;
   },
   {
     connection,

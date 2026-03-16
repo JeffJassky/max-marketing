@@ -49,14 +49,14 @@ const sparklineData = computed(() => {
 <template>
   <div class="bg-white p-7 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.04)] group/block relative">
     <div class="flex items-center justify-between mb-5">
-      <span class="text-[10px] font-bold tracking-[0.1em] uppercase text-gray-500">Audience Growth</span>
+      <span class="text-xs font-bold tracking-[0.1em] uppercase text-gray-500">Audience Growth</span>
     </div>
 
     <!-- Hero -->
     <div class="mb-1">
       <div class="font-mono text-[34px] font-semibold leading-none text-slate-900">{{ formatNum(data.totalFollowers) }}</div>
-      <div class="text-[10px] text-gray-400 mt-1 mb-1.5">Total followers across {{ data.platforms.length }} platforms</div>
-      <div class="flex items-center gap-1 text-[10px]">
+      <div class="text-xs text-gray-400 mt-1 mb-1.5">Total followers across {{ data.platforms.length }} platforms</div>
+      <div class="flex items-center gap-1 text-xs">
         <span class="font-semibold" :class="totalGrowthRate >= 0 ? 'text-emerald-500' : 'text-red-500'">
           {{ totalGrowthRate >= 0 ? '&#x25B2;' : '&#x25BC;' }} {{ totalGrowthRate.toFixed(1) }}%
         </span>
@@ -68,13 +68,13 @@ const sparklineData = computed(() => {
     <div class="h-px bg-gray-200 my-3" />
 
     <!-- By Platform -->
-    <div class="text-[11px] font-bold text-slate-900 mb-2">By Platform</div>
+    <div class="text-[13px] font-bold text-slate-900 mb-2">By Platform</div>
 
     <div class="space-y-0">
       <div
         v-for="p in data.platforms"
         :key="p.platform"
-        class="flex items-center justify-between py-[5px] text-[10px] border-t border-gray-50 first:border-t-0"
+        class="flex items-center justify-between py-[5px] text-xs border-t border-gray-50 first:border-t-0"
       >
         <div class="flex items-center gap-1.5 text-gray-500 font-medium">
           <div class="w-1.5 h-1.5 rounded-full flex-shrink-0" :style="{ background: platformDotColor(p.platform) }" />
@@ -83,7 +83,7 @@ const sparklineData = computed(() => {
         <div class="flex items-center gap-1.5">
           <span class="font-mono font-semibold text-slate-900">{{ formatNum(p.followers) }}</span>
           <span
-            class="text-[9px] font-semibold"
+            class="text-[11px] font-semibold"
             :class="p.growthRate >= 0 ? 'text-emerald-500' : 'text-red-500'"
           >{{ p.growthRate >= 0 ? '&uarr;' : '&darr;' }} {{ Math.abs(p.growthRate).toFixed(1) }}%</span>
         </div>
@@ -93,10 +93,10 @@ const sparklineData = computed(() => {
     <!-- Fastest callout -->
     <div
       v-if="fastestPlatform"
-      class="mt-2 flex items-center justify-between px-2.5 py-1.5 rounded-md bg-emerald-50 border border-emerald-100/40 text-[9px]"
+      class="mt-2 flex items-center justify-between px-2.5 py-1.5 rounded-md bg-emerald-50 border border-emerald-100/40 text-[11px]"
     >
       <span class="text-gray-500">&#x26A1; <span class="text-emerald-500 font-semibold">Fastest: {{ platformLabel(fastestPlatform.platform) }}</span></span>
-      <span class="font-mono text-[10px] font-semibold text-emerald-500">&uarr; {{ fastestPlatform.growthRate.toFixed(1) }}%</span>
+      <span class="font-mono text-xs font-semibold text-emerald-500">&uarr; {{ fastestPlatform.growthRate.toFixed(1) }}%</span>
     </div>
   </div>
 </template>

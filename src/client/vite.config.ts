@@ -18,6 +18,10 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true
+      },
+      '/admin/queues': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
       }
     }
   }

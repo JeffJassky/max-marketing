@@ -32,14 +32,14 @@ const platformDotColor = (p: string) => {
 <template>
   <div class="bg-white p-7 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.04)] group/block relative">
     <div class="flex items-center justify-between mb-5">
-      <span class="text-[10px] font-bold tracking-[0.1em] uppercase text-gray-500">Acquisition Reality Check</span>
+      <span class="text-xs font-bold tracking-[0.1em] uppercase text-gray-500">Acquisition Reality Check</span>
     </div>
 
     <!-- Hero -->
     <div class="mb-1">
       <div class="font-mono text-[34px] font-semibold leading-none text-slate-900">{{ formatCurrency(data.trueCac) }}</div>
-      <div class="text-[10px] text-gray-400 mt-1 mb-1.5">True cost per customer &middot; Shopify verified</div>
-      <div class="flex items-center gap-1 text-[10px]">
+      <div class="text-xs text-gray-400 mt-1 mb-1.5">True cost per customer &middot; Shopify verified</div>
+      <div class="flex items-center gap-1 text-xs">
         <span class="font-semibold" :class="data.trueCacChange <= 0 ? 'text-emerald-500' : 'text-red-500'">
           {{ data.trueCacChange > 0 ? '&#x25B2;' : '&#x25BC;' }} {{ Math.abs(data.trueCacChange).toFixed(1) }}%
         </span>
@@ -51,24 +51,24 @@ const platformDotColor = (p: string) => {
     <div class="h-px bg-gray-200 my-3" />
 
     <!-- What Platforms Report -->
-    <div class="text-[9px] font-semibold tracking-[0.08em] uppercase text-gray-400 mb-2">What Platforms Report</div>
+    <div class="text-[11px] font-semibold tracking-[0.08em] uppercase text-gray-400 mb-2">What Platforms Report</div>
 
     <div class="space-y-0">
       <div
         v-for="p in data.platformRows"
         :key="p.platform"
-        class="flex items-center justify-between py-[5px] text-[10px] border-t border-gray-50 first:border-t-0"
+        class="flex items-center justify-between py-[5px] text-xs border-t border-gray-50 first:border-t-0"
       >
         <div class="flex items-center gap-1.5 text-gray-500 font-medium">
           <div class="w-1.5 h-1.5 rounded-full flex-shrink-0" :style="{ background: platformDotColor(p.platform) }" />
           {{ platformLabel(p.platform) }} says
         </div>
-        <span class="font-mono text-[10px] font-semibold text-slate-900">{{ formatCurrency(p.cpa) }}</span>
+        <span class="font-mono text-xs font-semibold text-slate-900">{{ formatCurrency(p.cpa) }}</span>
       </div>
     </div>
 
     <!-- Shopify Reality callout -->
-    <div class="mt-2 flex items-center justify-between px-2.5 py-1.5 rounded-md bg-indigo-500/[0.03] border border-indigo-500/[0.09] text-[9px] font-semibold text-indigo-500">
+    <div class="mt-2 flex items-center justify-between px-2.5 py-1.5 rounded-md bg-indigo-500/[0.03] border border-indigo-500/[0.09] text-[11px] font-semibold text-indigo-500">
       <span>Shopify Reality</span>
       <span class="font-mono">{{ formatCurrency(data.trueCac) }}</span>
     </div>
@@ -81,7 +81,7 @@ const platformDotColor = (p: string) => {
           :style="{ width: `${Math.min(data.overclaimPct, 100)}%` }"
         />
       </div>
-      <span class="text-[9px] font-semibold text-amber-500 whitespace-nowrap">Over-claim {{ Math.abs(data.overclaimPct).toFixed(0) }}%</span>
+      <span class="text-[11px] font-semibold text-amber-500 whitespace-nowrap">Over-claim {{ Math.abs(data.overclaimPct).toFixed(0) }}%</span>
     </div>
   </div>
 </template>

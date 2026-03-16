@@ -99,7 +99,7 @@ const center = svgSize / 2;
 
     <!-- Header -->
     <div class="flex items-center justify-between mb-2 relative">
-      <span class="text-[11px] font-bold tracking-[0.12em] uppercase text-gray-500">Brand Pulse</span>
+      <span class="text-[13px] font-bold tracking-[0.12em] uppercase text-gray-500">Brand Pulse</span>
     </div>
 
     <!-- Main layout: donut left, info right -->
@@ -152,9 +152,9 @@ const center = svgSize / 2;
 
         <!-- Center text -->
         <div class="absolute inset-0 flex flex-col items-center justify-center">
-          <span class="text-[11px] font-semibold tracking-[0.08em] uppercase text-gray-500">Total Impressions</span>
+          <span class="text-[13px] font-semibold tracking-[0.08em] uppercase text-gray-500">Total Impressions</span>
           <span class="text-[38px] font-bold text-white leading-none mt-2 font-mono tracking-tight">{{ formatNum(data.totalImpressions) }}</span>
-          <span class="text-[11px] text-gray-500 mt-1.5">{{ data.periodLabel }}</span>
+          <span class="text-[13px] text-gray-500 mt-1.5">{{ data.periodLabel }}</span>
         </div>
       </div>
 
@@ -162,12 +162,12 @@ const center = svgSize / 2;
       <div class="flex-shrink-0 w-[280px]">
         <!-- Brand Impact Score -->
         <div :class="hasComparisons ? 'mb-7' : 'mb-5'">
-          <div class="text-[11px] font-semibold tracking-[0.1em] uppercase text-gray-500 mb-1.5">{{ scoreLabel }}</div>
+          <div class="text-[13px] font-semibold tracking-[0.1em] uppercase text-gray-500 mb-1.5">{{ scoreLabel }}</div>
           <div class="flex items-baseline gap-1.5">
             <span class="font-mono text-[52px] font-bold text-white leading-none">{{ data.score }}</span>
             <span class="text-lg text-gray-500 font-medium">/100</span>
           </div>
-          <div class="text-[10px] text-gray-600 mt-1">{{ scoreSubtext }}</div>
+          <div class="text-xs text-gray-600 mt-1">{{ scoreSubtext }}</div>
 
           <!-- MoM and YoY — only shown when data exists -->
           <div v-if="hasComparisons" class="flex items-center gap-5 mt-2.5">
@@ -176,7 +176,7 @@ const center = svgSize / 2;
               class="text-[13px] font-semibold flex items-center gap-1"
               :class="data.mom >= 0 ? 'text-emerald-400' : 'text-red-400'"
             >
-              <span class="text-[9px]">{{ data.mom >= 0 ? '&#9650;' : '&#9660;' }}</span>
+              <span class="text-[11px]">{{ data.mom >= 0 ? '&#9650;' : '&#9660;' }}</span>
               {{ Math.abs(data.mom).toFixed(0) }}% MoM
             </span>
             <span
@@ -184,7 +184,7 @@ const center = svgSize / 2;
               class="text-[13px] font-semibold flex items-center gap-1"
               :class="data.yoy >= 0 ? 'text-emerald-400' : 'text-red-400'"
             >
-              <span class="text-[9px]">{{ data.yoy >= 0 ? '&#9650;' : '&#9660;' }}</span>
+              <span class="text-[11px]">{{ data.yoy >= 0 ? '&#9650;' : '&#9660;' }}</span>
               {{ Math.abs(data.yoy).toFixed(0) }}% YoY
             </span>
           </div>

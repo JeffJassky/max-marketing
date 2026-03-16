@@ -44,7 +44,7 @@ const momentumBadgeClass = computed(() => {
 <template>
   <div class="bg-white p-7 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.04)] group/block relative">
     <div class="flex items-center justify-between mb-5">
-      <span class="text-[10px] font-bold tracking-[0.1em] uppercase text-gray-500">Sales Pulse</span>
+      <span class="text-xs font-bold tracking-[0.1em] uppercase text-gray-500">Sales Pulse</span>
     </div>
 
     <!-- Hero: Momentum % -->
@@ -54,9 +54,9 @@ const momentumBadgeClass = computed(() => {
           class="font-mono text-[34px] font-semibold leading-none"
           :class="data.momentum >= 0 ? 'text-emerald-500' : 'text-red-500'"
         >{{ data.momentum >= 0 ? '&uarr;' : '&darr;' }} {{ Math.abs(data.momentum).toFixed(0) }}%</span>
-        <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded" :class="momentumBadgeClass">{{ momentumLabel }}</span>
+        <span class="text-[11px] font-semibold px-1.5 py-0.5 rounded" :class="momentumBadgeClass">{{ momentumLabel }}</span>
       </div>
-      <div class="text-[10px] text-gray-400 mt-1">
+      <div class="text-xs text-gray-400 mt-1">
         <strong class="text-gray-500">{{ secondHalfOrders }} orders</strong> last 14 days vs. <strong class="text-gray-500">{{ firstHalfOrders }}</strong> prior
       </div>
     </div>
@@ -69,7 +69,7 @@ const momentumBadgeClass = computed(() => {
     </div>
 
     <!-- Period labels -->
-    <div v-if="revenueDaily.length > 1" class="flex justify-between text-[9px] text-gray-400 mb-1">
+    <div v-if="revenueDaily.length > 1" class="flex justify-between text-[11px] text-gray-400 mb-1">
       <span>Prior 14 days</span>
       <span>Last 14 days</span>
     </div>
@@ -78,20 +78,20 @@ const momentumBadgeClass = computed(() => {
     <div class="h-px bg-gray-200 my-3" />
 
     <!-- What's Driving It -->
-    <div class="text-[11px] font-bold text-slate-900 mb-2">What's Driving It</div>
+    <div class="text-[13px] font-bold text-slate-900 mb-2">What's Driving It</div>
 
     <div class="space-y-0">
-      <div class="flex items-center justify-between py-[5px] text-[10px]">
+      <div class="flex items-center justify-between py-[5px] text-xs">
         <span class="text-gray-500 font-medium">Orders</span>
         <div class="flex items-center gap-1.5">
           <span class="font-mono font-semibold text-slate-900">{{ totalOrders }}</span>
           <span
-            class="text-[9px] font-semibold"
+            class="text-[11px] font-semibold"
             :class="data.momentum >= 0 ? 'text-emerald-500' : 'text-red-500'"
           >&uarr; {{ Math.abs(data.momentum).toFixed(0) }}%</span>
         </div>
       </div>
-      <div class="flex items-center justify-between py-[5px] text-[10px] border-t border-gray-50">
+      <div class="flex items-center justify-between py-[5px] text-xs border-t border-gray-50">
         <span class="text-gray-500 font-medium">Avg. Order Value</span>
         <div class="flex items-center gap-1.5">
           <span class="font-mono font-semibold text-slate-900">{{ formatCurrency(data.avgAov, 2) }}</span>
@@ -100,9 +100,9 @@ const momentumBadgeClass = computed(() => {
     </div>
 
     <!-- 14-Day Revenue callout -->
-    <div class="mt-2 flex items-center justify-between px-2.5 py-1.5 rounded-md bg-gray-50 text-[10px]">
+    <div class="mt-2 flex items-center justify-between px-2.5 py-1.5 rounded-md bg-gray-50 text-xs">
       <span class="font-semibold text-gray-500">14-Day Revenue</span>
-      <span class="font-mono text-[11px] font-semibold text-slate-900">{{ formatCurrency(data.totalRevenue14d) }}</span>
+      <span class="font-mono text-[13px] font-semibold text-slate-900">{{ formatCurrency(data.totalRevenue14d) }}</span>
     </div>
   </div>
 </template>

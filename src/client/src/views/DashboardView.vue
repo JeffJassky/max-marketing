@@ -279,7 +279,7 @@ const platformHealth = computed(() => {
             for you today.
           </p>
         </div>
-        <div class="text-[10px] text-indigo-400 font-mono">
+        <div class="text-xs text-indigo-400 font-mono">
           DASHBOARD_V1_LIVE
         </div>
       </div>
@@ -509,7 +509,7 @@ const platformHealth = computed(() => {
                 />
                 {{ Math.abs(scorecard.scorecard.tcac.change).toFixed(1) }}%
               </div>
-              <div class="text-[10px] text-slate-400 uppercase font-black">
+              <div class="text-xs text-slate-400 uppercase font-black">
                 vs prev
               </div>
             </div>
@@ -528,7 +528,7 @@ const platformHealth = computed(() => {
                 {{ formatCurrency(scorecard.scorecard.tcac.platformCac, 2) }}
               </div>
             </div>
-            <p class="text-[10px] text-center text-slate-400 px-4 italic">
+            <p class="text-xs text-center text-slate-400 px-4 italic">
               Platforms over-claim credit by
               <span class="font-bold text-red-400">
                 {{ scorecard.scorecard.tcac.platformCac > 0 ? (((scorecard.scorecard.tcac.value / scorecard.scorecard.tcac.platformCac) - 1) * 100).toFixed(0) : '0'
@@ -572,7 +572,7 @@ const platformHealth = computed(() => {
 
           <div class="grid grid-cols-2 gap-8 mb-8">
             <div>
-              <div class="text-[10px] text-slate-400 uppercase font-black mb-1">
+              <div class="text-xs text-slate-400 uppercase font-black mb-1">
                 Blended ROAS (MER)
               </div>
               <div class="text-3xl font-black text-slate-900">
@@ -580,7 +580,7 @@ const platformHealth = computed(() => {
               </div>
             </div>
             <div>
-              <div class="text-[10px] text-slate-400 uppercase font-black mb-1">
+              <div class="text-xs text-slate-400 uppercase font-black mb-1">
                 Platform Reported
               </div>
               <div
@@ -608,7 +608,7 @@ const platformHealth = computed(() => {
 
                 }}x
               </div>
-              <div class="text-[10px] text-slate-400 uppercase font-black mt-1">
+              <div class="text-xs text-slate-400 uppercase font-black mt-1">
                 {{ (scorecard.scorecard.tcac.efficiencyGap ?? (scorecard.scorecard.mer.value - scorecard.scorecard.tcac.platformRoas)) < 0 ? 'Platforms over-claiming by' : 'Platforms under-reporting by' }}
                 {{ Math.abs(scorecard.scorecard.tcac.efficiencyGap ?? (scorecard.scorecard.mer.value - scorecard.scorecard.tcac.platformRoas)).toFixed(2)
 
@@ -668,7 +668,7 @@ const platformHealth = computed(() => {
               class="h-full border-r border-white/10 last:border-0 relative group"
             >
               <div
-                class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50"
+                class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-900 text-white text-xs font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50"
               >
                 {{ s.label }}: {{ formatCurrency(s.value) }}
               </div>
@@ -680,7 +680,7 @@ const platformHealth = computed(() => {
               class="h-full border-r border-white/10 last:border-0 relative group"
             >
               <div
-                class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50"
+                class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-900 text-white text-xs font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50"
               >
                 {{ s.label }}: {{ formatCurrency(s.value) }}
               </div>
@@ -719,7 +719,7 @@ const platformHealth = computed(() => {
                       >{{ formatCurrency(s.value) }}</span
                     >
                     <span
-                      class="text-[10px] px-1.5 py-0.5 bg-slate-100 rounded text-slate-500 font-mono"
+                      class="text-xs px-1.5 py-0.5 bg-slate-100 rounded text-slate-500 font-mono"
                       >{{ s.percent.toFixed(1) }}%</span
                     >
                   </div>
@@ -758,7 +758,7 @@ const platformHealth = computed(() => {
                       >{{ formatCurrency(s.value) }}</span
                     >
                     <span
-                      class="text-[10px] px-1.5 py-0.5 bg-slate-100 rounded text-slate-500 font-mono"
+                      class="text-xs px-1.5 py-0.5 bg-slate-100 rounded text-slate-500 font-mono"
                       >{{ s.percent.toFixed(1) }}%</span
                     >
                   </div>
@@ -808,12 +808,12 @@ const platformHealth = computed(() => {
               <div class="flex-1">
                 <div class="flex items-center justify-between mb-1">
                   <span
-                    class="text-[10px] font-black uppercase tracking-tighter"
+                    class="text-xs font-black uppercase tracking-tighter"
                     :class="a.severity === 'critical' ? 'text-red-400' : 'text-amber-400'"
                     >{{ a.severity }} Priority</span
                   >
                   <span
-                    class="text-[10px] text-slate-400 flex items-center gap-1"
+                    class="text-xs text-slate-400 flex items-center gap-1"
                     ><Clock size="10" />
                     {{ new Date(a.detected_at).toLocaleDateString() }}</span
                   >
@@ -859,7 +859,7 @@ const platformHealth = computed(() => {
                   </div>
                   <div>
                     <p class="text-sm font-bold text-slate-800">Google Ads</p>
-                    <p class="text-[10px] text-slate-400 uppercase font-black">
+                    <p class="text-xs text-slate-400 uppercase font-black">
                       Score: {{ platformHealth.google }}%
                     </p>
                   </div>
@@ -890,7 +890,7 @@ const platformHealth = computed(() => {
                     <p class="text-sm font-bold text-slate-800">
                       Meta Universe
                     </p>
-                    <p class="text-[10px] text-slate-400 uppercase font-black">
+                    <p class="text-xs text-slate-400 uppercase font-black">
                       Score: {{ platformHealth.meta }}%
                     </p>
                   </div>
@@ -919,7 +919,7 @@ const platformHealth = computed(() => {
                   </div>
                   <div>
                     <p class="text-sm font-bold text-slate-800">GA4 Insights</p>
-                    <p class="text-[10px] text-slate-400 uppercase font-black">
+                    <p class="text-xs text-slate-400 uppercase font-black">
                       Score: {{ platformHealth.ga4 }}%
                     </p>
                   </div>
@@ -950,7 +950,7 @@ const platformHealth = computed(() => {
                     <p class="text-sm font-bold text-slate-800">
                       Shopify Store
                     </p>
-                    <p class="text-[10px] text-slate-400 uppercase font-black">
+                    <p class="text-xs text-slate-400 uppercase font-black">
                       Score: {{ platformHealth.shopify }}%
                     </p>
                   </div>
@@ -979,7 +979,7 @@ const platformHealth = computed(() => {
                   <p class="text-sm font-bold text-slate-800">
                     Email (Klaviyo)
                   </p>
-                  <p class="text-[10px] text-slate-400 uppercase font-black">
+                  <p class="text-xs text-slate-400 uppercase font-black">
                     Not Connected
                   </p>
                 </div>

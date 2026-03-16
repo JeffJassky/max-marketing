@@ -53,14 +53,14 @@ const organicPct = computed(() => 100 - props.data.paidVsOrganicPct);
 <template>
   <div class="bg-white p-7 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.04)] group/block relative">
     <div class="flex items-center justify-between mb-5">
-      <span class="text-[10px] font-bold tracking-[0.1em] uppercase text-gray-500">Paid Reach</span>
+      <span class="text-xs font-bold tracking-[0.1em] uppercase text-gray-500">Paid Reach</span>
     </div>
 
     <!-- Hero -->
     <div class="mb-1">
       <div class="font-mono text-[34px] font-semibold leading-none text-slate-900">{{ formatNum(data.totalImpressions) }}</div>
-      <div class="text-[10px] text-gray-400 mt-1 mb-1.5">Total paid impressions across all ad platforms</div>
-      <div class="text-[10px] text-gray-500 mb-1.5">
+      <div class="text-xs text-gray-400 mt-1 mb-1.5">Total paid impressions across all ad platforms</div>
+      <div class="text-xs text-gray-500 mb-1.5">
         Reach: <strong class="font-mono text-slate-900">{{ formatNum(data.totalReach) }}</strong>
         <span class="text-gray-300 mx-1">&middot;</span>
         Spend: <strong class="font-mono text-slate-900">{{ formatCurrency(data.totalSpend) }}</strong>
@@ -76,13 +76,13 @@ const organicPct = computed(() => 100 - props.data.paidVsOrganicPct);
     <div class="h-px bg-gray-200 my-3" />
 
     <!-- Cost Per 1,000 Impressions -->
-    <div class="text-[11px] font-bold text-slate-900 mb-2">Cost Per 1,000 Impressions</div>
+    <div class="text-[13px] font-bold text-slate-900 mb-2">Cost Per 1,000 Impressions</div>
 
     <div class="space-y-0">
       <div
         v-for="p in sortedPlatforms"
         :key="p.platform"
-        class="flex items-center justify-between py-[5px] text-[10px] border-t border-gray-50 first:border-t-0"
+        class="flex items-center justify-between py-[5px] text-xs border-t border-gray-50 first:border-t-0"
       >
         <div class="flex items-center gap-1.5 text-gray-500 font-medium">
           <div class="w-1.5 h-1.5 rounded-full flex-shrink-0" :style="{ background: platformDotColor(p.platform) }" />
@@ -101,8 +101,8 @@ const organicPct = computed(() => 100 - props.data.paidVsOrganicPct);
     <!-- Paid vs. Organic -->
     <div class="mt-2.5 bg-gray-50 rounded-md p-2.5">
       <div class="flex justify-between mb-1.5">
-        <span class="text-[10px] font-semibold text-gray-500">Paid vs. Organic Impressions</span>
-        <span class="text-[10px] font-semibold text-slate-900">{{ data.paidVsOrganicPct }}% / {{ organicPct }}%</span>
+        <span class="text-xs font-semibold text-gray-500">Paid vs. Organic Impressions</span>
+        <span class="text-xs font-semibold text-slate-900">{{ data.paidVsOrganicPct }}% / {{ organicPct }}%</span>
       </div>
       <div class="h-2 rounded-full overflow-hidden flex">
         <div :style="{ width: `${data.paidVsOrganicPct}%` }" class="h-full bg-indigo-500" />

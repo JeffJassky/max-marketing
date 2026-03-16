@@ -8,6 +8,12 @@ import pinoHttp from "pino-http";
 import { logger } from "./logger";
 import { authLimiter, chatLimiter, apiLimiter } from "./middleware/rateLimiter";
 import { createBigQueryClient } from "../shared/vendors/google/bigquery/bigquery";
+import { createBullBoard } from "@bull-board/api";
+import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
+import { ExpressAdapter } from "@bull-board/express";
+import { Queue } from "bullmq";
+import { getRedisConnectionOpts } from "../queue/connection";
+import { QUEUE_NAME, QUEUE_PREFIX } from "../queue/types";
 import { googleAdsCoreKeywordPerformance } from "../jobs/imports/google_ads/core-keyword-performance.import";
 import { facebookAdsInsights } from "../jobs/imports/facebook_ads/insights.import";
 import { ga4PagePerformance } from "../jobs/imports/google_ga4/page-performance.import";
@@ -80,6 +86,81 @@ app.get("/health", (_req: Request, res: Response) => {
   const mongoState = mongoose.connection.readyState;
   const mongoStatus = mongoState === 1 ? "connected" : mongoState === 2 ? "connecting" : "disconnected";
   res.json({ status: "ok", mongo: mongoStatus, uptime: process.uptime() });
+});
+
+// --- Bull Board (queue dashboard) ---
+if (process.env.REDIS_URL) {
+  const serverAdapter = new ExpressAdapter();
+  serverAdapter.setBasePath("/admin/queues");
+
+  const pipelineQueue = new Queue(QUEUE_NAME, {
+    connection: getRedisConnectionOpts(),
+    prefix: QUEUE_PREFIX,
+  });
+
+  createBullBoard({
+    queues: [new BullMQAdapter(pipelineQueue)],
+    serverAdapter,
+  });
+
+  app.use("/admin/queues", serverAdapter.getRouter());
+  console.log("Bull Board mounted at /admin/queues");
+}
+
+// --- Data Freshness Check ---
+app.get("/api/data-freshness", async (_req: Request, res: Response) => {
+  try {
+    const bq = createBigQueryClient();
+    const projectId = process.env.BIGQUERY_PROJECT;
+    if (!projectId) {
+      return res.status(500).json({ error: "BIGQUERY_PROJECT not configured" });
+    }
+
+    // Use entities already registered in the server registry (no heavy CLI import)
+    const { allEntities } = await import("./registry");
+
+    if (allEntities.length === 0) {
+      return res.json({ status: "unknown", platforms: [] });
+    }
+
+    // Build a UNION ALL query dynamically from registered entity tables
+    const unionParts = allEntities.map((entity) => {
+      const fqn = `${projectId}.${entity.fqn}`;
+      return `SELECT '${entity.id}' AS entity, MAX(date) AS latest_date, COUNT(*) AS total_rows FROM \`${fqn}\``;
+    });
+
+    const query = `
+      WITH freshness AS (
+        ${unionParts.join("\nUNION ALL\n        ")}
+      )
+      SELECT
+        entity,
+        latest_date,
+        total_rows,
+        DATE_DIFF(CURRENT_DATE(), latest_date, DAY) AS days_stale
+      FROM freshness
+      ORDER BY days_stale DESC
+    `;
+
+    const [rows] = await bq.query({ query });
+    const staleThresholdDays = 2;
+    const stalePlatforms = rows.filter((r: any) => r.days_stale > staleThresholdDays);
+
+    res.json({
+      status: stalePlatforms.length > 0 ? "stale" : "fresh",
+      staleThresholdDays,
+      platforms: rows.map((r: any) => ({
+        entity: r.entity,
+        latestDate: r.latest_date?.value ?? r.latest_date,
+        totalRows: Number(r.total_rows),
+        daysStale: Number(r.days_stale),
+        status: r.days_stale > staleThresholdDays ? "stale" : "fresh",
+      })),
+    });
+  } catch (error: any) {
+    logger.error({ err: error }, "Error checking data freshness");
+    res.status(500).json({ error: "Failed to check data freshness" });
+  }
 });
 
 // --- Session & Passport (must be before routes) ---
@@ -2141,6 +2222,10 @@ app.get(/.*/, (req: Request, res: Response, next) => {
   // If the request is for an API route that wasn't matched above, return a 404
   if (req.path.startsWith("/api")) {
     return res.status(404).json({ error: "API endpoint not found" });
+  }
+  // Don't intercept Bull Board routes
+  if (req.path.startsWith("/admin/queues")) {
+    return next();
   }
   // Otherwise serve the index.html from the client build for SPA routing
   res.sendFile(path.join(clientDistPath, "index.html"), (err) => {

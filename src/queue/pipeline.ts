@@ -27,6 +27,10 @@ interface PipelineResult {
 /**
  * Runs the full data pipeline (or specific phases) with a configurable lookback window.
  * This is the core logic shared by both the BullMQ worker and the CLI.
+ *
+ * Dependency chain: import → entity → aggregateReport / monitor / superlative
+ * If upstream jobs fail or return no data, downstream jobs that depend on them
+ * are skipped to protect existing data from being deleted and replaced with nothing.
  */
 export async function runPipeline(options: PipelineRunOptions): Promise<PipelineResult[]> {
   const results: PipelineResult[] = [];
@@ -39,6 +43,11 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
 
   const phases = options.phases || ["import", "thumbnail", "entity", "aggregateReport", "monitor", "superlative"];
   const datePreset = LOOKBACK_TO_DATE_PRESET[options.lookback];
+
+  // Cascade tracking: upstream failures propagate to downstream phases
+  const failedImportIds = new Set<string>();
+  const emptyImportIds = new Set<string>();
+  const skippedEntityIds = new Set<string>();
 
   for (const phase of phases) {
     // Thumbnail phase is handled separately — it doesn't use job discovery
@@ -96,6 +105,54 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
     for (const job of phaseJobs) {
       const result: PipelineResult = { phase, jobId: job.id, success: false };
 
+      // --- Cascade skip checks per phase ---
+      if (phase === "entity") {
+        const entity = job.instance as Entity<any>;
+        const sourceIds = entity.definition.sources.map((s: BronzeImport<any, any>) => s.id);
+        const allSourcesBad = sourceIds.length > 0 && sourceIds.every((id: string) => failedImportIds.has(id) || emptyImportIds.has(id));
+
+        if (allSourcesBad) {
+          skippedEntityIds.add(entity.id);
+          console.log(chalk.yellow(`  [SKIP] ${job.id}: all source imports failed or returned 0 rows, preserving existing data`));
+          result.error = "Skipped: no new data from any source import";
+          results.push(result);
+          continue;
+        }
+      }
+
+      if (phase === "aggregateReport") {
+        const report = job.instance as AggregateReport<any>;
+        const sourceEntityId = report.definition.source?.id;
+        if (sourceEntityId && skippedEntityIds.has(sourceEntityId)) {
+          console.log(chalk.yellow(`  [SKIP] ${job.id}: source entity "${sourceEntityId}" was skipped`));
+          result.error = `Skipped: source entity "${sourceEntityId}" was skipped`;
+          results.push(result);
+          continue;
+        }
+      }
+
+      if (phase === "monitor") {
+        const monitor = job.instance as Monitor;
+        const sourceEntityId = monitor.entity?.id;
+        if (sourceEntityId && skippedEntityIds.has(sourceEntityId)) {
+          console.log(chalk.yellow(`  [SKIP] ${job.id}: source entity "${sourceEntityId}" was skipped`));
+          result.error = `Skipped: source entity "${sourceEntityId}" was skipped`;
+          results.push(result);
+          continue;
+        }
+      }
+
+      if (phase === "superlative") {
+        const entity = job.instance as Entity<any>;
+        if (skippedEntityIds.has(entity.id)) {
+          console.log(chalk.yellow(`  [SKIP] ${job.id}: source entity "${entity.id}" was skipped`));
+          result.error = `Skipped: source entity "${entity.id}" was skipped`;
+          results.push(result);
+          continue;
+        }
+      }
+
+      // --- Execute the job ---
       try {
         if (phase === "import") {
           const executor = new WindsorImportExecutor();
@@ -103,6 +160,9 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
             requestOverrides: { date_preset: datePreset },
           });
           result.rowCount = importResult.rowCount;
+          if (importResult.rowCount === 0) {
+            emptyImportIds.add(job.id);
+          }
         } else if (phase === "entity") {
           const executor = new EntityExecutor(projectId);
           const incrementalDays = LOOKBACK_TO_DAYS[options.lookback];
@@ -124,6 +184,12 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
       } catch (error: any) {
         result.error = error?.message ?? "Unknown error";
         console.log(chalk.red(`  [FAIL] ${job.id}: ${result.error}`));
+
+        if (phase === "import") {
+          failedImportIds.add(job.id);
+        } else if (phase === "entity") {
+          skippedEntityIds.add(job.id);
+        }
       }
 
       results.push(result);
@@ -132,7 +198,15 @@ export async function runPipeline(options: PipelineRunOptions): Promise<Pipeline
 
   const succeeded = results.filter((r) => r.success).length;
   const failed = results.filter((r) => !r.success).length;
-  console.log(chalk.cyan(`\nPipeline complete: ${succeeded} succeeded, ${failed} failed.`));
+  const skipped = results.filter((r) => r.error?.startsWith("Skipped:")).length;
+  console.log(chalk.cyan(`\nPipeline complete: ${succeeded} succeeded, ${failed} failed, ${skipped} skipped.`));
+
+  if (failedImportIds.size > 0) {
+    console.log(chalk.yellow(`Failed imports: ${[...failedImportIds].join(", ")}`));
+  }
+  if (skippedEntityIds.size > 0) {
+    console.log(chalk.yellow(`Skipped entities: ${[...skippedEntityIds].join(", ")}`));
+  }
 
   return results;
 }
