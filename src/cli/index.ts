@@ -435,18 +435,28 @@ Options:
     return;
   }
 
-  // If --lookback is provided with --all or type flags, use the pipeline runner
-  // This enables the fast daily ingestion path
-  if (selected.lookback && (selected.all || selected.allImports || selected.allEntities || selected.allAggregateReports || selected.allMonitors || selected.allSuperlatives)) {
+  // If --lookback is provided, use the pipeline runner so date_preset is respected
+  if (selected.lookback && hasSelection) {
     const phases: ("import" | "thumbnail" | "entity" | "aggregateReport" | "monitor" | "superlative")[] = [];
+    const jobIds: string[] = [];
+
     if (selected.all) {
       phases.push("import", "thumbnail", "entity", "aggregateReport", "monitor", "superlative");
     } else {
-      if (selected.allImports) phases.push("import");
-      if (selected.allEntities) phases.push("entity");
-      if (selected.allAggregateReports) phases.push("aggregateReport");
-      if (selected.allMonitors) phases.push("monitor");
-      if (selected.allSuperlatives) phases.push("superlative");
+      if (selected.allImports || selected.import.size > 0) phases.push("import");
+      if (selected.allEntities || selected.entity.size > 0) phases.push("entity");
+      if (selected.allAggregateReports || selected.aggregateReport.size > 0) phases.push("aggregateReport");
+      if (selected.allMonitors || selected.monitor.size > 0) phases.push("monitor");
+      if (selected.allSuperlatives || selected.superlative.size > 0) phases.push("superlative");
+    }
+
+    // Collect specific job IDs (pipeline will filter to these)
+    if (!selected.all) {
+      for (const id of selected.import) jobIds.push(id);
+      for (const id of selected.entity) jobIds.push(id);
+      for (const id of selected.aggregateReport) jobIds.push(id);
+      for (const id of selected.monitor) jobIds.push(id);
+      for (const id of selected.superlative) jobIds.push(id);
     }
 
     if (selected.enqueue) {
@@ -459,7 +469,11 @@ Options:
       return;
     }
 
-    await runPipeline({ lookback: selected.lookback, phases });
+    await runPipeline({
+      lookback: selected.lookback,
+      phases,
+      jobIds: jobIds.length > 0 ? jobIds : undefined,
+    });
     return;
   }
 
