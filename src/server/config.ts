@@ -19,6 +19,7 @@ const envSchema = z.object({
   SENDGRID_FROM_EMAIL: z.string().default("noreply@maxedmarketing.com"),
   GEMINI_API_KEY: z.string().optional(),
   WINDSOR_API_KEY: z.string().optional(),
+  WINDSOR_CO_USER_LOGIN_URL: z.string().default("https://app.windsor.ai/co-user-login"),
 
   // Shopify OAuth
   SHOPIFY_API_KEY: z.string().min(1, "SHOPIFY_API_KEY is required"),

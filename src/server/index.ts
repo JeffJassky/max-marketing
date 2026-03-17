@@ -39,6 +39,7 @@ import { creativePerformanceReport } from "../jobs/entities/creative-daily/aggre
 import { brandVoiceCreativePerformance } from "../jobs/entities/creative-daily/aggregateReports/brand-voice-creative.aggregateReport";
 import { clientAccountModel } from "./models/ClientAccount";
 import { accountSettingsModel } from "./models/AccountSettingsModel";
+import { windsorAccessTokenModel } from "./models/WindsorAccessToken";
 import { resolveSettings, deepMerge } from "../shared/settings/resolve";
 import { AccountSettingsPatchSchema } from "../shared/settings/schema";
 import { buildReportQuery } from "../shared/data/queryBuilder";
@@ -66,6 +67,7 @@ import authRoutes from "./routes/auth";
 import adminRoutes from "./routes/admin";
 import dashboardRoutes from "./routes/dashboard";
 import shopifyRoutes from "./routes/shopify";
+import connectAccountsRoutes from "./routes/connect-accounts";
 import { AccountMembership } from "./models/AccountMembership";
 import { IUser } from "./models/User";
 
@@ -123,6 +125,9 @@ app.use("/api", requireAuth);
 
 // --- Dashboard Routes ---
 app.use("/api/dashboard", dashboardRoutes);
+
+// --- Connect Accounts (Windsor token orchestration) ---
+app.use("/api/connect-accounts", connectAccountsRoutes);
 
 app.post("/api/chat", async (req: Request, res: Response) => {
   const { messages, context } = req.body;
@@ -2169,6 +2174,7 @@ if (require.main === module) {
       await connectMongoDB();
       await clientAccountModel.initialize();
       await accountSettingsModel.initialize();
+      await windsorAccessTokenModel.initialize();
     } catch (err) {
       logger.error({ err }, "Failed to initialize models");
     }
