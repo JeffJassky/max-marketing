@@ -22,6 +22,7 @@ import {
 } from 'lucide-vue-next';
 import Sparkline from '../components/Sparkline.vue';
 import UnifiedOverview from '../components/UnifiedOverview.vue';
+import PlatformConnectPrompt from '../components/PlatformConnectPrompt.vue';
 import { useDateRange } from '../composables/useDateRange';
 import { useAccountSettingsStore } from '../stores/accountSettings';
 import { useSortable } from '@vueuse/integrations/useSortable';
@@ -149,6 +150,25 @@ const platformToSectionKey: Record<PlatformTab, string> = {
   [PlatformTab.FACEBOOK_ORGANIC]: 'sections.overviews.facebook',
   [PlatformTab.GSC]: 'sections.overviews.gsc',
 } as const;
+
+// Map platform tabs to account fields for connection status check
+const tabToPlatformField: Record<PlatformTab, keyof MaxAccount | null> = {
+  [PlatformTab.OVERVIEW]: null,       // Always shown
+  [PlatformTab.GOOGLE]: 'googleAdsId',
+  [PlatformTab.META]: 'facebookAdsId',
+  [PlatformTab.GA4]: 'ga4Id',
+  [PlatformTab.SHOPIFY]: 'shopifyId',
+  [PlatformTab.INSTAGRAM]: 'instagramId',
+  [PlatformTab.FACEBOOK_ORGANIC]: 'facebookPageId',
+  [PlatformTab.GSC]: 'gscId',
+};
+
+// Check if the active platform tab is connected to the account
+const isPlatformConnected = computed(() => {
+  const field = tabToPlatformField[activeTab.value];
+  if (!field) return true; // OVERVIEW tab is always "connected"
+  return !!selectedAccount?.value?.[field];
+});
 
 // Read from Pinia store (updated reactively when settings change)
 const settingsStoreForRead = useAccountSettingsStore();
@@ -329,6 +349,7 @@ const restoreMetric = async (metricKey: string) => {
 const loadReport = async () => {
   if (!selectedAccount?.value) return;
   if (activeTab.value === PlatformTab.OVERVIEW) return; // Handled by UnifiedOverview
+  if (!isPlatformConnected.value) return; // Platform not connected — show connect prompt instead
 
   const currentTab = tabs.find(t => t.id === activeTab.value);
   if (!currentTab || !currentTab.reportId) return;
@@ -544,6 +565,14 @@ onUnmounted(() => {
     <div ref="scrollContainerRef" class="flex-1 overflow-y-auto">
       <!-- Unified Overview Tab -->
       <UnifiedOverview v-if="activeTab === PlatformTab.OVERVIEW" />
+
+      <!-- Platform not connected — show connect prompt -->
+      <PlatformConnectPrompt
+        v-else-if="!isPlatformConnected"
+        :platformName="tabs.find(t => t.id === activeTab)?.label ?? ''"
+        :platformIcon="tabs.find(t => t.id === activeTab)?.icon"
+        :accountId="selectedAccount?.id ?? ''"
+      />
 
       <!-- Platform-specific content -->
       <template v-else>
