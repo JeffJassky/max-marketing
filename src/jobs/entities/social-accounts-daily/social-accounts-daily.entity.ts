@@ -1,13 +1,14 @@
 import { Entity } from "../../base";
 import { instagramAccount } from "../../imports/instagram/account.import";
 import { facebookOrganicAccount } from "../../imports/facebook_organic/account.import";
+import { tiktokOrganicAccount } from "../../imports/tiktok_organic/account.import";
 import { z } from "zod";
 
 export const socialAccountsDaily = new Entity({
   id: "socialAccountsDaily",
   label: "Social Accounts",
-  description: "Daily account-level metrics for Instagram and Facebook, including followers and page impressions.",
-  sources: [instagramAccount, facebookOrganicAccount],
+  description: "Daily account-level metrics for Instagram, Facebook, and TikTok, including followers and page impressions.",
+  sources: [instagramAccount, facebookOrganicAccount, tiktokOrganicAccount],
   partitionBy: "date",
   clusterBy: ["platform", "account_id"],
   grain: ["date", "account_id", "platform"],
@@ -19,6 +20,7 @@ export const socialAccountsDaily = new Entity({
       sources: {
         instagramAccount: { expression: "'instagram'" },
         facebookOrganicAccount: { expression: "'facebook'" },
+        tiktokOrganicAccount: { expression: "'tiktok'" },
       },
     },
   },
@@ -29,6 +31,7 @@ export const socialAccountsDaily = new Entity({
       sources: {
         instagramAccount: { sourceField: "followers_count" },
         facebookOrganicAccount: { sourceField: "page_fans" },
+        tiktokOrganicAccount: { sourceField: "total_followers_count" },
       },
     },
     follower_adds: {
@@ -37,6 +40,7 @@ export const socialAccountsDaily = new Entity({
       sources: {
         instagramAccount: { sourceField: "follower_count_1d" },
         facebookOrganicAccount: { sourceField: "page_fan_adds" },
+        tiktokOrganicAccount: { sourceField: "followers_count" },
       },
     },
     follower_removes: {
@@ -45,6 +49,7 @@ export const socialAccountsDaily = new Entity({
       sources: {
         instagramAccount: { expression: "0" },
         facebookOrganicAccount: { sourceField: "page_fan_removes" },
+        tiktokOrganicAccount: { sourceField: "daily_lost_followers" },
       },
     },
     reach: {
@@ -53,6 +58,7 @@ export const socialAccountsDaily = new Entity({
       sources: {
         instagramAccount: { sourceField: "reach" },
         facebookOrganicAccount: { sourceField: "page_impressions" },
+        tiktokOrganicAccount: { sourceField: "unique_video_views" },
       },
     },
     profile_views: {
@@ -61,6 +67,7 @@ export const socialAccountsDaily = new Entity({
       sources: {
         instagramAccount: { expression: "0" },
         facebookOrganicAccount: { sourceField: "page_views_total" },
+        tiktokOrganicAccount: { sourceField: "profile_views" },
       },
     },
     engaged_users: {
@@ -69,6 +76,7 @@ export const socialAccountsDaily = new Entity({
       sources: {
         instagramAccount: { expression: "0" },
         facebookOrganicAccount: { sourceField: "page_engaged_users" },
+        tiktokOrganicAccount: { sourceField: "engaged_audience" },
       },
     },
   },

@@ -22,6 +22,7 @@ import { shopifySourcePerformance } from "../jobs/entities/shopify-daily/aggrega
 import { socialPlatformPerformance } from "../jobs/entities/social-media-daily/aggregateReports/social-platform.aggregateReport";
 import { instagramPostPerformance } from "../jobs/entities/social-media-daily/aggregateReports/instagram-post-performance.aggregateReport";
 import { facebookPostPerformance } from "../jobs/entities/social-media-daily/aggregateReports/facebook-post-performance.aggregateReport";
+import { tiktokPostPerformance } from "../jobs/entities/social-media-daily/aggregateReports/tiktok-post-performance.aggregateReport";
 import { creativePerformanceReport } from "../jobs/entities/creative-daily/aggregateReports/creative-performance.aggregateReport";
 import { brandVoiceCreativePerformance } from "../jobs/entities/creative-daily/aggregateReports/brand-voice-creative.aggregateReport";
 import { gscQueryPerformance } from "../jobs/entities/gsc-daily/aggregateReports/gsc-query-performance.aggregateReport";
@@ -47,6 +48,8 @@ import { ga4PagePerformance as ga4PageImport } from "../jobs/imports/google_ga4/
 import { googleSearchConsoleAnalytics as gscImport } from "../jobs/imports/google_search_console/search-analytics.import";
 import { instagramAccount as instagramAccountImport } from "../jobs/imports/instagram/account.import";
 import { facebookOrganicAccount as facebookOrganicAccountImport } from "../jobs/imports/facebook_organic/account.import";
+import { tiktokOrganicMedia as tiktokOrganicMediaImport } from "../jobs/imports/tiktok_organic/media.import";
+import { tiktokOrganicAccount as tiktokOrganicAccountImport } from "../jobs/imports/tiktok_organic/account.import";
 
 export const coreMonitors = [
   accountSpendAnomalyMonitor,
@@ -75,6 +78,7 @@ export const allAggregateReports = [
   socialPlatformPerformance,
   instagramPostPerformance,
   facebookPostPerformance,
+  tiktokPostPerformance,
   creativePerformanceReport,
   brandVoiceCreativePerformance,
   gscQueryPerformance,
@@ -102,6 +106,8 @@ export const allImports = [
   gscImport,
   instagramAccountImport,
   facebookOrganicAccountImport,
+  tiktokOrganicMediaImport,
+  tiktokOrganicAccountImport,
 ];
 
 
@@ -125,6 +131,7 @@ export const getSchemaCatalog = () => {
           if (platforms.includes('facebook')) knownValues.push('facebook');
           if (platforms.includes('instagram')) knownValues.push('instagram');
           if (platforms.includes('shopify')) knownValues.push('shopify');
+          if (platforms.includes('tiktok_organic')) knownValues.push('tiktok');
         }
         if (name === 'customer_type') knownValues = ['new', 'returning'];
         if (name === 'channel_group' && entity.id === 'adsDaily') {

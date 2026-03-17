@@ -19,12 +19,14 @@ const formatNum = (n: number) => {
 const platformLabel = (p: string) => {
   if (p === 'instagram') return 'Instagram';
   if (p === 'facebook') return 'Facebook';
+  if (p === 'tiktok') return 'TikTok';
   return p;
 };
 
 const platformDotColor = (p: string) => {
   if (p === 'instagram') return '#E1306C';
   if (p === 'facebook') return '#1877F2';
+  if (p === 'tiktok') return '#000000';
   return '#9CA3AF';
 };
 

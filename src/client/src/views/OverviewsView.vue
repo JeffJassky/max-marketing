@@ -7,6 +7,7 @@ import {
   ShoppingBag,
   Instagram,
   Facebook,
+  Music,
   RefreshCw,
   Wallet,
   Search,
@@ -37,6 +38,7 @@ interface MaxAccount {
   instagramId: string | null;
   facebookPageId: string | null;
   gscId: string | null;
+  tiktokId: string | null;
 }
 
 const selectedAccount = inject<Ref<MaxAccount | null>>('selectedAccount');
@@ -50,6 +52,7 @@ const PlatformTab = {
   SHOPIFY: 'SHOPIFY',
   INSTAGRAM: 'INSTAGRAM',
   FACEBOOK_ORGANIC: 'FACEBOOK_ORGANIC',
+  TIKTOK: 'TIKTOK',
   GSC: 'GSC'
 } as const;
 
@@ -63,6 +66,7 @@ const tabs = [
   { id: PlatformTab.SHOPIFY, label: 'Shopify', icon: ShoppingBag, reportId: 'shopifySourcePerformance' },
   { id: PlatformTab.INSTAGRAM, label: 'Instagram', icon: Instagram, reportId: 'instagramPostPerformance' },
   { id: PlatformTab.FACEBOOK_ORGANIC, label: 'Facebook', icon: Facebook, reportId: 'facebookPostPerformance' },
+  { id: PlatformTab.TIKTOK, label: 'TikTok', icon: Music, reportId: 'tiktokPostPerformance' },
   { id: PlatformTab.GSC, label: 'Search Console', icon: Search, reportId: 'gscQueryPerformance' }
 ];
 
@@ -147,6 +151,7 @@ const platformToSectionKey: Record<PlatformTab, string> = {
   [PlatformTab.SHOPIFY]: 'sections.overviews.shopify',
   [PlatformTab.INSTAGRAM]: 'sections.overviews.instagram',
   [PlatformTab.FACEBOOK_ORGANIC]: 'sections.overviews.facebook',
+  [PlatformTab.TIKTOK]: 'sections.overviews.tiktok',
   [PlatformTab.GSC]: 'sections.overviews.gsc',
 } as const;
 
@@ -353,6 +358,7 @@ const loadReport = async () => {
     if (acc.instagramId) params.append('instagramId', acc.instagramId);
     if (acc.facebookPageId) params.append('facebookPageId', acc.facebookPageId);
     if (acc.gscId) params.append('gscId', acc.gscId);
+    if (acc.tiktokId) params.append('tiktokId', acc.tiktokId);
 
     // Query Params
     params.append('start', dateParams.value.startDate || '');

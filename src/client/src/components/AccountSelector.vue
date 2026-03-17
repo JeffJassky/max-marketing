@@ -15,6 +15,7 @@ interface MaxAccount {
   instagramId: string | null;
   facebookPageId: string | null;
   gscId: string | null;
+  tiktokId: string | null;
 }
 
 const selectedAccount = inject<Ref<MaxAccount | null>>('selectedAccount');
@@ -172,6 +173,12 @@ onMounted(() => {
                 :class="'text-green-400 bg-green-400/10'"
                 v-if="account.gscId"
                 >GSC</span
+              >
+              <span
+                class="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono"
+                :class="'text-green-400 bg-green-400/10'"
+                v-if="account.tiktokId"
+                >TT</span
               >
             </div>
           </div>

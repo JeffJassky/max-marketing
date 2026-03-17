@@ -11,6 +11,7 @@ const ClientAccountSchema = z.object({
   instagramId: z.string().optional().nullable(),
   facebookPageId: z.string().optional().nullable(),
   gscId: z.string().optional().nullable(),
+  tiktokId: z.string().optional().nullable(),
 });
 
 export type ClientAccount = z.infer<typeof ClientAccountSchema>;

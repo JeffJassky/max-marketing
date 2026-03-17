@@ -14,6 +14,7 @@ import { ga4PagePerformance } from "../jobs/imports/google_ga4/page-performance.
 import { shopifyOrders } from "../jobs/imports/shopify/orders.import";
 import { instagramMedia } from "../jobs/imports/instagram/media.import";
 import { facebookOrganicPosts } from "../jobs/imports/facebook_organic/posts.import";
+import { tiktokOrganicMedia } from "../jobs/imports/tiktok_organic/media.import";
 import { googleSearchConsoleAnalytics } from "../jobs/imports/google_search_console/search-analytics.import";
 
 import { Monitor } from "../shared/data/monitor";
@@ -314,6 +315,16 @@ app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
       GROUP BY account_id
     `;
 
+    const tiktokQuery = `
+      SELECT
+        account_id AS id,
+        ANY_VALUE(account_name) AS name
+      FROM
+        ${tiktokOrganicMedia.fqn}
+      WHERE account_id IS NOT NULL
+      GROUP BY account_id
+    `;
+
     const [
       googleRowsPromise,
       facebookRowsPromise,
@@ -322,6 +333,7 @@ app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
       instagramRowsPromise,
       facebookOrganicRowsPromise,
       gscRowsPromise,
+      tiktokRowsPromise,
     ] = [
       bq.query(googleQuery),
       bq.query(facebookQuery),
@@ -330,6 +342,7 @@ app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
       bq.query(instagramQuery),
       bq.query(facebookOrganicQuery),
       bq.query(gscQuery),
+      bq.query(tiktokQuery),
     ];
 
     const [
@@ -340,6 +353,7 @@ app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
       [instagramRows],
       [facebookOrganicRows],
       [gscRows],
+      [tiktokRows],
     ] = await Promise.all([
       googleRowsPromise,
       facebookRowsPromise,
@@ -348,6 +362,7 @@ app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
       instagramRowsPromise,
       facebookOrganicRowsPromise,
       gscRowsPromise,
+      tiktokRowsPromise,
     ]);
 
     res.json({
@@ -358,6 +373,7 @@ app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
       instagram: instagramRows,
       facebook_organic: facebookOrganicRows,
       gsc: gscRows,
+      tiktok: tiktokRows,
     });
   } catch (error) {
     logger.error({ err: error }, "Error fetching platform accounts");
