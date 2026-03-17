@@ -136,8 +136,8 @@ router.get("/", async (req: Request, res: Response) => {
     // 5d. Redirect to Windsor
     const redirectUrl = `${WINDSOR_CO_USER_LOGIN_URL}?access_token=${encodeURIComponent(availableToken.access_token)}`;
     return res.redirect(redirectUrl);
-  } catch (err) {
-    logger.error({ err }, "Error in connect-accounts endpoint");
+  } catch (err: any) {
+    logger.error({ err, message: err?.message, stack: err?.stack }, "Error in connect-accounts endpoint");
     return renderErrorPage(
       res,
       "An unexpected error occurred. Please try again or contact support at <a href=\"mailto:support@maxedmarketing.com\">support@maxedmarketing.com</a>."

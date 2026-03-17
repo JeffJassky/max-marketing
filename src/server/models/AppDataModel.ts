@@ -72,8 +72,18 @@ ${this.fqn}
   }
 
   async create(data: z.infer<T>): Promise<void> {
-    const tableRef = this.bq.dataset(this.datasetId).table(this.tableId);
-    await tableRef.insert(data);
+    // Use DML INSERT instead of streaming API to avoid streaming buffer
+    // (streaming buffer blocks UPDATE/DELETE for up to 90 minutes)
+    const entries = Object.entries(data);
+    const columns = entries.map(([k]) => k).join(", ");
+    const params: Record<string, any> = {};
+    const placeholders = entries.map(([k, v]) => {
+      params[k] = v;
+      return `@${k}`;
+    }).join(", ");
+
+    const query = `INSERT INTO ${this.fqn} (${columns}) VALUES (${placeholders})`;
+    await this.bq.query({ query, params });
   }
 
   async update(id: string, data: Partial<z.infer<T>>): Promise<void> {
