@@ -1,6 +1,7 @@
 import { Entity } from "../../base";
 import { instagramMedia } from "../../imports/instagram/media.import";
 import { facebookOrganicPosts } from "../../imports/facebook_organic/posts.import";
+import { tiktokOrganicMedia } from "../../imports/tiktok_organic/media.import";
 import { z } from "zod";
 import {
   VolumeTitanAward,
@@ -13,8 +14,8 @@ import {
 export const socialMediaDaily = new Entity({
   id: "socialMediaDaily",
   label: "Social Media",
-  description: "Daily organic performance for Instagram and Facebook posts.",
-  sources: [instagramMedia, facebookOrganicPosts],
+  description: "Daily organic performance for Instagram, Facebook, and TikTok posts.",
+  sources: [instagramMedia, facebookOrganicPosts, tiktokOrganicMedia],
   partitionBy: "date",
   clusterBy: ["platform", "account_id", "media_type", "media_id"],
   grain: ["date", "account_id", "platform", "media_type", "media_id"],
@@ -26,6 +27,7 @@ export const socialMediaDaily = new Entity({
       sources: {
         instagramMedia: { expression: "'instagram'" },
         facebookOrganicPosts: { expression: "'facebook'" },
+        tiktokOrganicMedia: { expression: "'tiktok'" },
       },
     },
     media_id: {
@@ -33,6 +35,7 @@ export const socialMediaDaily = new Entity({
       sources: {
         instagramMedia: { sourceField: "media_id" },
         facebookOrganicPosts: { sourceField: "post_id" },
+        tiktokOrganicMedia: { sourceField: "video_id" },
       },
     },
     media_type: {
@@ -40,6 +43,7 @@ export const socialMediaDaily = new Entity({
       sources: {
         instagramMedia: { sourceField: "media_type" },
         facebookOrganicPosts: { expression: "'POST'" },
+        tiktokOrganicMedia: { expression: "'VIDEO'" },
       },
     },
     caption: {
@@ -47,6 +51,7 @@ export const socialMediaDaily = new Entity({
       sources: {
         instagramMedia: { sourceField: "media_caption" },
         facebookOrganicPosts: { expression: "COALESCE(post_message, post_title, post_description)" },
+        tiktokOrganicMedia: { sourceField: "video_caption" },
       },
     },
     permalink: {
@@ -54,6 +59,7 @@ export const socialMediaDaily = new Entity({
       sources: {
         instagramMedia: { sourceField: "media_permalink" },
         facebookOrganicPosts: { expression: "CONCAT('https://facebook.com/', post_id)" },
+        tiktokOrganicMedia: { sourceField: "video_share_url" },
       },
     },
     published_at: {
@@ -61,6 +67,7 @@ export const socialMediaDaily = new Entity({
       sources: {
         instagramMedia: { expression: "CAST(date AS STRING)" },
         facebookOrganicPosts: { sourceField: "post_created_time" },
+        tiktokOrganicMedia: { sourceField: "video_create_datetime" },
       },
     },
     thumbnail_url: {
@@ -72,6 +79,7 @@ export const socialMediaDaily = new Entity({
         facebookOrganicPosts: {
           expression: "COALESCE(full_picture, post_picture)",
         },
+        tiktokOrganicMedia: { sourceField: "video_thumbnail_url" },
       },
     },
   },
@@ -82,6 +90,7 @@ export const socialMediaDaily = new Entity({
       sources: {
         instagramMedia: { expression: "SUM(COALESCE(impressions, media_reach, media_views))" },
         facebookOrganicPosts: { sourceField: "post_impressions" },
+        tiktokOrganicMedia: { expression: "SUM(COALESCE(video_reach, video_views_count))" },
       },
     },
     views: {
@@ -90,6 +99,7 @@ export const socialMediaDaily = new Entity({
       sources: {
         instagramMedia: { sourceField: "media_views" },
         facebookOrganicPosts: { sourceField: "post_video_views" },
+        tiktokOrganicMedia: { sourceField: "video_views_count" },
       },
     },
     likes: {
@@ -98,6 +108,7 @@ export const socialMediaDaily = new Entity({
       sources: {
         instagramMedia: { sourceField: "media_like_count" },
         facebookOrganicPosts: { sourceField: "post_activity_by_action_type_like" },
+        tiktokOrganicMedia: { sourceField: "video_likes" },
       },
     },
     comments: {
@@ -106,6 +117,7 @@ export const socialMediaDaily = new Entity({
       sources: {
         instagramMedia: { sourceField: "media_comments_count" },
         facebookOrganicPosts: { sourceField: "post_comments_total" },
+        tiktokOrganicMedia: { sourceField: "video_comments" },
       },
     },
     shares: {
@@ -114,6 +126,7 @@ export const socialMediaDaily = new Entity({
       sources: {
         instagramMedia: { sourceField: "media_shares" },
         facebookOrganicPosts: { expression: "0" },
+        tiktokOrganicMedia: { sourceField: "video_shares" },
       },
     },
     engagement: {
@@ -122,6 +135,7 @@ export const socialMediaDaily = new Entity({
       sources: {
         instagramMedia: { sourceField: "media_engagement" },
         facebookOrganicPosts: { sourceField: "page_post_engagements" },
+        tiktokOrganicMedia: { expression: "SUM(COALESCE(video_likes, 0) + COALESCE(video_comments, 0) + COALESCE(video_shares, 0) + COALESCE(video_favorites, 0))" },
       },
     },
   },
@@ -129,7 +143,7 @@ export const socialMediaDaily = new Entity({
     {
       dimensionId: "platform",
       dimensionLabel: "Platform",
-      limit: 2,
+      limit: 3,
       metrics: [
         { metric: "impressions", awards: [VolumeTitanAward, FirstPlaceAward] },
         { metric: "views", awards: [VolumeTitanAward] },

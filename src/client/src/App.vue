@@ -24,6 +24,8 @@ interface MaxAccount {
   shopifyId: string | null;
   instagramId: string | null;
   facebookPageId: string | null;
+  gscId: string | null;
+  tiktokId: string | null;
 }
 
 const selectedAccount = ref<MaxAccount | null>(null);
@@ -43,7 +45,9 @@ const chatContext = computed(() => {
     ga4Id: acc.ga4Id,
     shopifyId: acc.shopifyId,
     instagramId: acc.instagramId,
-    facebookPageId: acc.facebookPageId
+    facebookPageId: acc.facebookPageId,
+    gscId: acc.gscId,
+    tiktokId: acc.tiktokId
   };
 });
 

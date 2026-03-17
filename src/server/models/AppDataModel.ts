@@ -36,7 +36,33 @@ export abstract class AppDataModel<T extends z.ZodObject<any>> {
       const schema = this.generateBqSchema();
       await tableRef.create({ schema });
       console.log(`[AppDataModel] Table ${this.fqn} created.`);
+    } else {
+      // Add any missing columns from the schema
+      await this.syncColumns(tableRef);
     }
+  }
+
+  private async syncColumns(tableRef: any): Promise<void> {
+    const [metadata] = await tableRef.getMetadata();
+    const existingFields = new Set(
+      (metadata.schema?.fields || []).map((f: any) => f.name)
+    );
+    const desiredSchema = this.generateBqSchema();
+    const missing = desiredSchema.filter((f) => !existingFields.has(f.name));
+
+    if (missing.length === 0) return;
+
+    console.log(
+      `[AppDataModel] Adding columns to ${this.datasetId}.${this.tableId}: ${missing.map((f) => f.name).join(", ")}`
+    );
+
+    const updatedFields = [
+      ...metadata.schema.fields,
+      ...missing.map((f) => ({ name: f.name, type: f.type, mode: "NULLABLE" })),
+    ];
+
+    metadata.schema.fields = updatedFields;
+    await tableRef.setMetadata(metadata);
   }
 
   private generateBqSchema() {

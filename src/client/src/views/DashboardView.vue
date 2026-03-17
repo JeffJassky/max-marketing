@@ -37,6 +37,7 @@ interface MaxAccount {
   instagramId: string | null;
   facebookPageId: string | null;
   gscId: string | null;
+  tiktokId: string | null;
 }
 
 interface SpendSegment {
@@ -87,6 +88,7 @@ const loadAll = async () => {
   if (acc.instagramId) params.append('instagramId', acc.instagramId);
   if (acc.facebookPageId) params.append('facebookPageId', acc.facebookPageId);
   if (acc.gscId) params.append('gscId', acc.gscId);
+  if (acc.tiktokId) params.append('tiktokId', acc.tiktokId);
 
   if (dateParams.value.startDate) params.append('startDate', dateParams.value.startDate);
   if (dateParams.value.endDate) params.append('endDate', dateParams.value.endDate);
@@ -123,6 +125,7 @@ const loadQuestions = async () => {
   if (acc.instagramId) params.append('instagramId', acc.instagramId);
   if (acc.facebookPageId) params.append('facebookPageId', acc.facebookPageId);
   if (acc.gscId) params.append('gscId', acc.gscId);
+  if (acc.tiktokId) params.append('tiktokId', acc.tiktokId);
 
   try {
     const res = await fetch(`/api/questions/homepage?${params.toString()}`).then(r => r.json());
@@ -147,6 +150,7 @@ const loadSpendMix = async () => {
   if (acc.instagramId) params.append('instagramId', acc.instagramId);
   if (acc.facebookPageId) params.append('facebookPageId', acc.facebookPageId);
   if (acc.gscId) params.append('gscId', acc.gscId);
+  if (acc.tiktokId) params.append('tiktokId', acc.tiktokId);
 
   if (dateParams.value.startDate) params.append('start', dateParams.value.startDate);
   if (dateParams.value.endDate) params.append('end', dateParams.value.endDate);
@@ -175,6 +179,7 @@ const loadBlocks = async () => {
   if (acc.instagramId) params.append('instagramId', acc.instagramId);
   if (acc.facebookPageId) params.append('facebookPageId', acc.facebookPageId);
   if (acc.gscId) params.append('gscId', acc.gscId);
+  if (acc.tiktokId) params.append('tiktokId', acc.tiktokId);
 
   if (dateParams.value.startDate) params.append('startDate', dateParams.value.startDate);
   if (dateParams.value.endDate) params.append('endDate', dateParams.value.endDate);

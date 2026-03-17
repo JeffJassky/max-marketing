@@ -20,6 +20,7 @@ import { ga4PagePerformance } from "../jobs/imports/google_ga4/page-performance.
 import { shopifyOrders } from "../jobs/imports/shopify/orders.import";
 import { instagramMedia } from "../jobs/imports/instagram/media.import";
 import { facebookOrganicPosts } from "../jobs/imports/facebook_organic/posts.import";
+import { tiktokOrganicMedia } from "../jobs/imports/tiktok_organic/media.import";
 import { googleSearchConsoleAnalytics } from "../jobs/imports/google_search_console/search-analytics.import";
 
 import { Monitor } from "../shared/data/monitor";
@@ -447,6 +448,16 @@ app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
       GROUP BY account_id
     `;
 
+    const tiktokQuery = `
+      SELECT
+        account_id AS id,
+        ANY_VALUE(account_name) AS name
+      FROM
+        ${tiktokOrganicMedia.fqn}
+      WHERE account_id IS NOT NULL
+      GROUP BY account_id
+    `;
+
     const [
       googleRowsPromise,
       facebookRowsPromise,
@@ -455,6 +466,7 @@ app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
       instagramRowsPromise,
       facebookOrganicRowsPromise,
       gscRowsPromise,
+      tiktokRowsPromise,
     ] = [
       bq.query(googleQuery),
       bq.query(facebookQuery),
@@ -463,6 +475,7 @@ app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
       bq.query(instagramQuery),
       bq.query(facebookOrganicQuery),
       bq.query(gscQuery),
+      bq.query(tiktokQuery),
     ];
 
     const [
@@ -473,6 +486,7 @@ app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
       [instagramRows],
       [facebookOrganicRows],
       [gscRows],
+      [tiktokRows],
     ] = await Promise.all([
       googleRowsPromise,
       facebookRowsPromise,
@@ -481,6 +495,7 @@ app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
       instagramRowsPromise,
       facebookOrganicRowsPromise,
       gscRowsPromise,
+      tiktokRowsPromise,
     ]);
 
     res.json({
@@ -491,6 +506,7 @@ app.get("/api/platform-accounts", async (_req: Request, res: Response) => {
       instagram: instagramRows,
       facebook_organic: facebookOrganicRows,
       gsc: gscRows,
+      tiktok: tiktokRows,
     });
   } catch (error) {
     logger.error({ err: error }, "Error fetching platform accounts");
@@ -627,9 +643,9 @@ app.get("/api/monitors/anomalies", async (req: Request, res: Response) => {
   const uniqueIds = Array.from(new Set(accountIds));
 
   if (uniqueIds.length === 0) {
-    return res
-      .status(400)
-      .json({ error: "At least one account ID is required" });
+    // No ads/analytics account IDs — return empty results rather than 400
+    // (account may only have social media IDs which monitors don't cover)
+    return res.json({ anomalies: [], questions: [] });
   }
 
   const startStr = startDate ? String(startDate) : undefined;
@@ -781,17 +797,11 @@ app.get(
       instagramId,
       facebookPageId,
       gscId,
+      tiktokId,
     } = req.query;
 
     const report = allAggregateReports.find((r) => r.id === reportId);
     if (!report) {
-      // If not found in the list, it might be a specific endpoint handled below,
-      // so we call next() to let other routes handle it?
-      // But Express routing doesn't work like that if params capture it.
-      // However, explicit routes like /api/aggregateReports/pmax-spend-breakdown defined BEFORE or AFTER?
-      // If defined BEFORE, they take precedence. If defined AFTER, this one takes precedence.
-      // I should check if pmax-spend-breakdown is in allAggregateReports. Yes it is.
-      // So this generic handler can handle it too.
       return res.status(404).json({ error: "Report not found" });
     }
 
@@ -804,6 +814,7 @@ app.get(
     if (instagramId) accountIds.push(String(instagramId));
     if (facebookPageId) accountIds.push(String(facebookPageId));
     if (gscId) accountIds.push(String(gscId));
+    if (tiktokId) accountIds.push(String(tiktokId));
 
     const uniqueIds = Array.from(new Set(accountIds));
 
@@ -891,6 +902,7 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
     instagramId,
     facebookPageId,
     gscId,
+    tiktokId,
   } = req.query;
 
   // Find the report definition
@@ -909,6 +921,7 @@ app.get("/api/reports/:reportId/live", async (req: Request, res: Response) => {
   if (instagramId) accountIds.push(String(instagramId));
   if (facebookPageId) accountIds.push(String(facebookPageId));
   if (gscId) accountIds.push(String(gscId));
+  if (tiktokId) accountIds.push(String(tiktokId));
 
   const uniqueIds = Array.from(new Set(accountIds));
   if (uniqueIds.length === 0) {
@@ -1151,9 +1164,18 @@ app.get("/api/executive/summary", async (req: Request, res: Response) => {
   const uniqueShopifyIds = Array.from(new Set(shopifyAccountIds));
 
   if (uniqueAdsIds.length === 0 && uniqueShopifyIds.length === 0) {
-    return res
-      .status(400)
-      .json({ error: "At least one platform ID is required" });
+    // No ads/shopify account IDs — return zeroed scorecard rather than 400
+    // (account may only have social media IDs)
+    return res.json({
+      scorecard: {
+        mer: { value: 0, change: 0 },
+        spend: { value: 0, change: 0 },
+        revenue: { value: 0, change: 0 },
+        acquisition: { value: 0, change: 0, newRevenue: 0 },
+        tcac: { value: 0, change: 0, platformCac: 0, platformRoas: 0, efficiencyGap: 0, newCustomers: 0 },
+      },
+      period: startDate && endDate ? `${startDate} to ${endDate}` : `${days || 30}d`,
+    });
   }
 
   // Determine date range

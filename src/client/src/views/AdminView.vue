@@ -7,6 +7,7 @@ interface MaxAccount {
   id: string; name: string;
   googleAdsId: string | null; facebookAdsId: string | null; ga4Id: string | null;
   shopifyId: string | null; instagramId: string | null; facebookPageId: string | null; gscId: string | null;
+  tiktokId: string | null;
 }
 interface Membership { id: string; accountId: string; role: string; }
 interface AdminUser {
@@ -21,12 +22,13 @@ const accounts = ref<MaxAccount[]>([]);
 const platformAccounts = ref<{
   google: PlatformAccount[]; facebook: PlatformAccount[]; ga4: PlatformAccount[];
   shopify: PlatformAccount[]; instagram: PlatformAccount[]; facebook_organic: PlatformAccount[]; gsc: PlatformAccount[];
-}>({ google: [], facebook: [], ga4: [], shopify: [], instagram: [], facebook_organic: [], gsc: [] });
+  tiktok: PlatformAccount[];
+}>({ google: [], facebook: [], ga4: [], shopify: [], instagram: [], facebook_organic: [], gsc: [], tiktok: [] });
 const editingAccountId = ref<string | null>(null);
 const newAccountIds = ref(new Set<string>());
 const accountForm = ref<MaxAccount>({
   id: '', name: '', googleAdsId: null, facebookAdsId: null, ga4Id: null,
-  shopifyId: null, instagramId: null, facebookPageId: null, gscId: null
+  shopifyId: null, instagramId: null, facebookPageId: null, gscId: null, tiktokId: null
 });
 
 // --- User state ---
@@ -98,7 +100,7 @@ const createAccount = () => {
   const id = crypto.randomUUID();
   const acct: MaxAccount = {
     id, name: 'New Account', googleAdsId: null, facebookAdsId: null, ga4Id: null,
-    shopifyId: null, instagramId: null, facebookPageId: null, gscId: null
+    shopifyId: null, instagramId: null, facebookPageId: null, gscId: null, tiktokId: null
   };
   newAccountIds.value.add(id);
   accounts.value.push(acct);
@@ -315,6 +317,13 @@ onMounted(() => {
                     <option v-for="f in platformAccounts.facebook_organic" :key="f.id" :value="f.id">{{ f.name }} ({{ f.id }})</option>
                   </select>
                 </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-500 mb-1">TikTok</label>
+                  <select v-model="accountForm.tiktokId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white">
+                    <option :value="null">Select...</option>
+                    <option v-for="tt in platformAccounts.tiktok" :key="tt.id" :value="tt.id">{{ tt.name }} ({{ tt.id }})</option>
+                  </select>
+                </div>
               </div>
               <div class="flex justify-end gap-2 mt-4">
                 <button @click="cancelEditAccount" class="px-4 py-2 text-sm text-slate-500 hover:bg-stone-100 rounded-lg font-medium">Cancel</button>
@@ -336,6 +345,7 @@ onMounted(() => {
                   <span class="flex items-center"><span class="w-2 h-2 rounded-full mr-1" :class="account.shopifyId ? 'bg-emerald-500' : 'bg-slate-300'"></span>Shopify</span>
                   <span class="flex items-center"><span class="w-2 h-2 rounded-full mr-1" :class="account.instagramId ? 'bg-pink-500' : 'bg-slate-300'"></span>Instagram</span>
                   <span class="flex items-center"><span class="w-2 h-2 rounded-full mr-1" :class="account.facebookPageId ? 'bg-blue-800' : 'bg-slate-300'"></span>FB Page</span>
+                  <span class="flex items-center"><span class="w-2 h-2 rounded-full mr-1" :class="account.tiktokId ? 'bg-black' : 'bg-slate-300'"></span>TikTok</span>
                 </div>
               </div>
               <div class="flex gap-2">
