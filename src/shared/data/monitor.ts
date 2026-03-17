@@ -42,7 +42,8 @@ export class Monitor {
     try {
       const [rows] = await bq.query({
         query,
-        params: { accountIds: ids, limit, startDate, endDate }
+        params: { accountIds: ids, limit, startDate, endDate },
+        types: { accountIds: ['STRING'] }
       });
 
       return rows.map(row => ({

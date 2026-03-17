@@ -6,6 +6,7 @@ export type WindsorConnector =
 	| 'googleanalytics4'
 	| 'instagram'
 	| 'searchconsole'
+	| 'tiktok_organic'
 
 export type WindsorDatePreset =
 	| 'today'

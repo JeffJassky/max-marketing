@@ -17,6 +17,7 @@ interface MaxAccount {
   instagramId: string | null;
   facebookPageId: string | null;
   gscId: string | null;
+  tiktokId: string | null;
 }
 
 const platformAccounts = ref<{
@@ -26,7 +27,8 @@ const platformAccounts = ref<{
   shopify: PlatformAccount[],
   instagram: PlatformAccount[],
   facebook_organic: PlatformAccount[],
-  gsc: PlatformAccount[]
+  gsc: PlatformAccount[],
+  tiktok: PlatformAccount[]
 }>({
   google: [],
   facebook: [],
@@ -34,7 +36,8 @@ const platformAccounts = ref<{
   shopify: [],
   instagram: [],
   facebook_organic: [],
-  gsc: []
+  gsc: [],
+  tiktok: []
 });
 
 const accounts = ref<MaxAccount[]>([]);
@@ -48,7 +51,8 @@ const editForm = ref<MaxAccount>({
   shopifyId: null,
   instagramId: null,
   facebookPageId: null,
-  gscId: null
+  gscId: null,
+  tiktokId: null
 });
 
 const loadPlatformAccounts = async () => {
@@ -203,6 +207,17 @@ onMounted(() => {
                     </option>
                   </select>
                 </div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-500 mb-1 flex items-center">
+                    <div class="w-4 h-4 bg-black rounded mr-1 flex items-center justify-center text-[10px] text-white font-bold">T</div> TikTok ID
+                  </label>
+                  <select v-model="editForm.tiktokId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-900 bg-white">
+                    <option :value="null">Select TikTok...</option>
+                    <option v-for="tt in platformAccounts.tiktok" :key="tt.id" :value="tt.id">
+                      {{ tt.name }} ({{ tt.id }})
+                    </option>
+                  </select>
+                </div>
               </div>
 
               <div class="flex justify-end gap-2 mt-4">
@@ -245,6 +260,10 @@ onMounted(() => {
                   <div class="flex items-center">
                     <span class="w-2 h-2 rounded-full mr-2" :class="account.facebookPageId ? 'bg-blue-800' : 'bg-slate-300'"></span>
                     FB Page: {{ account.facebookPageId ? platformAccounts.facebook_organic.find(f => f.id === account.facebookPageId)?.name || account.facebookPageId : 'Not Linked' }}
+                  </div>
+                  <div class="flex items-center">
+                    <span class="w-2 h-2 rounded-full mr-2" :class="account.tiktokId ? 'bg-black' : 'bg-slate-300'"></span>
+                    TikTok: {{ account.tiktokId ? platformAccounts.tiktok.find(t => t.id === account.tiktokId)?.name || account.tiktokId : 'Not Linked' }}
                   </div>
                 </div>
               </div>

@@ -29,6 +29,7 @@ router.get("/blocks", async (req: Request, res: Response) => {
     instagramId,
     facebookPageId,
     gscId,
+    tiktokId,
     startDate,
     endDate,
   } = req.query;
@@ -43,6 +44,7 @@ router.get("/blocks", async (req: Request, res: Response) => {
   const socialIds: string[] = [];
   if (instagramId) socialIds.push(String(instagramId));
   if (facebookPageId) socialIds.push(String(facebookPageId));
+  if (tiktokId) socialIds.push(String(tiktokId));
   const gscIds: string[] = gscId ? [String(gscId)] : [];
 
   // Date range
@@ -1020,7 +1022,7 @@ router.get("/blocks", async (req: Request, res: Response) => {
       }
       if (socialByPlatform) {
         for (const r of socialByPlatform as any[]) {
-          const label = r.platform === "instagram" ? "Instagram" : r.platform === "facebook" ? "Facebook" : r.platform;
+          const label = r.platform === "instagram" ? "Instagram" : r.platform === "facebook" ? "Facebook" : r.platform === "tiktok" ? "TikTok" : r.platform;
           const curr = r.curr_impressions || 0;
           const prev = r.prev_impressions || 0;
           channels.push({ label: `${label} Organic`, impressions: curr, change: pctChange(curr, prev), pct: 0 });
