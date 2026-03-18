@@ -270,8 +270,8 @@ router.get("/blocks", async (req: Request, res: Response) => {
               query: `
               WITH curr AS (
                 SELECT platform,
-                  SUM(impressions) as impressions, SUM(engagement) as engagement,
-                  SUM(likes) as likes, SUM(comments) as comments, SUM(shares) as shares
+                  SUM(delta_impressions) as impressions, SUM(delta_engagement) as engagement,
+                  SUM(delta_likes) as likes, SUM(delta_comments) as comments, SUM(delta_shares) as shares
                 FROM \`entities.social_media_daily\`
                 WHERE account_id IN UNNEST(@accountIds)
                   AND date >= @startDate AND date <= @endDate
@@ -279,8 +279,8 @@ router.get("/blocks", async (req: Request, res: Response) => {
               ),
               prev AS (
                 SELECT platform,
-                  SUM(impressions) as impressions, SUM(engagement) as engagement,
-                  SUM(likes) as likes, SUM(comments) as comments, SUM(shares) as shares
+                  SUM(delta_impressions) as impressions, SUM(delta_engagement) as engagement,
+                  SUM(delta_likes) as likes, SUM(delta_comments) as comments, SUM(delta_shares) as shares
                 FROM \`entities.social_media_daily\`
                 WHERE account_id IN UNNEST(@accountIds)
                   AND date >= @prevStartDate AND date <= @prevEndDate
@@ -458,7 +458,7 @@ router.get("/blocks", async (req: Request, res: Response) => {
         ? safe(async () => {
             const [rows] = await bq.query({
               query: `
-              SELECT date, SUM(impressions) as impressions
+              SELECT date, SUM(delta_impressions) as impressions
               FROM \`entities.social_media_daily\`
               WHERE account_id IN UNNEST(@accountIds)
                 AND date >= @startDate AND date <= @endDate
@@ -576,7 +576,7 @@ router.get("/blocks", async (req: Request, res: Response) => {
         ? safe(async () => {
             const [rows] = await bq.query({
               query: `
-              SELECT SUM(impressions) as impressions, SUM(engagement) as engagement
+              SELECT SUM(delta_impressions) as impressions, SUM(delta_engagement) as engagement
               FROM \`entities.social_media_daily\`
               WHERE account_id IN UNNEST(@accountIds)
                 AND date >= DATE_SUB(PARSE_DATE('%Y-%m-%d', @startDate), INTERVAL 1 YEAR)
@@ -681,7 +681,7 @@ router.get("/blocks", async (req: Request, res: Response) => {
           bq.query({
             query: `
               SELECT ${bucketCase} as bucket,
-                SUM(impressions) + SUM(engagement) as total
+                SUM(delta_impressions) + SUM(delta_engagement) as total
               FROM \`entities.social_media_daily\`
               WHERE account_id IN UNNEST(@accountIds) AND (${dateFilter})
               GROUP BY bucket

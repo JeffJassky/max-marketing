@@ -16,11 +16,11 @@ export const tiktokPostPerformance = new AggregateReport({
     grain: ["account_id", "thumbnail_url", "caption"],
     includeDimensions: ["permalink", "media_type", "published_at"],
     metrics: {
-      impressions: { aggregation: "sum", display: { format: "number", description: "Total video views/reach for your TikTok content." } },
-      likes: { aggregation: "sum", display: { format: "number", description: "Total likes on your TikTok videos." } },
-      comments: { aggregation: "sum", display: { format: "number", description: "Total comments on your TikTok videos." } },
-      shares: { aggregation: "sum", display: { format: "number", description: "Total shares of your TikTok videos." } },
-      engagement: { aggregation: "sum", display: { format: "number", description: "Total interactions including likes, comments, shares, and favorites." } },
+      impressions: { sourceMetric: "delta_impressions", aggregation: "sum", display: { format: "number", description: "Total video views/reach for your TikTok content." } },
+      likes: { sourceMetric: "delta_likes", aggregation: "sum", display: { format: "number", description: "Total likes on your TikTok videos." } },
+      comments: { sourceMetric: "delta_comments", aggregation: "sum", display: { format: "number", description: "Total comments on your TikTok videos." } },
+      shares: { sourceMetric: "delta_shares", aggregation: "sum", display: { format: "number", description: "Total shares of your TikTok videos." } },
+      engagement: { sourceMetric: "delta_engagement", aggregation: "sum", display: { format: "number", description: "Total interactions including likes, comments, shares, and favorites." } },
     },
     derivedFields: {
       engagement_rate: {

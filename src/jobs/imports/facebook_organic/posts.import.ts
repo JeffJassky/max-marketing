@@ -1,6 +1,8 @@
 import { BronzeImport } from "../../base";
 import { z } from "zod";
 
+const today = () => new Date().toISOString().split("T")[0];
+
 export const facebookOrganicPosts = new BronzeImport({
   id: "facebookOrganicPosts",
   description: "Facebook organic post performance including impressions, views, and engagement.",
@@ -9,8 +11,18 @@ export const facebookOrganicPosts = new BronzeImport({
   version: 1,
   partitionBy: "date",
   clusterBy: ["account_id", "post_id"],
+  uniquenessKey: ["date", "account_id", "post_id"],
   params: {
     date_preset: "last_90d",
+  },
+  transformRows: (rows) =>
+    rows.map((row) => ({
+      ...row,
+      published_date: row.date || null,
+      date: today(),
+    })),
+  derivedFields: {
+    published_date: z.string().optional(),
   },
   dimensions: {
     date: z.string(),

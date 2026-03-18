@@ -74,6 +74,10 @@ export type BronzeImportDef<
   params?: WindsorRequestParams;
   /** Optional: The set of fields that uniquely identify a row in the raw data. Used for deduplication. */
   uniquenessKey?: string[];
+  /** Optional: Transform rows after fetching from the API but before persisting to BigQuery. */
+  transformRows?: (rows: Record<string, any>[]) => Record<string, any>[];
+  /** Optional: Fields derived by transformRows that exist in BigQuery but are not requested from the API. */
+  derivedFields?: z.ZodRawShape;
 };
 
 /**
@@ -102,6 +106,7 @@ export class BronzeImport<
   get schema(): z.ZodObject<DimensionsShape & MetricsShape> {
     return z.object({
       ...this.definition.dimensions,
+      ...(this.definition.derivedFields || {}),
       ...this.definition.metrics,
     }) as z.ZodObject<DimensionsShape & MetricsShape>;
   }

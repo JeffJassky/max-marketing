@@ -15,11 +15,11 @@ export const socialPlatformPerformance = new AggregateReport({
   output: {
     grain: ["account_id", "platform"],
     metrics: {
-      impressions: { aggregation: "sum" },
-      likes: { aggregation: "sum" },
-      comments: { aggregation: "sum" },
-      shares: { aggregation: "sum" },
-      engagement: { aggregation: "sum" },
+      impressions: { sourceMetric: "delta_impressions", aggregation: "sum" },
+      likes: { sourceMetric: "delta_likes", aggregation: "sum" },
+      comments: { sourceMetric: "delta_comments", aggregation: "sum" },
+      shares: { sourceMetric: "delta_shares", aggregation: "sum" },
+      engagement: { sourceMetric: "delta_engagement", aggregation: "sum" },
     },
     derivedFields: {
       engagement_rate: {

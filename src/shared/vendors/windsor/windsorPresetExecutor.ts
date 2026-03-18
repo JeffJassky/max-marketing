@@ -32,10 +32,15 @@ export class WindsorImportExecutor {
 		const finalRequest = importObj.getRequest(options.requestOverrides);
 
 		const response = await windsor.request(finalRequest);
-		const rows = response.data ?? [];
+		let rows = response.data ?? [];
 
 		if (!rows.length) {
 			return { importObj, rowCount: 0, meta: { requestedAt } };
+		}
+
+		// Apply row transform if defined (e.g., social imports remap date → published_date)
+		if (importObj.definition.transformRows) {
+			rows = importObj.definition.transformRows(rows);
 		}
 
 		const effectiveSchema = options.schemaOverride ?? zodToBigQuerySchema(importObj.schema);

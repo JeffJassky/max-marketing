@@ -1,6 +1,8 @@
 import { BronzeImport } from "../../base";
 import { z } from "zod";
 
+const today = () => new Date().toISOString().split("T")[0];
+
 export const tiktokOrganicMedia = new BronzeImport({
   id: "tiktokOrganicMedia",
   description: "TikTok organic video performance including views, reach, and engagement.",
@@ -9,8 +11,18 @@ export const tiktokOrganicMedia = new BronzeImport({
   version: 1,
   partitionBy: "date",
   clusterBy: ["account_id", "video_id"],
+  uniquenessKey: ["date", "account_id", "video_id"],
   params: {
-    date_preset: "last_90d",
+    date_preset: "last_year",
+  },
+  transformRows: (rows) =>
+    rows.map((row) => ({
+      ...row,
+      published_date: row.date || null,
+      date: today(),
+    })),
+  derivedFields: {
+    published_date: z.string().optional(),
   },
   dimensions: {
     date: z.string(),
@@ -18,7 +30,6 @@ export const tiktokOrganicMedia = new BronzeImport({
     account_name: z.string().optional(),
     video_id: z.string(),
     video_caption: z.string().optional(),
-    video_share_url: z.string().optional(),
     video_thumbnail_url: z.string().optional(),
     video_create_datetime: z.string().optional(),
     video_duration: z.number().optional(),
@@ -29,6 +40,5 @@ export const tiktokOrganicMedia = new BronzeImport({
     video_comments: z.number(),
     video_shares: z.number(),
     video_reach: z.number(),
-    video_favorites: z.number(),
   },
 });
