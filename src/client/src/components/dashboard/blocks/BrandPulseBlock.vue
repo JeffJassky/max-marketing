@@ -99,7 +99,7 @@ const center = svgSize / 2;
 
     <!-- Header -->
     <div class="flex items-center justify-between mb-2 relative">
-      <span class="text-[13px] font-bold tracking-[0.12em] uppercase text-gray-500">Brand Pulse</span>
+      <span class="text-[13px] font-bold tracking-[0.12em] uppercase text-gray-500">Market Visibility Snapshot</span>
     </div>
 
     <!-- Main layout: donut left, info right -->
