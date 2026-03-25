@@ -23,17 +23,7 @@ import MetricBlock from '../components/report-blocks/MetricBlock.vue';
 import ChartBlock from '../components/report-blocks/ChartBlock.vue';
 import InsightBlock from '../components/report-blocks/InsightBlock.vue';
 import NarrativeBlock from '../components/report-blocks/NarrativeBlock.vue';
-
-interface MaxAccount {
-  id: string;
-  name: string;
-  googleAdsId: string | null;
-  facebookAdsId: string | null;
-  ga4Id: string | null;
-  shopifyId: string | null;
-  instagramId: string | null;
-  facebookPageId: string | null;
-}
+import type { MaxAccount } from '../types/account';
 
 interface TalkingPoint {
   title: string;

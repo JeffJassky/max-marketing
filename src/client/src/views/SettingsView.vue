@@ -1,23 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { Save, Edit } from 'lucide-vue-next';
+import type { MaxAccount } from '../types/account';
 
 interface PlatformAccount {
   id: string;
   name: string;
-}
-
-interface MaxAccount {
-  id: string;
-  name: string;
-  googleAdsId: string | null;
-  facebookAdsId: string | null;
-  ga4Id: string | null;
-  shopifyId: string | null;
-  instagramId: string | null;
-  facebookPageId: string | null;
-  gscId: string | null;
-  tiktokId: string | null;
 }
 
 const platformAccounts = ref<{

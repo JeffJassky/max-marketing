@@ -2,21 +2,9 @@
 import { ref, onMounted, inject, type Ref } from 'vue';
 import { Wallet, ChevronDown, CheckCircle, Settings } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
+import type { MaxAccount } from '../types/account';
 
 const router = useRouter();
-
-interface MaxAccount {
-  id: string;
-  name: string;
-  googleAdsId: string | null;
-  facebookAdsId: string | null;
-  ga4Id: string | null;
-  shopifyId: string | null;
-  instagramId: string | null;
-  facebookPageId: string | null;
-  gscId: string | null;
-  tiktokId: string | null;
-}
 
 const selectedAccount = inject<Ref<MaxAccount | null>>('selectedAccount');
 const selectAccountGlobal = inject<(account: MaxAccount) => void>('selectAccount');

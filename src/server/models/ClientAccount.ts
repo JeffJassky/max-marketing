@@ -12,6 +12,9 @@ const ClientAccountSchema = z.object({
   facebookPageId: z.string().optional().nullable(),
   gscId: z.string().optional().nullable(),
   tiktokId: z.string().optional().nullable(),
+  googleAdsCurrency: z.string().optional().nullable(),   // ISO 4217, e.g. 'USD', 'GBP'
+  facebookAdsCurrency: z.string().optional().nullable(), // ISO 4217
+  shopifyCurrency: z.string().optional().nullable(),     // ISO 4217
 });
 
 export type ClientAccount = z.infer<typeof ClientAccountSchema>;

@@ -10,11 +10,7 @@ import PaidReachBlock from './blocks/PaidReachBlock.vue';
 import SearchVisibilityBlock from './blocks/SearchVisibilityBlock.vue';
 import ReachBreakdownBlock from './blocks/ReachBreakdownBlock.vue';
 import SiteTrafficBlock from './blocks/SiteTrafficBlock.vue';
-
-interface MaxAccount {
-  id: string;
-  shopifyId: string | null;
-}
+import type { MaxAccount } from '../../types/account';
 
 const props = defineProps<{
   data: any;

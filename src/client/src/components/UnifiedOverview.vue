@@ -3,18 +3,7 @@ import { ref, watch, inject, type Ref, computed } from 'vue';
 import { TrendingUp, TrendingDown, Megaphone, Users, Search } from 'lucide-vue-next';
 import Sparkline from './Sparkline.vue';
 import { useDateRange } from '../composables/useDateRange';
-
-interface MaxAccount {
-  id: string;
-  name: string;
-  googleAdsId: string | null;
-  facebookAdsId: string | null;
-  ga4Id: string | null;
-  shopifyId: string | null;
-  instagramId: string | null;
-  facebookPageId: string | null;
-  gscId: string | null;
-}
+import type { MaxAccount } from '../types/account';
 
 interface MetricData {
   value: number | null;

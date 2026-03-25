@@ -49,13 +49,7 @@ interface Account {
   name: string;
 }
 
-interface MaxAccount {
-  id: string;
-  name: string;
-  googleAdsId: string | null;
-  facebookAdsId: string | null;
-  ga4Id: string | null;
-}
+import type { MaxAccount } from '../types/account';
 
 interface NegativeKeywordOpportunity {
   id: string;

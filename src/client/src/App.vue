@@ -8,25 +8,13 @@ import { useAccountSettings } from './composables/useAccountSettings';
 import { useAccountSettingsStore } from './stores/accountSettings';
 import { useAuthStore } from './stores/auth';
 import type { AccountSettings } from '@shared/settings/types';
+import type { MaxAccount } from './types/account';
 import 'deep-chat';
 
 const route = useRoute();
 const authStore = useAuthStore();
 
 const isPublicRoute = computed(() => route.meta.public === true);
-
-interface MaxAccount {
-  id: string;
-  name: string;
-  googleAdsId: string | null;
-  facebookAdsId: string | null;
-  ga4Id: string | null;
-  shopifyId: string | null;
-  instagramId: string | null;
-  facebookPageId: string | null;
-  gscId: string | null;
-  tiktokId: string | null;
-}
 
 const selectedAccount = ref<MaxAccount | null>(null);
 const accountSettings = ref<AccountSettings | null>(null);

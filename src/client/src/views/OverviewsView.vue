@@ -28,19 +28,7 @@ import { useDateRange } from '../composables/useDateRange';
 import { useAccountSettingsStore } from '../stores/accountSettings';
 import { useSortable } from '@vueuse/integrations/useSortable';
 import { Dropdown } from 'floating-vue';
-
-interface MaxAccount {
-  id: string;
-  name: string;
-  googleAdsId: string | null;
-  facebookAdsId: string | null;
-  ga4Id: string | null;
-  shopifyId: string | null;
-  instagramId: string | null;
-  facebookPageId: string | null;
-  gscId: string | null;
-  tiktokId: string | null;
-}
+import type { MaxAccount } from '../types/account';
 
 const selectedAccount = inject<Ref<MaxAccount | null>>('selectedAccount');
 const { dateParams } = useDateRange();
@@ -200,8 +188,8 @@ const hiddenMetrics = computed(() => {
 const filteredAndOrderedHeaders = computed(() => {
   let headers = [...reportData.value.headers];
 
-  // Filter out hidden metrics
-  headers = headers.filter(h => !hiddenMetrics.value.includes(h.key));
+  // Filter out account ID columns and hidden metrics
+  headers = headers.filter(h => !h.key.toLowerCase().endsWith('id') && !hiddenMetrics.value.includes(h.key));
 
   // If pinned metrics specified, reorder by pinning them first
   if (pinnedMetrics.value && pinnedMetrics.value.length > 0) {
@@ -597,12 +585,16 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <div v-else-if="!reportData.rows.length" class="py-4 md:py-8">
-        <BarChart3 class="w-12 h-12 mb-2 text-slate-200" />
-        <p>No data available for this period.</p>
-        <p class="text-xs mt-1">
-          Try selecting a different date range or account.
-        </p>
+      <div v-else-if="!reportData.rows.length" class="flex items-center justify-center py-24 px-4">
+        <div class="text-center max-w-md">
+          <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-slate-100 mb-6">
+            <BarChart3 class="w-10 h-10 text-slate-400" />
+          </div>
+          <h2 class="text-xl font-bold text-slate-900 mb-2">No data available</h2>
+          <p class="text-sm text-slate-500">
+            Try selecting a different date range or account.
+          </p>
+        </div>
       </div>
 
       <div v-else>

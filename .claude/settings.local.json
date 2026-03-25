@@ -43,7 +43,13 @@
       "Read(//Users/jeffjassky/**)",
       "Bash(for f:*)",
       "Bash(git checkout:*)",
-      "WebFetch(domain:projects.guruz.us)"
+      "WebFetch(domain:projects.guruz.us)",
+      "Bash(sips:*)",
+      "Bash(xxd:*)",
+      "Bash(do sips:*)",
+      "Bash(done)",
+      "Bash(do echo:*)",
+      "Bash(python3 -c \"from PIL import Image; print\\(''PIL available''\\)\")"
     ]
   }
 }

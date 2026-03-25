@@ -34,15 +34,132 @@ function verifyHmac(query: Record<string, any>): boolean {
 }
 
 /**
+ * Verify a Shopify session token (JWT) and extract the shop domain.
+ * Returns the shop domain if valid, null otherwise.
+ */
+function verifySessionToken(token: string): string | null {
+  try {
+    const [headerB64, payloadB64, signatureB64] = token.split(".");
+    if (!headerB64 || !payloadB64 || !signatureB64) return null;
+
+    // Verify signature
+    const signInput = `${headerB64}.${payloadB64}`;
+    const expectedSig = crypto
+      .createHmac("sha256", SHOPIFY_API_SECRET)
+      .update(signInput)
+      .digest("base64url");
+
+    if (expectedSig !== signatureB64) return null;
+
+    const payload = JSON.parse(
+      Buffer.from(payloadB64, "base64url").toString(),
+    );
+
+    // Verify expiry
+    if (payload.exp && payload.exp < Date.now() / 1000) return null;
+
+    // Verify audience matches our API key
+    if (payload.aud !== SHOPIFY_API_KEY) return null;
+
+    // Extract shop from dest (e.g. "https://mystore.myshopify.com")
+    const dest = payload.dest as string;
+    if (!dest) return null;
+    const url = new URL(dest);
+    return url.hostname; // e.g. "mystore.myshopify.com"
+  } catch {
+    return null;
+  }
+}
+
+/**
  * GET /api/shopify/auth
  *
- * Entry point for Shopify OAuth. Shopify sends merchants here with a `shop` param.
- * We generate a nonce, store it, and redirect to Shopify's OAuth consent screen.
+ * Entry point for Shopify app loading. Handles two flows:
+ *
+ * 1. Embedded (id_token present): Verify the session token JWT and exchange
+ *    it for an offline access token via Shopify's token exchange grant.
+ *    Then serve the app inside the Shopify admin iframe.
+ *
+ * 2. Non-embedded (no id_token): Traditional OAuth redirect flow.
  */
-router.get("/auth", (req: Request, res: Response) => {
+router.get("/auth", async (req: Request, res: Response) => {
   const shop = req.query.shop as string;
   if (!shop || !/^[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com$/.test(shop)) {
     return res.status(400).send("Invalid shop parameter");
+  }
+
+  const idToken = req.query.id_token as string | undefined;
+
+  // --- Embedded flow: exchange session token for access token ---
+  if (idToken) {
+    const tokenShop = verifySessionToken(idToken);
+    if (!tokenShop || tokenShop !== shop) {
+      logger.warn({ shop, tokenShop }, "Shopify: Session token verification failed");
+      return res.status(403).send("Invalid session token");
+    }
+
+    // Check if we already have a valid session for this shop
+    const existing = await ShopifySession.findOne({ shop });
+    if (existing?.accessToken) {
+      logger.info({ shop }, "Shopify: Existing session found, serving app");
+      return res.redirect(`${config.APP_URL}?shop=${shop}`);
+    }
+
+    // Exchange the session token for an offline access token
+    const tokenResponse = await fetch(
+      `https://${shop}/admin/oauth/access_token`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: SHOPIFY_API_KEY,
+          client_secret: SHOPIFY_API_SECRET,
+          grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+          subject_token: idToken,
+          subject_token_type: "urn:ietf:params:oauth:token-type:id-token",
+          requested_token_type: "urn:shopify:params:oauth:token-type:offline-access-token",
+        }),
+      },
+    );
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      logger.error(
+        { shop, status: tokenResponse.status, error: errorText },
+        "Shopify: Token exchange failed",
+      );
+      return res.status(502).send("Failed to exchange token with Shopify");
+    }
+
+    const tokenData = (await tokenResponse.json()) as {
+      access_token: string;
+      scope: string;
+    };
+
+    await ShopifySession.findOneAndUpdate(
+      { shop },
+      {
+        shop,
+        accessToken: tokenData.access_token,
+        scope: tokenData.scope,
+        installedAt: new Date(),
+      },
+      { upsert: true, new: true },
+    );
+
+    logger.info(
+      { shop, scope: tokenData.scope },
+      "Shopify: App installed via token exchange",
+    );
+
+    return res.redirect(`${config.APP_URL}?shop=${shop}`);
+  }
+
+  // --- Non-embedded flow: traditional OAuth redirect ---
+  const existing = await ShopifySession.findOne({ shop });
+  if (existing?.accessToken) {
+    logger.info({ shop }, "Shopify: Existing session found, skipping OAuth");
+    return res.redirect(`https://${shop}/admin/apps/${SHOPIFY_API_KEY}`);
   }
 
   const nonce = crypto.randomBytes(16).toString("hex");

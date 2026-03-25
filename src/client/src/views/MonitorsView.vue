@@ -25,14 +25,7 @@ import {
 } from 'lucide-vue-next';
 import { useDateRange } from '../composables/useDateRange';
 import QuestionsPanel from '../components/QuestionsPanel.vue';
-
-interface MaxAccount {
-  id: string;
-  name: string;
-  googleAdsId: string | null;
-  facebookAdsId: string | null;
-  ga4Id: string | null;
-}
+import type { MaxAccount } from '../types/account';
 
 interface Anomaly {
   monitor_id: string;

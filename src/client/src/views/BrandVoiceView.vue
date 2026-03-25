@@ -19,18 +19,7 @@ import {
 } from 'lucide-vue-next';
 import { INITIAL_DATA } from '../brandVoice/constants';
 import type { BrandVoiceData, TrendDirection } from '../brandVoice/types';
-
-interface MaxAccount {
-  id: string;
-  name: string;
-  googleAdsId: string | null;
-  facebookAdsId: string | null;
-  ga4Id: string | null;
-  shopifyId: string | null;
-  instagramId: string | null;
-  facebookPageId: string | null;
-  gscId: string | null;
-}
+import type { MaxAccount } from '../types/account';
 
 const selectedAccount = inject<Ref<MaxAccount | null>>('selectedAccount');
 const { dateParams } = useDateRange();

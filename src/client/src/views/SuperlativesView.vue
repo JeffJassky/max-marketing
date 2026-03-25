@@ -13,17 +13,7 @@ import {
 } from 'lucide-vue-next';
 import { useMonthlySelection } from '../composables/useMonthlySelection';
 import QuestionsPanel from '../components/QuestionsPanel.vue';
-
-interface MaxAccount {
-  id: string;
-  name: string;
-  googleAdsId: string | null;
-  facebookAdsId: string | null;
-  ga4Id: string | null;
-  shopifyId: string | null;
-  instagramId: string | null;
-  facebookPageId: string | null;
-}
+import type { MaxAccount } from '../types/account';
 
 interface Superlative {
   report_date: string;

@@ -18,27 +18,20 @@ import {
   ArrowDownRight,
   Globe,
   ShoppingBag,
-  RefreshCw
+  RefreshCw,
+  Users,
+  Instagram,
+  Facebook,
+  Music
 } from 'lucide-vue-next';
 import { useDateRange } from '../composables/useDateRange';
 import QuestionsPanel from '../components/QuestionsPanel.vue';
 import DashboardBlockGrid from '../components/dashboard/DashboardBlockGrid.vue';
 
 const router = useRouter();
-const ApexChart = VueApexCharts;
+import type { MaxAccount } from '../types/account';
 
-interface MaxAccount {
-  id: string;
-  name: string;
-  googleAdsId: string | null;
-  facebookAdsId: string | null;
-  ga4Id: string | null;
-  shopifyId: string | null;
-  instagramId: string | null;
-  facebookPageId: string | null;
-  gscId: string | null;
-  tiktokId: string | null;
-}
+const ApexChart = VueApexCharts;
 
 interface SpendSegment {
   id: string;
@@ -65,6 +58,30 @@ const spendDataLoading = ref(false);
 const questionsLoading = ref(false);
 const blocksData = ref<any>(null);
 const blocksLoading = ref(false);
+
+const formatNum = (n: number) => {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
+  return n.toLocaleString();
+};
+
+const audiencePlatforms = computed(() => {
+  return blocksData.value?.blocks?.audienceGrowth?.platforms || [];
+});
+
+const platformIcon = (p: string) => {
+  if (p === 'instagram') return Instagram;
+  if (p === 'facebook') return Facebook;
+  if (p === 'tiktok') return Music;
+  return Users;
+};
+
+const platformColor = (p: string) => {
+  if (p === 'instagram') return 'text-pink-500';
+  if (p === 'facebook') return 'text-blue-500';
+  if (p === 'tiktok') return 'text-slate-900';
+  return 'text-slate-400';
+};
 
 const formatCurrency = (val: number, decimals = 0) => {
   return new Intl.NumberFormat('en-US', {
@@ -293,44 +310,6 @@ const platformHealth = computed(() => {
         class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
         v-if="scorecard"
       >
-        <!-- Holistic MER -->
-        <div
-          class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm group/tooltip relative"
-        >
-          <div class="flex justify-between items-start mb-4">
-            <span
-              class="text-slate-500 text-sm font-medium uppercase tracking-wider"
-              >Holistic MER</span
-            >
-            <TrendingUp class="w-5 h-5 text-indigo-500" />
-          </div>
-          <div class="text-4xl font-black text-slate-900 mb-2">
-            {{ scorecard.scorecard.mer.value.toFixed(2) }}x
-          </div>
-          <div
-            class="flex items-center gap-1 text-xs"
-            :class="scorecard.scorecard.mer.change >= 0 ? 'text-green-600' : 'text-red-600'"
-          >
-            <component
-              :is="scorecard.scorecard.mer.change >= 0 ? ArrowUpRight : ArrowDownRight"
-              size="14"
-            />
-            <span class="font-bold"
-              >{{ Math.abs(scorecard.scorecard.mer.change).toFixed(1) }}%</span
-            >
-            <span class="text-slate-400 font-normal ml-1">vs prev. period</span>
-          </div>
-          <!-- Tooltip -->
-          <div
-            class="absolute top-full left-4 right-4 mt-2 bg-slate-900 text-white text-xs p-3 rounded-xl opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50"
-          >
-            This is your 'Marketing Efficiency Ratio.' It shows your total store
-            revenue relative to your total ad spend. A higher number means your
-            marketing is working more efficiently to drive overall business
-            growth.
-          </div>
-        </div>
-
         <!-- Total Ad Spend -->
         <div
           class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm group/tooltip relative"
@@ -452,6 +431,59 @@ const platformHealth = computed(() => {
             This tracks your success in finding new customers. A high percentage
             means you are effectively growing your audience; a lower percentage
             means you are primarily relying on repeat buyers.
+          </div>
+        </div>
+
+        <!-- Social Audience -->
+        <div
+          class="bg-white p-6 rounded-[2rem] border border-stone-100 shadow-sm group/tooltip relative"
+        >
+          <div class="flex justify-between items-start mb-4">
+            <span
+              class="text-slate-500 text-sm font-medium uppercase tracking-wider"
+              >Social Audience</span
+            >
+            <Users class="w-5 h-5 text-purple-500" />
+          </div>
+          <div class="text-4xl font-black text-slate-900 mb-2">
+            {{ formatNum(blocksData?.blocks?.audienceGrowth?.totalFollowers || 0) }}
+          </div>
+          <div
+            v-if="audiencePlatforms.length"
+            class="flex items-center gap-1 text-xs mb-4"
+          >
+            <span class="font-bold text-green-600">
+              +{{ formatNum(audiencePlatforms.reduce((s: number, p: any) => s + (p.periodAdds || 0), 0)) }}
+            </span>
+            <span class="text-slate-400 font-normal ml-1">this period</span>
+          </div>
+          <!-- Per-platform breakdown -->
+          <div v-if="audiencePlatforms.length" class="space-y-2 border-t border-slate-100 pt-3">
+            <div
+              v-for="p in audiencePlatforms"
+              :key="p.platform"
+              class="flex items-center justify-between text-xs"
+            >
+              <div class="flex items-center gap-1.5">
+                <component :is="platformIcon(p.platform)" :size="13" :class="platformColor(p.platform)" />
+                <span class="text-slate-500 font-medium">{{ p.platform === 'instagram' ? 'Instagram' : p.platform === 'facebook' ? 'Facebook' : p.platform === 'tiktok' ? 'TikTok' : p.platform }}</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-slate-800 tabular-nums">{{ formatNum(p.followers) }}</span>
+                <span
+                  v-if="p.periodAdds > 0"
+                  class="text-green-500 font-semibold"
+                >+{{ formatNum(p.periodAdds) }}</span>
+              </div>
+            </div>
+          </div>
+          <!-- Tooltip -->
+          <div
+            class="absolute top-full left-4 right-4 mt-2 bg-slate-900 text-white text-xs p-3 rounded-xl opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50"
+          >
+            Your total followers across Instagram, Facebook, and TikTok.
+            The breakdown shows each platform's current count and new
+            followers added during this period.
           </div>
         </div>
       </div>

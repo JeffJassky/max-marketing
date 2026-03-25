@@ -20,17 +20,7 @@ import {
   ShoppingCart
 } from 'lucide-vue-next';
 import { useDateRange } from '../composables/useDateRange';
-
-interface MaxAccount {
-  id: string;
-  name: string;
-  googleAdsId: string | null;
-  facebookAdsId: string | null;
-  ga4Id: string | null;
-  shopifyId: string | null;
-  instagramId: string | null;
-  facebookPageId: string | null;
-}
+import type { MaxAccount } from '../types/account';
 
 const selectedAccount = inject<Ref<MaxAccount | null>>('selectedAccount');
 const { dateParams } = useDateRange();

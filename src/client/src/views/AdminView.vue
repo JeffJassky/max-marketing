@@ -2,13 +2,9 @@
 import { ref, onMounted, computed } from 'vue';
 import { Users, Building2, Plus, Trash2, Save, Edit, X, Shield, User as UserIcon } from 'lucide-vue-next';
 
+import type { MaxAccount } from '../types/account';
+
 interface PlatformAccount { id: string; name: string; }
-interface MaxAccount {
-  id: string; name: string;
-  googleAdsId: string | null; facebookAdsId: string | null; ga4Id: string | null;
-  shopifyId: string | null; instagramId: string | null; facebookPageId: string | null; gscId: string | null;
-  tiktokId: string | null;
-}
 interface Membership { id: string; accountId: string; role: string; }
 interface AdminUser {
   id: string; email: string; name: string; role: 'admin' | 'user';
