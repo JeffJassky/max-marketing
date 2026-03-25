@@ -155,11 +155,13 @@ router.get("/auth", async (req: Request, res: Response) => {
     return res.redirect(`${config.APP_URL}?shop=${shop}`);
   }
 
-  // --- Non-embedded flow: traditional OAuth redirect ---
+  // --- Non-embedded flow ---
   const existing = await ShopifySession.findOne({ shop });
   if (existing?.accessToken) {
-    logger.info({ shop }, "Shopify: Existing session found, skipping OAuth");
-    return res.redirect(`https://${shop}/admin/apps/${SHOPIFY_API_KEY}`);
+    // Session exists — serve the app. If we're in an iframe (embedded), serve
+    // the SPA directly. Don't redirect back to Shopify admin or it loops.
+    logger.info({ shop }, "Shopify: Existing session found, serving app");
+    return res.redirect(`${config.APP_URL}?shop=${shop}`);
   }
 
   const nonce = crypto.randomBytes(16).toString("hex");
@@ -256,8 +258,8 @@ router.get("/auth/callback", async (req: Request, res: Response) => {
     delete (req as any).session.shopifyNonce;
     delete (req as any).session.shopifyShop;
 
-    // Redirect to the embedded app in Shopify admin
-    res.redirect(`https://${shop}/admin/apps/${SHOPIFY_API_KEY}`);
+    // Redirect to the app
+    res.redirect(`${config.APP_URL}?shop=${shop}`);
   } catch (error) {
     logger.error({ err: error }, "Shopify OAuth: Callback error");
     res.status(500).send("OAuth callback failed");

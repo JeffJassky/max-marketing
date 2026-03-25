@@ -14,7 +14,7 @@ const envSchema = z.object({
   NODE_ENV: z.string().default("development"),
   PORT: z.coerce.number().default(3000),
   LOG_LEVEL: z.string().default("info"),
-  APP_URL: z.string().default("http://localhost:5173"),
+  APP_URL: z.string().min(1, "APP_URL is required (e.g. https://your-app.ondigitalocean.app)"),
   SENDGRID_API_KEY: z.string().optional(),
   SENDGRID_FROM_EMAIL: z.string().default("noreply@maxedmarketing.com"),
   GEMINI_API_KEY: z.string().optional(),
