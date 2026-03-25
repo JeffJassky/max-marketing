@@ -58,6 +58,25 @@ export class WindsorAccessTokenModel extends AppDataModel<typeof WindsorAccessTo
   }
 
   /**
+   * Count tokens by status.
+   */
+  async countByStatus(): Promise<{ available: number; assigned: number; invalid: number; total: number }> {
+    const query = `
+      SELECT status, COUNT(*) as cnt
+      FROM ${this.fqn}
+      GROUP BY status
+    `;
+    const [rows] = await this.bq.query({ query });
+    const counts = { available: 0, assigned: 0, invalid: 0, total: 0 };
+    for (const row of rows) {
+      const s = row.status as keyof typeof counts;
+      if (s in counts) counts[s] = Number(row.cnt);
+      counts.total += Number(row.cnt);
+    }
+    return counts;
+  }
+
+  /**
    * Mark a token as invalid (e.g., when Windsor returns 401).
    */
   async markInvalid(token: string): Promise<void> {

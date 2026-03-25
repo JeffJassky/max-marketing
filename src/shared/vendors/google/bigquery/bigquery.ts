@@ -74,6 +74,21 @@ export async function upsertPartitionedClusteredTable(
 		await ensureSchemaCompatibility(tableRef, effectiveSchema)
 	}
 
+	// Delete existing rows in the date range to prevent duplicates on re-import
+	if (tableExists && partitionField) {
+		const dates = rows
+			.map(r => r[partitionField])
+			.filter((d): d is string => typeof d === 'string')
+		if (dates.length > 0) {
+			const minDate = dates.reduce((a, b) => (a < b ? a : b))
+			const maxDate = dates.reduce((a, b) => (a > b ? a : b))
+			const qualifiedTable = `\`${datasetId}.${tableId}\``
+			const deleteQuery = `DELETE FROM ${qualifiedTable} WHERE ${partitionField} BETWEEN '${minDate}' AND '${maxDate}'`
+			console.log(`Deduplicating: deleting existing rows where ${partitionField} BETWEEN ${minDate} AND ${maxDate}`)
+			await bq.query({ query: deleteQuery })
+		}
+	}
+
 	if (USE_FREE_METHOD) {
 		await insertViaLoadJob(tableRef, rows)
 	} else {

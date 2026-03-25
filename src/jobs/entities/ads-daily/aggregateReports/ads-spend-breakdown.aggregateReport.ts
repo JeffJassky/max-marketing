@@ -19,12 +19,12 @@ export const adsSpendBreakdown = new AggregateReport({
       conversions: { aggregation: "sum" },
       impressions: { aggregation: "sum" },
       clicks: { aggregation: "sum" },
-      conversions_value: { aggregation: "sum" },
+      revenue: { aggregation: "sum" },
     },
     derivedFields: {
       roas: {
         expression:
-          "CASE WHEN spend > 0 THEN conversions_value / spend ELSE 0 END",
+          "CASE WHEN spend > 0 THEN revenue / spend ELSE 0 END",
         type: z.number(),
       },
     },

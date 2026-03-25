@@ -13,12 +13,16 @@ import LoginView from '../views/LoginView.vue';
 import ForgotPasswordView from '../views/ForgotPasswordView.vue';
 import ResetPasswordView from '../views/ResetPasswordView.vue';
 import AdminView from '../views/AdminView.vue';
+import SecurityView from '../views/SecurityView.vue';
+import PrivacyView from '../views/PrivacyView.vue';
 
 export const routes: RouteRecordRaw[] = [
   // Public auth routes
   { path: '/login', name: 'login', component: LoginView, meta: { public: true } },
   { path: '/forgot-password', name: 'forgot-password', component: ForgotPasswordView, meta: { public: true } },
   { path: '/reset-password', name: 'reset-password', component: ResetPasswordView, meta: { public: true } },
+  { path: '/security', name: 'security', component: SecurityView, meta: { public: true, publicAlways: true } },
+  { path: '/privacy', name: 'privacy', component: PrivacyView, meta: { public: true, publicAlways: true } },
 
   // Protected routes
   { path: '/', name: 'dashboard', component: DashboardView },

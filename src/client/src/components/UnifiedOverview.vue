@@ -88,7 +88,7 @@ const getCumulative = (daily: number[]) => {
 
 const formatValue = (key: string, value: number | null) => {
   if (value === null) return 'N/A';
-  if (key === 'spend' || key === 'blendedCPC') {
+  if (key === 'spend' || key === 'blendedCPC' || key === 'revenue') {
     return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
   if (key === 'engagementRate') {
@@ -99,7 +99,7 @@ const formatValue = (key: string, value: number | null) => {
 
 const metricLabels: Record<string, string> = {
   spend: 'Ad Spend',
-  conversions: 'Conversions',
+  revenue: 'Revenue',
   impressions: 'Impressions',
   clicks: 'Clicks',
   blendedCPC: 'Blended CPC',
@@ -125,7 +125,7 @@ const sections = computed(() => {
       label: 'Paid Media',
       icon: Megaphone,
       platforms: data.value.paidMedia.platforms,
-      heroMetrics: ['spend', 'conversions'],
+      heroMetrics: ['spend', 'revenue'],
       supportMetrics: ['impressions', 'clicks', 'blendedCPC'],
       data: data.value.paidMedia.metrics,
       gridClass: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-5',

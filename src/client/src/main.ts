@@ -22,7 +22,7 @@ router.beforeEach(async (to) => {
   if (!to.meta.public && !auth.isAuthenticated) {
     return { name: 'login' };
   }
-  if (to.meta.public && auth.isAuthenticated) {
+  if (to.meta.public && auth.isAuthenticated && !to.meta.publicAlways) {
     return { name: 'dashboard' };
   }
   if (to.meta.requiresAdmin && !auth.isAdmin) {

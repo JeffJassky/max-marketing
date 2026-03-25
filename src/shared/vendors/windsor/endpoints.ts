@@ -248,6 +248,7 @@ export const windsorEndpoints: Record<
       "clicks",
       "conversions",
       "conversions_value",
+      "revenue_micros",
       "video_views",
       "active_view_impressions",
     ] as const,

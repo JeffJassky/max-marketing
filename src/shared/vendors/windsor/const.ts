@@ -804,6 +804,7 @@ const WINDSOR_GOOGLE_ADS_FIELDS = [
   "absolute_top_impression_percentage",
   "video_views",
   "active_view_impressions",
+  "revenue_micros",
 ] as const;
 
 const WINDSOR_INSTAGRAM_FIELDS = [

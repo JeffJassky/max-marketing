@@ -30,6 +30,7 @@ export const googleAdsCampaignPerformance = new BronzeImport({
     clicks: z.number(),
     conversions: z.number(),
     conversions_value: z.number(),
+    revenue_micros: z.number(),
     video_views: z.number(),
     active_view_impressions: z.number(),
   },

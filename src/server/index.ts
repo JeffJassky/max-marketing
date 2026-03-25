@@ -85,10 +85,18 @@ app.use(express.urlencoded({ limit: "10mb", extended: true }));
 app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => (req as any).url === "/health" } }));
 
 // --- Health Check (unauthenticated) ---
-app.get("/health", (_req: Request, res: Response) => {
+app.get("/api/health", async (_req: Request, res: Response) => {
   const mongoState = mongoose.connection.readyState;
   const mongoStatus = mongoState === 1 ? "connected" : mongoState === 2 ? "connecting" : "disconnected";
-  res.json({ status: "ok", mongo: mongoStatus, uptime: process.uptime() });
+
+  let windsorTokens = null;
+  try {
+    windsorTokens = await windsorAccessTokenModel.countByStatus();
+  } catch {
+    // BQ may not be ready yet
+  }
+
+  res.json({ status: "ok", mongo: mongoStatus, uptime: process.uptime(), windsorTokens });
 });
 
 // --- Bull Board (queue dashboard) ---
@@ -1506,14 +1514,14 @@ app.get("/api/overview/unified", async (req: Request, res: Response) => {
         ? bq.query({
             query: `
               WITH current_period AS (
-                SELECT SUM(spend) as spend, SUM(conversions) as conversions,
+                SELECT SUM(spend) as spend, SUM(revenue) as revenue,
                        SUM(impressions) as impressions, SUM(clicks) as clicks
                 FROM \`entities.ads_daily\`
                 WHERE account_id IN UNNEST(@accountIds)
                   AND date >= @startDate AND date <= @endDate
               ),
               prev_period AS (
-                SELECT SUM(spend) as spend, SUM(conversions) as conversions,
+                SELECT SUM(spend) as spend, SUM(revenue) as revenue,
                        SUM(impressions) as impressions, SUM(clicks) as clicks
                 FROM \`entities.ads_daily\`
                 WHERE account_id IN UNNEST(@accountIds)
@@ -1521,7 +1529,7 @@ app.get("/api/overview/unified", async (req: Request, res: Response) => {
               )
               SELECT
                 COALESCE(c.spend, 0) as cur_spend, COALESCE(p.spend, 0) as prev_spend,
-                COALESCE(c.conversions, 0) as cur_conversions, COALESCE(p.conversions, 0) as prev_conversions,
+                COALESCE(c.revenue, 0) as cur_revenue, COALESCE(p.revenue, 0) as prev_revenue,
                 COALESCE(c.impressions, 0) as cur_impressions, COALESCE(p.impressions, 0) as prev_impressions,
                 COALESCE(c.clicks, 0) as cur_clicks, COALESCE(p.clicks, 0) as prev_clicks
               FROM current_period c, prev_period p`,
@@ -1533,7 +1541,7 @@ app.get("/api/overview/unified", async (req: Request, res: Response) => {
       adsAccountIds.length > 0
         ? bq.query({
             query: `
-              SELECT date, SUM(spend) as spend, SUM(conversions) as conversions,
+              SELECT date, SUM(spend) as spend, SUM(revenue) as revenue,
                      SUM(impressions) as impressions, SUM(clicks) as clicks
               FROM \`entities.ads_daily\`
               WHERE account_id IN UNNEST(@accountIds)
@@ -1768,8 +1776,8 @@ app.get("/api/overview/unified", async (req: Request, res: Response) => {
     // Build response
     const curSpend = Number(p.cur_spend || 0);
     const prevSpend = Number(p.prev_spend || 0);
-    const curConversions = Number(p.cur_conversions || 0);
-    const prevConversions = Number(p.prev_conversions || 0);
+    const curRevenue = Number(p.cur_revenue || 0);
+    const prevRevenue = Number(p.prev_revenue || 0);
     const curImpressionsPaid = Number(p.cur_impressions || 0);
     const prevImpressionsPaid = Number(p.prev_impressions || 0);
     const curClicks = Number(p.cur_clicks || 0);
@@ -1806,10 +1814,10 @@ app.get("/api/overview/unified", async (req: Request, res: Response) => {
             change: pctChange(curSpend, prevSpend),
             daily: paidDaily.map((r: any) => Number(r.spend || 0)),
           },
-          conversions: {
-            value: curConversions,
-            change: pctChange(curConversions, prevConversions),
-            daily: paidDaily.map((r: any) => Number(r.conversions || 0)),
+          revenue: {
+            value: curRevenue,
+            change: pctChange(curRevenue, prevRevenue),
+            daily: paidDaily.map((r: any) => Number(r.revenue || 0)),
           },
           impressions: {
             value: curImpressionsPaid,

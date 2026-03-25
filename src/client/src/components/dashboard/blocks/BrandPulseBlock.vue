@@ -93,23 +93,49 @@ const center = svgSize / 2;
 </script>
 
 <template>
-  <div class="bg-[#0B1120] p-8 pb-10 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.04)] group/block relative overflow-hidden">
+  <div
+    class="bg-[#0B1120] p-8 pb-10 rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06),0_4px_12px_rgba(0,0,0,0.04)] group/block relative overflow-hidden"
+  >
     <!-- Radial glow behind the donut -->
-    <div class="absolute top-1/2 left-[170px] -translate-y-1/2 w-[360px] h-[360px] bg-emerald-500/[0.03] rounded-full blur-[80px] pointer-events-none" />
+    <div
+      class="absolute top-1/2 left-[170px] -translate-y-1/2 w-[360px] h-[360px] bg-emerald-500/[0.03] rounded-full blur-[80px] pointer-events-none"
+    />
 
     <!-- Header -->
     <div class="flex items-center justify-between mb-2 relative">
-      <span class="text-[13px] font-bold tracking-[0.12em] uppercase text-gray-500">Market Visibility Snapshot</span>
+      <span
+        class="text-[13px] font-bold tracking-[0.12em] uppercase text-gray-500"
+        >Market Visibility Snapshot</span
+      >
     </div>
 
     <!-- Main layout: donut left, info right -->
     <div class="flex items-center gap-10 relative">
       <!-- Concentric Ring Donut -->
-      <div class="relative flex-shrink-0" :style="{ width: svgSize + 'px', height: svgSize + 'px' }">
-        <svg :width="svgSize" :height="svgSize" :viewBox="`0 0 ${svgSize} ${svgSize}`">
+      <div
+        class="relative flex-shrink-0"
+        :style="{ width: svgSize + 'px', height: svgSize + 'px' }"
+      >
+        <svg
+          :width="svgSize"
+          :height="svgSize"
+          :viewBox="`0 0 ${svgSize} ${svgSize}`"
+        >
           <defs>
-            <filter v-for="ring in rings" :key="ring.key + '-filter'" :id="`glow-${ring.key}`" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur :in="'SourceGraphic'" stdDeviation="5" result="blur" />
+            <filter
+              v-for="ring in rings"
+              :key="ring.key + '-filter'"
+              :id="`glow-${ring.key}`"
+              x="-50%"
+              y="-50%"
+              width="200%"
+              height="200%"
+            >
+              <feGaussianBlur
+                :in="'SourceGraphic'"
+                stdDeviation="5"
+                result="blur"
+              />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
@@ -152,9 +178,11 @@ const center = svgSize / 2;
 
         <!-- Center text -->
         <div class="absolute inset-0 flex flex-col items-center justify-center">
-          <span class="text-[13px] font-semibold tracking-[0.08em] uppercase text-gray-500">Total Impressions</span>
-          <span class="text-[38px] font-bold text-white leading-none mt-2 font-mono tracking-tight">{{ formatNum(data.totalImpressions) }}</span>
-          <span class="text-[13px] text-gray-500 mt-1.5">{{ data.periodLabel }}</span>
+          <span
+            class="text-[38px] font-bold text-white leading-none mt-2 font-mono tracking-tight"
+            >{{ formatNum(data.totalImpressions) }}</span
+          >
+          <span class="text-[13px] text-gray-500 mt-1.5">Impressions</span>
         </div>
       </div>
 
@@ -162,7 +190,11 @@ const center = svgSize / 2;
       <div class="flex-shrink-0 w-[280px]">
         <!-- Momentum Comparisons -->
         <div v-if="comparisons.length > 0" class="mb-7">
-          <div class="text-[13px] font-semibold tracking-[0.1em] uppercase text-gray-500 mb-3">Momentum</div>
+          <div
+            class="text-[13px] font-semibold tracking-[0.1em] uppercase text-gray-500 mb-3"
+          >
+            Momentum
+          </div>
           <div class="space-y-2">
             <div
               v-for="(comp, idx) in comparisons"
@@ -170,9 +202,17 @@ const center = svgSize / 2;
               class="flex items-center gap-2 font-medium"
               :class="comp.pct >= 0 ? 'text-emerald-400' : 'text-red-400'"
             >
-              <span class="text-[28px] leading-none" v-html="comp.pct >= 0 ? '&#9650;' : '&#9660;'" />
-              <span class="text-[30px] font-bold leading-none">{{ Math.abs(comp.pct).toFixed(0) }}%</span>
-              <span class="text-[13px] text-gray-500">{{ comp.pct >= 0 ? comp.aboveLabel : comp.belowLabel }}</span>
+              <span
+                class="text-[28px] leading-none"
+                v-html="comp.pct >= 0 ? '&#9650;' : '&#9660;'"
+              />
+              <span class="text-[30px] font-bold leading-none"
+                >{{ Math.abs(comp.pct).toFixed(0) }}%</span
+              >
+              <span
+                class="text-[13px] text-gray-500"
+                >{{ comp.pct >= 0 ? comp.aboveLabel : comp.belowLabel }}</span
+              >
             </div>
           </div>
         </div>
@@ -189,11 +229,19 @@ const center = svgSize / 2;
                 class="w-3 h-3 rounded-full flex-shrink-0"
                 :style="{ backgroundColor: ring.color, boxShadow: `0 0 8px ${ring.glowColor}` }"
               />
-              <span class="text-[13px] font-medium text-gray-400 leading-tight whitespace-nowrap">{{ ring.label }}</span>
+              <span
+                class="text-[13px] font-medium text-gray-400 leading-tight whitespace-nowrap"
+                >{{ ring.label }}</span
+              >
             </div>
             <div class="flex items-center gap-3">
-              <span class="text-[12px] text-gray-500 font-mono">{{ ring.percent }}%</span>
-              <span class="text-[14px] font-bold text-gray-200 font-mono tabular-nums w-16 text-right">{{ formatNum(ring.value) }}</span>
+              <span class="text-[12px] text-gray-500 font-mono"
+                >{{ ring.percent }}%</span
+              >
+              <span
+                class="text-[14px] font-bold text-gray-200 font-mono tabular-nums w-16 text-right"
+                >{{ formatNum(ring.value) }}</span
+              >
             </div>
           </div>
         </div>

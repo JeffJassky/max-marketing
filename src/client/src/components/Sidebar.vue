@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   LayoutDashboard,
@@ -10,7 +11,8 @@ import {
   Image as ImageIcon,
   FileText,
   ShieldCheck,
-  ListChecks
+  ListChecks,
+  Key
 } from 'lucide-vue-next';
 import AccountSelector from './AccountSelector.vue';
 import { useAuthStore } from '../stores/auth';
@@ -18,6 +20,20 @@ import { useAuthStore } from '../stores/auth';
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
+
+const windsorTokens = ref<{ available: number; assigned: number; invalid: number; total: number } | null>(null);
+
+const fetchHealth = async () => {
+  try {
+    const res = await fetch('/api/health');
+    const data = await res.json();
+    if (data.windsorTokens) windsorTokens.value = data.windsorTokens;
+  } catch { /* ignore */ }
+};
+
+watch(() => authStore.isAdmin, (isAdmin) => {
+  if (isAdmin) fetchHealth();
+}, { immediate: true });
 
 const navItems = [
   { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', path: '/' },
@@ -110,20 +126,22 @@ const isActive = (item: typeof navItems[number]) => {
             <span class="text-sm font-medium">Job Queue</span>
           </div>
         </a>
+        <div v-if="windsorTokens" class="flex items-center justify-between px-3 py-3 rounded-xl text-slate-400 border border-transparent">
+          <div class="flex items-center gap-3">
+            <Key :size="20" class="text-slate-500" />
+            <span class="text-sm font-medium">Windsor Tokens</span>
+          </div>
+          <span class="text-xs font-bold tabular-nums" :class="windsorTokens.available < 15 ? 'text-red-400' : 'text-amplify-green'">
+            {{ windsorTokens.available }}
+          </span>
+        </div>
       </div>
     </nav>
 
-    <div class="p-4">
-      <div class="bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-2xl border border-slate-700">
-        <div class="flex items-center gap-2 text-amplify-green mb-2">
-          <HelpCircle :size="18" />
-          <span class="font-bold text-sm">Need a hand?</span>
-        </div>
-        <p class="text-xs text-slate-400 mb-3">Our marketing guides are here to support your growth.</p>
-        <button class="w-full bg-amplify-green py-2 rounded-lg text-xs font-bold text-amplify-darker hover:bg-white transition-colors">
-          Open Guide
-        </button>
-      </div>
+    <div class="px-6 py-4 flex items-center gap-3 text-xs text-slate-600">
+      <router-link to="/security" class="hover:text-slate-400 transition-colors">Security</router-link>
+      <span class="text-slate-700">&middot;</span>
+      <router-link to="/privacy" class="hover:text-slate-400 transition-colors">Privacy</router-link>
     </div>
   </aside>
 </template>

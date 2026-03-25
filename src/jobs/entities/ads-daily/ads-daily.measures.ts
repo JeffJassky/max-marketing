@@ -32,9 +32,9 @@ export const adsSalesVolumeMeasure: Measure = {
   id: "ads_sales_volume_daily",
   entityId: adsDaily.id,
   name: "Daily Sales Volume",
-  description: "Unified revenue/conversions value across Google and Meta Ads.",
+  description: "Unified revenue across Google and Meta Ads.",
   value: {
-    field: "conversions_value",
+    field: "revenue",
     aggregation: "sum",
   },
   allowedDimensions: ["account_id", "platform", "campaign_id", "channel_group", "date"],
@@ -59,7 +59,7 @@ export const adsROASMeasure: Measure = {
   name: "Ad ROAS",
   description: "Return on Ad Spend (Revenue / Spend).",
   value: {
-    expression: "SAFE_DIVIDE(SUM(conversions_value), SUM(spend))",
+    expression: "SAFE_DIVIDE(SUM(revenue), SUM(spend))",
   },
   allowedDimensions: ["account_id", "platform", "campaign_id", "adset_id", "channel_group", "date"],
 };

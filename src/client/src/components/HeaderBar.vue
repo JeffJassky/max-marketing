@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { Bell, Search, LogOut, ChevronDown } from 'lucide-vue-next';
+import { LogOut, ChevronDown } from 'lucide-vue-next';
 import GlobalDateSelector from './GlobalDateSelector.vue';
 import GlobalMonthSelector from './GlobalMonthSelector.vue';
 import { useAuthStore } from '../stores/auth';
@@ -47,19 +47,6 @@ const closeMenu = () => {
     <div class="flex gap-4 items-center">
       <GlobalDateSelector v-if="showDateSelector" />
       <GlobalMonthSelector v-if="showMonthSelector" />
-      <div class="hidden md:flex items-center bg-slate-100 rounded-lg px-3 py-1.5 border border-slate-200">
-        <Search :size="16" class="text-indigo-500 mr-2" />
-        <input
-          type="text"
-          placeholder="Search..."
-          class="bg-transparent border-none outline-none text-sm text-slate-800 placeholder-slate-400 w-32 focus:w-48 transition-all"
-        />
-      </div>
-      <button class="relative p-2 text-slate-400 hover:text-slate-800 transition-colors">
-        <Bell :size="20" />
-        <span class="absolute top-1 right-1 w-2 h-2 bg-amplify-green rounded-full"></span>
-      </button>
-
       <!-- User avatar dropdown -->
       <div class="relative">
         <button

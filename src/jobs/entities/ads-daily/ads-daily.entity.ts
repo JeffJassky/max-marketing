@@ -140,6 +140,19 @@ export const adsDaily = new Entity({
         },
       },
     },
+    revenue: {
+      type: z.number(),
+      aggregation: "sum",
+      sources: {
+        googleAdsAdPerformance: {
+          expression: "SUM(revenue_micros) / 1000000",
+        },
+        facebookAdsAdPerformance: {
+          expression:
+            "SUM((SELECT SUM(SAFE_CAST(value AS FLOAT64)) FROM UNNEST(action_values) WHERE action_type = 'purchase'))",
+        },
+      },
+    },
   },
   superlatives: [
     {
@@ -161,12 +174,12 @@ export const adsDaily = new Entity({
             ThreeMonthStreakAward,
           ],
         },
-        { metric: "conversions_value" },
+        { metric: "revenue" },
         { metric: "clicks" },
         {
           metric: "roas",
           expression:
-            "CASE WHEN SUM(spend) > 50 THEN SAFE_DIVIDE(SUM(conversions_value), SUM(spend)) ELSE 0 END",
+            "CASE WHEN SUM(spend) > 50 THEN SAFE_DIVIDE(SUM(revenue), SUM(spend)) ELSE 0 END",
           awards: [
             EfficiencyKingAward,
             DominatorAward,
@@ -183,12 +196,12 @@ export const adsDaily = new Entity({
       metrics: [
         { metric: "impressions" },
         { metric: "conversions" },
-        { metric: "conversions_value" },
+        { metric: "revenue" },
         { metric: "clicks" },
         {
           metric: "roas",
           expression:
-            "CASE WHEN SUM(spend) > 50 THEN SAFE_DIVIDE(SUM(conversions_value), SUM(spend)) ELSE 0 END",
+            "CASE WHEN SUM(spend) > 50 THEN SAFE_DIVIDE(SUM(revenue), SUM(spend)) ELSE 0 END",
           awards: [EfficiencyKingAward, DominatorAward],
         },
         {
@@ -217,7 +230,7 @@ export const adsDaily = new Entity({
         {
           metric: "roas",
           expression:
-            "CASE WHEN SUM(spend) > 50 THEN SAFE_DIVIDE(SUM(conversions_value), SUM(spend)) ELSE 0 END",
+            "CASE WHEN SUM(spend) > 50 THEN SAFE_DIVIDE(SUM(revenue), SUM(spend)) ELSE 0 END",
         },
       ],
     },

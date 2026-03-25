@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="6" fill="#c3fd34"/>
+  <path d="M0 0h14v14H0z" rx="6" fill="none"/>
+  <rect x="20" y="0" width="12" height="12" rx="4" fill="#0f172a" opacity="0.18"/>
+  <text x="16" y="23.5" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-weight="700" font-size="20" fill="#0f172a">M</text>
+</svg>

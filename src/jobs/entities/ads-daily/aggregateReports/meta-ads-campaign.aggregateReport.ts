@@ -16,14 +16,14 @@ export const metaAdsCampaignPerformance = new AggregateReport({
     grain: ["account_id", "campaign_id", "campaign_name"],
     metrics: {
       spend: { aggregation: "sum", display: { format: "currency", description: "Total ad spend on Meta platforms. This covers everything from boosted posts to high-conversion Instagram Story ads." } },
-      conversions_value: { aggregation: "sum", display: { format: "currency", description: "Revenue from purchase events tracked by the Meta Pixel. This is filtered to purchase-type conversions only (via action_values), so it represents actual sales revenue, not general conversion value." } },
+      revenue: { aggregation: "sum", display: { format: "currency", label: "Revenue", description: "Revenue from purchase events tracked by the Meta Pixel. This is filtered to purchase-type conversions only (via action_values), so it represents actual sales revenue." } },
       impressions: { aggregation: "sum", display: { format: "number", description: "Total exposure. This measures the scale of your 'interruption' marketing, showing how many times your creative appeared in user feeds." } },
       clicks: { aggregation: "sum", display: { format: "number", description: "Engagement volume. This represents the number of users who stopped scrolling and clicked to learn more about your brand." } },
       conversions: { aggregation: "sum", display: { format: "number", description: "Total results. These are the specific outcomes—like sales or leads—that Meta identifies as coming directly from your social ads." } },
     },
     derivedFields: {
       roas: {
-        expression: "SAFE_DIVIDE(conversions_value, spend)",
+        expression: "SAFE_DIVIDE(revenue, spend)",
         type: z.number(),
         display: { format: "ratio", description: "Return on Ad Spend for Meta. Shows revenue generated per dollar spent on Facebook and Instagram ads." },
       },
